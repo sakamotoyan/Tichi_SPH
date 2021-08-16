@@ -61,6 +61,7 @@ def to_gui_multi_radii(obj):
     return part_size[1]*(obj.mass.to_numpy()[:obj.part_num[None]]*0+1)/(np_sim_space_rt[0]-np_sim_space_lb[0])*gui_res_0/2
 def to_gui_radii():
     return part_size[1]/(np_sim_space_rt[0]-np_sim_space_lb[0])*gui_res_0/2
-
+def to_gui_color(obj):
+    return obj.color.to_numpy()[:obj.part_num[None]]
 
 

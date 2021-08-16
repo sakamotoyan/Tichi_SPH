@@ -10,7 +10,6 @@ class Fluid:
         self.uid = len(obj_list)
         self.pushed_part_seq = ti.Vector.field(dim, ti.i32, ())
         self.pushed_part_seq_coder = ti.field(ti.i32, dim)
-        self.color = 0x068587
         obj_list.append(self)
         self.compression = ti.field(ti.f32, ())
 
@@ -18,17 +17,15 @@ class Fluid:
         self.node_code_seq = ti.field(ti.i32)
         self.node = ti.Vector.field(dim, ti.i32)
         self.ones = ti.field(ti.i32)
+        self.color = ti.field(ti.i32)
         self.W = ti.field(ti.f32)
         self.W_grad = ti.Vector.field(dim, ti.f32)
         self.volume_frac = ti.Vector.field(phase_num, ti.f32)
         self.mass = ti.field(ti.f32)
         self.rest_density = ti.field(ti.f32)
         self.rest_volume = ti.field(ti.f32)
-        self.X = ti.static(self.mass)
         self.sph_compression = ti.field(ti.f32)
         self.sph_density = ti.field(ti.f32)
-        self.sph_psi = ti.static(self.sph_density)
-        self.rest_psi = ti.static(self.rest_density)
         self.psi_adv = ti.field(ti.f32)
         self.pressure = ti.field(ti.f32)
         self.pressure_force = ti.Vector.field(dim, ti.f32)
@@ -41,7 +38,15 @@ class Fluid:
         self.alpha_1 = ti.Vector.field(dim, ti.f32)
         self.alpha_2 = ti.field(ti.f32)
 
-        self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.W, self.W_grad, self.volume_frac, self.mass, self.rest_density, self.rest_volume, self.sph_density,
+        # self.X = ti.static(self.mass)
+        # self.sph_psi = ti.static(self.sph_density)
+        # self.rest_psi = ti.static(self.rest_density)
+
+        self.X = ti.static(self.rest_volume)
+        self.sph_psi = ti.static(self.sph_compression)
+        self.rest_psi = ti.static(self.ones)
+
+        self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.color, self.W, self.W_grad, self.volume_frac, self.mass, self.rest_density, self.rest_volume, self.sph_density,
                           self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2]
 
         for attr in self.attr_list:
@@ -57,7 +62,7 @@ class Fluid:
             self.mass[i] = phase_rest_density[None].dot(self.volume_frac[i])
 
     @ti.kernel
-    def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), relaxing_factor: ti.f32):
+    def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:ti.i32, relaxing_factor: ti.f32):
         current_part_num = self.part_num[None]
         # generate seq
         self.pushed_part_seq[None] = int(ti.ceil((rt-lb)/part_size[1]/relaxing_factor))
@@ -86,10 +91,11 @@ class Fluid:
         for i in range(pushed_part_num):
             self.pos[i+current_part_num] *= part_size[1]*relaxing_factor
             self.pos[i+current_part_num] += lb
-        # inject volume_frac & rest_volume
+        # inject volume_frac & rest_volume & color
         for i in range(pushed_part_num):
             self.volume_frac[i+current_part_num] = volume_frac
             self.rest_volume[i+current_part_num] = part_size[dim]
+            self.color[i+current_part_num] = color
         # update part num
         self.part_num[None] = new_part_num
         # update mass and rest_density

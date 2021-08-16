@@ -216,24 +216,36 @@ rt = np.zeros(dim, np.float32)
 mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
 """ fluid """
-lb.fill(-2.0)
-rt.fill(1.8)
-lb[0]=-0
-volume_frac[0] = 1
-fluid.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac),1.01)
+lx=0+part_size[1]
+rx=1.8
+ly=-2
+ry=1.8
+lb = [lx,ly]
+rt = [rx,ry]
+volume_frac = [1,0]
+fluid.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0x068587, 1.01)
+lx=-1.8
+rx=0-part_size[1]
+ly=-2
+ry=1.8
+lb = [lx,ly]
+rt = [rx,ry]
+volume_frac = [0,1]
+fluid.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF0000, 1.01)
 """ bound """
+volume_frac = [1,0]
 lb=[-2-part_size[1]*5,-2-part_size[1]*8]
 rt=[2+part_size[1]*5,-2-part_size[1]*5]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac),1.01)
+bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 lb=[-2-part_size[1]*8,-2-part_size[1]*8]
 rt=[-2-part_size[1]*5,2.0]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac),1.01)
+bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 lb=[2+part_size[1]*5,-2-part_size[1]*8]
 rt=[2+part_size[1]*8,2.0]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac),1.01)
+bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 lb=[-2-part_size[1]*8,2.0+part_size[1]*1]
 rt=[2+part_size[1]*7,2+part_size[1]*4]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac),1.01)
+bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 
 def sph_step():
     """ neighbour search """
@@ -287,13 +299,11 @@ def sph_step():
     """ SPH debug """
 
 """ GUI system """
-fluid.color = 0x068587
-bound.color = 0xFF4500
 gui = ti.GUI('SPH', to_gui_res(gui_res_0))
 while gui.running and not gui.get_event(gui.ESCAPE):
     gui.clear(0x112F41)
     for i in range(1):
         sph_step()
-    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(), color=fluid.color)
-    gui.circles(to_gui_pos(bound), radius=to_gui_radii(), color=bound.color)
+    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(), color=to_gui_color(fluid))
+    gui.circles(to_gui_pos(bound), radius=to_gui_radii(), color=to_gui_color(bound))
     gui.show()
