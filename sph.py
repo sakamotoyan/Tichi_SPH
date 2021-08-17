@@ -1,6 +1,8 @@
 from os import system
 import numpy as np
 import time
+
+from taichi.lang.ops import atomic_min
 from sph_obj import *
 
 
@@ -30,6 +32,14 @@ def SPH_clean_value(obj: ti.template()):
             obj.acce_adv[i][j] = 0
             obj.alpha_1[i][j] = 0
             obj.pressure_force[i][j] = 0
+
+@ti.kernel
+def cfl_condition(obj: ti.template())->ti.f32:
+    dt[None] = init_part_size/cs*5
+    for i in range(obj.part_num[None]):
+        v_norm = obj.vel[i].norm()
+        if v_norm > 1e-4:
+            atomic_min(dt[None], part_size[1]/obj.vel[i].norm())
 
 @ti.kernel
 def SPH_prepare_attr(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
@@ -148,7 +158,7 @@ def IPPE_adv_psi(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
                         xij = obj.pos[i] - nobj.pos[neighb_pid]
                         r = xij.norm()
                         if r>0:
-                            obj.psi_adv[i] += (xij/r*W_grad(r)).dot(obj.vel_adv[i] - nobj.vel_adv[neighb_pid]) * nobj.X[neighb_pid] * dt
+                            obj.psi_adv[i] += (xij/r*W_grad(r)).dot(obj.vel_adv[i] - nobj.vel_adv[neighb_pid]) * nobj.X[neighb_pid] * dt[None]
 
 @ti.kernel
 def IPPE_psi_adv_non_negative(obj: ti.template()):
@@ -173,19 +183,29 @@ def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.templ
                         xij = obj.pos[i] - nobj.pos[neighb_pid]
                         r = xij.norm()
                         if r>0:
-                            obj.vel_adv[i] += -(1/dt) * ((obj.psi_adv[i]*nobj.X[neighb_pid]/obj.alpha[i])+(
+                            obj.vel_adv[i] += -(1/dt[None]) * ((obj.psi_adv[i]*nobj.X[neighb_pid]/obj.alpha[i])+(
                                 nobj.psi_adv[neighb_pid]*obj.X[i]/nobj.alpha[neighb_pid])) * (xij/r*W_grad(r)) / obj.mass[i]
 
 @ti.kernel
 def SPH_advection_update_vel_adv(obj: ti.template()):
     for i in range(obj.part_num[None]):
-        obj.vel_adv[i] = obj.vel[i] + obj.acce_adv[i]*dt
+        obj.vel_adv[i] = obj.vel[i] + obj.acce_adv[i]*dt[None]
+
+@ti.kernel
+def SPH_vel_2_vel_adv(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        obj.vel_adv[i] = obj.vel[i]
+
+@ti.kernel
+def SPH_vel_adv_2_vel(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        obj.vel[i] = obj.vel_adv[i]
 
 @ti.kernel
 def SPH_update_pos(obj: ti.template()):
     for i in range(obj.part_num[None]):
         obj.vel[i] = obj.vel_adv[i]
-        obj.pos[i] += obj.vel[i]*dt
+        obj.pos[i] += obj.vel[i]*dt[None]
 
 ############################### main ###############################
 
@@ -197,6 +217,7 @@ for obj in obj_list:
     obj.set_zero()
     obj.ones.fill(1)
 
+dt[None] = init_part_size/cs
 phase_rest_density.from_numpy(np_phase_rest_density)
 sim_space_lb.from_numpy(np_sim_space_lb)
 sim_space_rt.from_numpy(np_sim_space_rt)
@@ -219,20 +240,6 @@ volume_frac = np.zeros(phase_num, np.float32)
 fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1, 0], color=0x068587)
 fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0x8f0000)
 bound.push_2d_cube([0,0],[5,5],[1,0],0xFF4500,4)
-# """ bound """
-# volume_frac = [1,0]
-# lb=[-2-part_size[1]*5,-2-part_size[1]*8]
-# rt=[2+part_size[1]*5,-2-part_size[1]*5]
-# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-# lb=[-2-part_size[1]*8,-2-part_size[1]*8]
-# rt=[-2-part_size[1]*5,2.0]
-# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-# lb=[2+part_size[1]*5,-2-part_size[1]*8]
-# rt=[2+part_size[1]*8,2.0]
-# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-# lb=[-2-part_size[1]*8,2.0]
-# rt=[2+part_size[1]*8,2+part_size[1]*4]
-# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 
 def sph_step():
     """ neighbour search """
@@ -256,10 +263,26 @@ def sph_step():
     SPH_prepare_alpha_2(ngrid, bound, fluid)
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
+    """ IPPE SPH divergence """
+    SPH_vel_2_vel_adv(fluid)
+    iter_count = 0
+    while iter_count<iter_threshold_min or fluid.compression[None]>divergence_threshold:
+        IPPE_adv_psi_init(fluid)
+        # IPPE_adv_psi_init(bound)
+        IPPE_adv_psi(ngrid, fluid, fluid)
+        IPPE_adv_psi(ngrid, fluid, bound)
+        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_psi_adv_non_negative(fluid)
+        # IPPE_psi_adv_non_negative(bound)
+        IPPE_update_vel_adv(ngrid, fluid, fluid)
+        IPPE_update_vel_adv(ngrid, fluid, bound)
+        iter_count+=1
+        if iter_count>iter_threshold_max:
+            break
+    SPH_vel_adv_2_vel(fluid)
     """ SPH advection """
     SPH_advection_gravity_acc(fluid)
     SPH_advection_viscosity_acc(ngrid, fluid, fluid)
-    # SPH_advection_viscosity_acc(ngrid, fluid, bound)
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
     iter_count = 0
@@ -286,8 +309,6 @@ def sph_step():
     """ SPH debug """
 
 """ GUI system """
-refreshing_rate = 60 # frames per second
-part_radii_relax = 1
 time_count = float(0)
 time_counter = int(0)
 print('fluid particle count: ', fluid.part_num[None])
@@ -296,10 +317,12 @@ gui = ti.GUI('SPH', to_gui_res(gui_res_0))
 while gui.running and not gui.get_event(gui.ESCAPE):
     gui.clear(0x112F41)
     while time_count*refreshing_rate < time_counter:
+        cfl_condition(fluid)
         sph_step()
-        time_count += dt
+        time_count += dt[None]
     time_counter += 1
     print('current time: ', time_count)
+    print('time step: ', dt[None])
     gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
     gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
     gui.show(f"img\\{time_counter}_rf{refreshing_rate}.png")

@@ -162,7 +162,7 @@ class Fluid:
                     counter += 1
             pos_seq *= part_size[1]*relaxing_factor
             pos_seq -= (np.array(center_pos) + np.array(size)/2)
-            print(pos_seq)
+            # print(pos_seq)
             self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color)
             
 

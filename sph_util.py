@@ -3,6 +3,7 @@ from sph_config import *
 obj_list = []
 tmp_int = ti.field(ti.f32, 32)
 tmp_val = ti.field(ti.f32, 32)
+dt = ti.field(ti.f32, ())
 tmp_val_dim = ti.Vector.field(dim, ti.f32, 32)
 phase_rest_density = ti.Vector.field(phase_num, ti.f32, ())
 sim_space_lb = ti.Vector.field(dim, ti.f32, ())
