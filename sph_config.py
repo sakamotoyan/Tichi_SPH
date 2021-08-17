@@ -2,20 +2,21 @@ import taichi as ti
 import numpy as np
 import math
 
-ti.init(arch=ti.gpu)
+# ti.init(arch=ti.cpu)
+ti.init(arch=ti.gpu,device_memory_GB=3.4)
 
 dim = 2
 phase_num = 2
-init_part_size = 0.05
+init_part_size = 0.01
 cs = 100
 wc_gamma = 7
 dynamic_viscosity = np.float32(1e-2)
-fluid_part_num = int(1e6)
-bound_part_num = int(1e5)
+fluid_part_num = int(1e7)
+bound_part_num = int(1e6)
 max_part_num = fluid_part_num + bound_part_num
 node_num = int(1)
 neighb_range = int(1)
-gui_res_0 = 960
+gui_res_0 = 1080
 dt = init_part_size/cs
 dt2 = dt**2
 compression_threshold = 1e-4
@@ -38,8 +39,8 @@ np_neighb_dice = np.empty(shape=neighb_range*2+1, dtype=np.int32)
 np_phase_rest_density[0] = 10**dim
 np_phase_rest_density[1] = 10**dim/2
 
-np_sim_space_lb.fill(-4)
-np_sim_space_rt.fill(4)
+np_sim_space_lb.fill(-3)
+np_sim_space_rt.fill(3)
 
 np_part_size[1] = init_part_size
 np_part_size[2] = math.pow(np_part_size[1], 2)
