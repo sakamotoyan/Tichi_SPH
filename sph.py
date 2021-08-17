@@ -243,8 +243,8 @@ bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_
 lb=[2+part_size[1]*5,-2-part_size[1]*8]
 rt=[2+part_size[1]*8,2.0]
 bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-lb=[-2-part_size[1]*8,2.0+part_size[1]*1]
-rt=[2+part_size[1]*7,2+part_size[1]*4]
+lb=[-2-part_size[1]*8,2.0]
+rt=[2+part_size[1]*8,2+part_size[1]*4]
 bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 
 def sph_step():
@@ -299,11 +299,21 @@ def sph_step():
     """ SPH debug """
 
 """ GUI system """
+print('fluid particle count: ', fluid.part_num[None])
+print('bound particle count: ', bound.part_num[None])
+refreshing_rate = 60 # frames per second
+
+time_count = float(0)
+time_counter = int(0)
+part_radii_relax = 2
 gui = ti.GUI('SPH', to_gui_res(gui_res_0))
 while gui.running and not gui.get_event(gui.ESCAPE):
     gui.clear(0x112F41)
-    for i in range(1):
+    while time_count*refreshing_rate < time_counter:
         sph_step()
-    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(), color=to_gui_color(fluid))
-    gui.circles(to_gui_pos(bound), radius=to_gui_radii(), color=to_gui_color(bound))
-    gui.show()
+        time_count += dt
+    time_counter += 1
+    print('current time: ', time_count)
+    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
+    gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
+    gui.show(f"img\\{time_counter}_rf{refreshing_rate}.png")
