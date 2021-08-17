@@ -7,7 +7,7 @@ ti.init(arch=ti.cpu)
 
 dim = 2
 phase_num = 2
-init_part_size = 0.002
+init_part_size = 0.1
 part_radii_relax = 2
 cs = 100
 wc_gamma = 7
