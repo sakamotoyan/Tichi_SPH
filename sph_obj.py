@@ -102,7 +102,71 @@ class Fluid:
         for i in range(self.part_num[None]):
             self.rest_density[i] = phase_rest_density[None].dot(self.volume_frac[i])
             self.mass[i] = self.rest_density[i]*self.rest_volume[i]
-        
+    
+    @ti.kernel
+    def push_part_seq(self, pushed_part_num: ti.i32, pos_seq: ti.ext_arr(), volume_frac: ti.template(), color:ti.i32):
+        current_part_num = self.part_num[None]
+        new_part_num = current_part_num+pushed_part_num
+        for i in range(pushed_part_num):
+            for j in ti.static(range(dim)):
+                self.pos[i+current_part_num][j] = pos_seq[i,j]
+            self.volume_frac[i+current_part_num] = volume_frac
+            self.rest_volume[i+current_part_num] = part_size[dim]
+            self.color[i+current_part_num] = color
+        self.part_num[None] = new_part_num
+        for i in range(self.part_num[None]):
+            self.rest_density[i] = phase_rest_density[None].dot(self.volume_frac[i])
+            self.mass[i] = self.rest_density[i]*self.rest_volume[i]
+
+    def inc_unit(self, seq, length, lim, cur_dim):
+        for i in range(length):
+            if not seq[cur_dim][i] < lim[cur_dim]:
+                seq[cur_dim+1][i] = seq[cur_dim][i] // lim[cur_dim]
+                seq[cur_dim][i] = seq[cur_dim][i] % lim[cur_dim]
+
+    def push_2d_cube(self, center_pos, size, volume_frac, color: int, layer=0):
+        lb = -np.array(size)/2 + np.array(center_pos)
+        rt = np.array(size)/2 + np.array(center_pos)
+        mask = np.ones(dim, np.int32)
+        relaxing_factor=1.01
+        if layer==0:
+            self.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), color, relaxing_factor)
+        elif layer>0:
+            cube_part = np.zeros(dim, np.int32)
+            cube_part[:] = np.ceil(np.array(size) / part_size[1])[:]
+            for i in range(cube_part.shape[0]):
+                if cube_part[i]<layer*2:
+                    layer = int(np.floor(cube_part[i]/2))
+            sum = int(1)
+            for i in range(cube_part.shape[0]):
+                sum *= cube_part[i]
+            np_pos_seq = np.zeros(shape=(dim+1, sum),dtype=np.int32)
+            counter = int(0)
+            for i in range(sum):
+                np_pos_seq[0][i] = counter
+                counter += 1
+            for i in range(0,dim-1):
+                self.inc_unit(np_pos_seq, sum, cube_part, i)
+            p_sum = int(0)
+            for i in range(layer):
+                for j in range(dim):
+                    for k in range(sum):
+                        if (np_pos_seq[j][k] == (0+i) or np_pos_seq[j][k] == (cube_part[j]-i-1)) and np_pos_seq[dim][k]==0:
+                            np_pos_seq[dim][k] = 1
+                            p_sum += 1
+            pos_seq = np.zeros((p_sum,dim), np.float32)
+            counter = int(0)
+            for i in range(sum):
+                if np_pos_seq[dim][i] > 0:
+                    pos_seq[counter][:] = np_pos_seq[0:dim,i]
+                    counter += 1
+            pos_seq *= part_size[1]*relaxing_factor
+            pos_seq -= (np.array(center_pos) + np.array(size)/2)
+            print(pos_seq)
+            self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color)
+            
+
+            
 
 
 class Part_buffer:

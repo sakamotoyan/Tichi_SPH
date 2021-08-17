@@ -215,37 +215,24 @@ lb = np.zeros(dim, np.float32)
 rt = np.zeros(dim, np.float32)
 mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
-""" fluid """
-lx=0+part_size[1]
-rx=1.8
-ly=-2
-ry=1.8
-lb = [lx,ly]
-rt = [rx,ry]
-volume_frac = [1,0]
-fluid.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0x068587, 1.01)
-lx=-1.8
-rx=0-part_size[1]
-ly=-2
-ry=1.8
-lb = [lx,ly]
-rt = [rx,ry]
-volume_frac = [0,1]
-fluid.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF0000, 1.01)
-""" bound """
-volume_frac = [1,0]
-lb=[-2-part_size[1]*5,-2-part_size[1]*8]
-rt=[2+part_size[1]*5,-2-part_size[1]*5]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-lb=[-2-part_size[1]*8,-2-part_size[1]*8]
-rt=[-2-part_size[1]*5,2.0]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-lb=[2+part_size[1]*5,-2-part_size[1]*8]
-rt=[2+part_size[1]*8,2.0]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
-lb=[-2-part_size[1]*8,2.0]
-rt=[2+part_size[1]*8,2+part_size[1]*4]
-bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
+""" push cube """
+fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1, 0], color=0x068587)
+fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0x8f0000)
+bound.push_2d_cube([0,0],[5,5],[1,0],0xFF4500,4)
+# """ bound """
+# volume_frac = [1,0]
+# lb=[-2-part_size[1]*5,-2-part_size[1]*8]
+# rt=[2+part_size[1]*5,-2-part_size[1]*5]
+# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
+# lb=[-2-part_size[1]*8,-2-part_size[1]*8]
+# rt=[-2-part_size[1]*5,2.0]
+# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
+# lb=[2+part_size[1]*5,-2-part_size[1]*8]
+# rt=[2+part_size[1]*8,2.0]
+# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
+# lb=[-2-part_size[1]*8,2.0]
+# rt=[2+part_size[1]*8,2+part_size[1]*4]
+# bound.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), 0xFF4500, 1.01)
 
 def sph_step():
     """ neighbour search """
@@ -299,13 +286,12 @@ def sph_step():
     """ SPH debug """
 
 """ GUI system """
-print('fluid particle count: ', fluid.part_num[None])
-print('bound particle count: ', bound.part_num[None])
 refreshing_rate = 60 # frames per second
-
+part_radii_relax = 1
 time_count = float(0)
 time_counter = int(0)
-part_radii_relax = 2
+print('fluid particle count: ', fluid.part_num[None])
+print('bound particle count: ', bound.part_num[None])
 gui = ti.GUI('SPH', to_gui_res(gui_res_0))
 while gui.running and not gui.get_event(gui.ESCAPE):
     gui.clear(0x112F41)

@@ -7,7 +7,7 @@ ti.init(arch=ti.gpu,device_memory_GB=3.4)
 
 dim = 2
 phase_num = 2
-init_part_size = 0.01
+init_part_size = 0.05
 cs = 100
 wc_gamma = 7
 dynamic_viscosity = np.float32(1e-2)
