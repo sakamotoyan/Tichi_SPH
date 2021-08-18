@@ -6,37 +6,37 @@ from sph_util import *
 class Fluid:
     def __init__(self, max_part_num):
         self.max_part_num = max_part_num
-        self.part_num = ti.field(ti.i32, ())
+        self.part_num = ti.field(int, ())
         self.uid = len(obj_list)
-        self.pushed_part_seq = ti.Vector.field(dim, ti.i32, ())
-        self.pushed_part_seq_coder = ti.field(ti.i32, dim)
+        self.pushed_part_seq = ti.Vector.field(dim, int, ())
+        self.pushed_part_seq_coder = ti.field(int, dim)
         obj_list.append(self)
-        self.compression = ti.field(ti.f32, ())
+        self.compression = ti.field(float, ())
 
-        self.node_code = ti.field(ti.i32)
-        self.node_code_seq = ti.field(ti.i32)
-        self.node = ti.Vector.field(dim, ti.i32)
-        self.ones = ti.field(ti.i32)
-        self.color = ti.field(ti.i32)
-        self.W = ti.field(ti.f32)
-        self.W_grad = ti.Vector.field(dim, ti.f32)
-        self.volume_frac = ti.Vector.field(phase_num, ti.f32)
-        self.mass = ti.field(ti.f32)
-        self.rest_density = ti.field(ti.f32)
-        self.rest_volume = ti.field(ti.f32)
-        self.sph_compression = ti.field(ti.f32)
-        self.sph_density = ti.field(ti.f32)
-        self.psi_adv = ti.field(ti.f32)
-        self.pressure = ti.field(ti.f32)
-        self.pressure_force = ti.Vector.field(dim, ti.f32)
-        self.pos = ti.Vector.field(dim, ti.f32)
-        self.vel = ti.Vector.field(dim, ti.f32)
-        self.vel_adv = ti.Vector.field(dim, ti.f32)
-        self.acce = ti.Vector.field(dim, ti.f32)
-        self.acce_adv = ti.Vector.field(dim, ti.f32)
-        self.alpha = ti.field(ti.f32)
-        self.alpha_1 = ti.Vector.field(dim, ti.f32)
-        self.alpha_2 = ti.field(ti.f32)
+        self.node_code = ti.field(int)
+        self.node_code_seq = ti.field(int)
+        self.node = ti.Vector.field(dim, int)
+        self.ones = ti.field(int)
+        self.color = ti.field(int)
+        self.W = ti.field(float)
+        self.W_grad = ti.Vector.field(dim, float)
+        self.volume_frac = ti.Vector.field(phase_num, float)
+        self.mass = ti.field(float)
+        self.rest_density = ti.field(float)
+        self.rest_volume = ti.field(float)
+        self.sph_compression = ti.field(float)
+        self.sph_density = ti.field(float)
+        self.psi_adv = ti.field(float)
+        self.pressure = ti.field(float)
+        self.pressure_force = ti.Vector.field(dim, float)
+        self.pos = ti.Vector.field(dim, float)
+        self.vel = ti.Vector.field(dim, float)
+        self.vel_adv = ti.Vector.field(dim, float)
+        self.acce = ti.Vector.field(dim, float)
+        self.acce_adv = ti.Vector.field(dim, float)
+        self.alpha = ti.field(float)
+        self.alpha_1 = ti.Vector.field(dim, float)
+        self.alpha_2 = ti.field(float)
 
         # self.X = ti.static(self.mass)
         # self.sph_psi = ti.static(self.sph_density)
@@ -62,7 +62,7 @@ class Fluid:
             self.mass[i] = phase_rest_density[None].dot(self.volume_frac[i])
 
     @ti.kernel
-    def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:ti.i32, relaxing_factor: ti.f32):
+    def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:int, relaxing_factor: float):
         current_part_num = self.part_num[None]
         # generate seq
         self.pushed_part_seq[None] = int(ti.ceil((rt-lb)/part_size[1]/relaxing_factor))
@@ -104,7 +104,7 @@ class Fluid:
             self.mass[i] = self.rest_density[i]*self.rest_volume[i]
     
     @ti.kernel
-    def push_part_seq(self, pushed_part_num: ti.i32, pos_seq: ti.ext_arr(), volume_frac: ti.template(), color:ti.i32):
+    def push_part_seq(self, pushed_part_num: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), color:int):
         current_part_num = self.part_num[None]
         new_part_num = current_part_num+pushed_part_num
         for i in range(pushed_part_num):
@@ -179,11 +179,11 @@ class Part_buffer:
 @ti.data_oriented
 class Ngrid:
     def __init__(self):
-        self.node_part_count = ti.field(ti.i32)
-        self.node_part_shift = ti.field(ti.i32)
-        self.node_part_shift_count = ti.field(ti.i32)
-        self.part_pid_in_node = ti.field(ti.i32)
-        self.part_uid_in_node = ti.field(ti.i32)
+        self.node_part_count = ti.field(int)
+        self.node_part_shift = ti.field(int)
+        self.node_part_shift_count = ti.field(int)
+        self.part_pid_in_node = ti.field(int)
+        self.part_uid_in_node = ti.field(int)
 
         ti.root.dense(ti.i, node_num).place(self.node_part_count)
         ti.root.dense(ti.i, node_num).place(self.node_part_shift)

@@ -1,20 +1,20 @@
 from sph_config import *
 
 obj_list = []
-tmp_int = ti.field(ti.f32, 32)
-tmp_val = ti.field(ti.f32, 32)
-dt = ti.field(ti.f32, ())
-tmp_val_dim = ti.Vector.field(dim, ti.f32, 32)
-phase_rest_density = ti.Vector.field(phase_num, ti.f32, ())
-sim_space_lb = ti.Vector.field(dim, ti.f32, ())
-sim_space_rt = ti.Vector.field(dim, ti.f32, ())
-part_size = ti.field(ti.f32, 5)
-sph_h = ti.field(ti.f32, 5)
-sph_sig = ti.field(ti.f32, 4)
-gravity = ti.Vector.field(dim, ti.f32, ())
-node_dim = ti.Vector.field(dim, ti.f32, ())
-node_dim_coder = ti.Vector.field(dim, ti.i32, ())
-neighb_template = ti.Vector.field(dim, ti.i32, (neighb_range*2+1)**dim)
+tmp_int = ti.field(float, 32)
+tmp_val = ti.field(float, 32)
+dt = ti.field(float, ())
+tmp_val_dim = ti.Vector.field(dim, float, 32)
+phase_rest_density = ti.Vector.field(phase_num, float, ())
+sim_space_lb = ti.Vector.field(dim, float, ())
+sim_space_rt = ti.Vector.field(dim, float, ())
+part_size = ti.field(float, 5)
+sph_h = ti.field(float, 5)
+sph_sig = ti.field(float, 4)
+gravity = ti.Vector.field(dim, float, ())
+node_dim = ti.Vector.field(dim, float, ())
+node_dim_coder = ti.Vector.field(dim, int, ())
+neighb_template = ti.Vector.field(dim, int, (neighb_range*2+1)**dim)
 
 @ti.func
 def W(r):

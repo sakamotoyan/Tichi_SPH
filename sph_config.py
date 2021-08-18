@@ -2,17 +2,17 @@ import taichi as ti
 import numpy as np
 import math
 
-ti.init(arch=ti.cpu)
-# ti.init(arch=ti.gpu,device_memory_GB=3.4)
+# ti.init(arch=ti.cpu, default_fp=ti.f32, default_ip=ti.i32)
+ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_GB=3.4)
 
 dim = 2
 phase_num = 2
-init_part_size = 0.1
+init_part_size = 0.01
 part_radii_relax = 2
 cs = 100
 wc_gamma = 7
 dynamic_viscosity = np.float32(1e-2)
-fluid_part_num = int(5e6)
+fluid_part_num = int(1e6)
 bound_part_num = int(1e6)
 max_part_num = fluid_part_num + bound_part_num
 node_num = int(1)

@@ -34,8 +34,8 @@ def SPH_clean_value(obj: ti.template()):
             obj.pressure_force[i][j] = 0
 
 @ti.kernel
-def cfl_condition(obj: ti.template())->ti.f32:
-    dt[None] = init_part_size/cs*5
+def cfl_condition(obj: ti.template()):
+    dt[None] = init_part_size/cs
     for i in range(obj.part_num[None]):
         v_norm = obj.vel[i].norm()
         if v_norm > 1e-4:
@@ -265,8 +265,8 @@ def sph_step():
     SPH_prepare_alpha(bound)
     """ IPPE SPH divergence """
     SPH_vel_2_vel_adv(fluid)
-    iter_count = 0
-    while iter_count<iter_threshold_min or fluid.compression[None]>divergence_threshold:
+    div_iter_count = 0
+    while div_iter_count<iter_threshold_min or fluid.compression[None]>divergence_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid)
@@ -276,8 +276,8 @@ def sph_step():
         # IPPE_psi_adv_non_negative(bound)
         IPPE_update_vel_adv(ngrid, fluid, fluid)
         IPPE_update_vel_adv(ngrid, fluid, bound)
-        iter_count+=1
-        if iter_count>iter_threshold_max:
+        div_iter_count+=1
+        if div_iter_count>iter_threshold_max:
             break
     SPH_vel_adv_2_vel(fluid)
     """ SPH advection """
@@ -285,8 +285,8 @@ def sph_step():
     SPH_advection_viscosity_acc(ngrid, fluid, fluid)
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
-    iter_count = 0
-    while iter_count<iter_threshold_min or fluid.compression[None]>compression_threshold:
+    incom_iter_count = 0
+    while incom_iter_count<iter_threshold_min or fluid.compression[None]>compression_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid)
@@ -296,9 +296,12 @@ def sph_step():
         # IPPE_psi_adv_non_negative(bound)
         IPPE_update_vel_adv(ngrid, fluid, fluid)
         IPPE_update_vel_adv(ngrid, fluid, bound)
-        iter_count+=1
-        if iter_count>iter_threshold_max:
+        incom_iter_count+=1
+        if incom_iter_count>iter_threshold_max:
             break
+    """ debug info """
+    # print('iter div: ', div_iter_count)
+    # print('incom div: ', incom_iter_count)
     """ WC SPH pressure """
     # WC_pressure_val(fluid)
     # WC_pressure_acce(ngrid, fluid, fluid)
