@@ -62,7 +62,7 @@ class Fluid:
             self.mass[i] = phase_rest_density[None].dot(self.volume_frac[i])
 
     @ti.kernel
-    def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:int, relaxing_factor: float):
+    def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:int):
         current_part_num = self.part_num[None]
         # generate seq
         self.pushed_part_seq[None] = int(ti.ceil((rt-lb)/part_size[1]/relaxing_factor))
@@ -128,9 +128,8 @@ class Fluid:
         lb = -np.array(size)/2 + np.array(center_pos)
         rt = np.array(size)/2 + np.array(center_pos)
         mask = np.ones(dim, np.int32)
-        relaxing_factor=1.01
         if layer==0:
-            self.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), color, relaxing_factor)
+            self.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), color)
         elif layer>0:
             cube_part = np.zeros(dim, np.int32)
             cube_part[:] = np.ceil(np.array(size) / part_size[1])[:]
