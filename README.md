@@ -9,4 +9,4 @@
 > For more about Taichi, please refer to https://github.com/taichi-dev/taichi
 
 ## Run this project
-`ti sph.py` to run
+`ti main.py` to run
