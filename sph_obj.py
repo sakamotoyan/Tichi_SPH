@@ -21,6 +21,7 @@ class Fluid:
         self.W = ti.field(float)
         self.W_grad = ti.Vector.field(dim, float)
         self.volume_frac = ti.Vector.field(phase_num, float)
+        self.volume_frac_tmp = ti.Vector.field(phase_num, float)
         self.mass = ti.field(float)
         self.rest_density = ti.field(float)
         self.rest_volume = ti.field(float)
@@ -46,7 +47,7 @@ class Fluid:
         self.sph_psi = ti.static(self.sph_compression)
         self.rest_psi = ti.static(self.ones)
 
-        self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.color, self.W, self.W_grad, self.volume_frac, self.mass, self.rest_density, self.rest_volume, self.sph_density,
+        self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.color, self.W, self.W_grad, self.volume_frac, self.volume_frac_tmp, self.mass, self.rest_density, self.rest_volume, self.sph_density,
                           self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2]
 
         for attr in self.attr_list:

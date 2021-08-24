@@ -18,9 +18,14 @@ sph_sig.from_numpy(np_sph_sig)
 gravity.from_numpy(np_gravity)
 node_dim.from_numpy(np_node_dim)
 node_dim_coder.from_numpy(np_node_dim_coder)
+fbm_diffusion_term[None] = init_fbm_diffusion_term
+fbm_convection_term[None] = init_fbm_convection_term
 for i in range(np_neighb_template.shape[1]):
     for j in range(dim):
         neighb_template[i][j] = np_neighb_template[j][i]
+
+assign_phase_color(0xffffff,0)
+assign_phase_color(0x0000ff,1)
 
 """ setup scene """
 lb = np.zeros(dim, np.float32)
@@ -98,7 +103,10 @@ def sph_step():
     # WC_pressure_acce(ngrid, fluid, fluid)
     # WC_pressure_acce(ngrid, fluid, bound)
     # SPH_advection_update_vel_adv(fluid)
-    """ SPH uodate pos """
+    """ SPH uodate """
+    SPH_FBM_diffuse(ngrid, fluid, fluid)
+    SPH_update_volume_frac(fluid)
+    SPH_update_mass(fluid)
     SPH_update_pos(fluid)
     """ SPH debug """
 
@@ -117,6 +125,7 @@ while gui.running and not gui.get_event(gui.ESCAPE):
     time_counter += 1
     print('current time: ', time_count)
     print('time step: ', dt[None])
+    SPH_update_color(fluid)
     gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
     gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
     gui.show(f"img\\{time_counter}_rf{refreshing_rate}.png")

@@ -6,6 +6,7 @@ tmp_val = ti.field(float, 32)
 dt = ti.field(float, ())
 tmp_val_dim = ti.Vector.field(dim, float, 32)
 phase_rest_density = ti.Vector.field(phase_num, float, ())
+phase_rgb = ti.Vector.field(3, float, phase_num)
 sim_space_lb = ti.Vector.field(dim, float, ())
 sim_space_rt = ti.Vector.field(dim, float, ())
 part_size = ti.field(float, 5)
@@ -15,6 +16,8 @@ gravity = ti.Vector.field(dim, float, ())
 node_dim = ti.Vector.field(dim, float, ())
 node_dim_coder = ti.Vector.field(dim, int, ())
 neighb_template = ti.Vector.field(dim, int, (neighb_range*2+1)**dim)
+fbm_diffusion_term = ti.field(float, ())
+fbm_convection_term = ti.field(float, ())
 
 @ti.func
 def W(r):
@@ -44,10 +47,26 @@ def W_grad(r):
 def W_lap(x_ij: ti.template(), r, V_j, A: ti.template()):
     return 2*(2+dim)*V_j*W_grad(r)*x_ij.normalized()*A.dot(x_ij)/(0.01*sph_h[2]+r**2)
 
+@ti.func
+def rgb2hex(r: float, g: float, b: float): # r, g, b are normalized
+    return ((int(r*255))<<16) + ((int(g*255))<<8) + (int(b*255))
 
 @ti.func
-def set_value(tar: ti.template(), index, val):
-    tar[index] = val
+def hex2rgb(hex: ti.template()): # r, g, b are normalized
+    return float(ti.Vector([(hex&0xFF0000)>>16,(hex&0x00FF00)>>8,(hex&0x0000FF)]))/255
+
+@ti.kernel
+def assign_phase_color(hex: int, phase_num: int):
+    phase_rgb[phase_num] = hex2rgb(hex)    
+
+@ti.func
+def has_negative(vec: ti.template()):
+    is_n = False
+    for i in ti.static(range(vec.n)):
+        if vec[i] < 0:
+            is_n = True
+    return is_n
+
 
 @ti.func
 def dim_encode(dim: ti.template()):

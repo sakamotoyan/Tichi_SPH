@@ -16,8 +16,7 @@ def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: 
                     shift = ngrid.node_part_shift[node_code]+j
                     neighb_uid = ngrid.part_uid_in_node[shift]
                     if neighb_uid == nobj.uid:
-                        neighb_pid = ngrid.part_pid_in_node[shift]
-                        obj.sph_psi[i] += nobj.rest_volume[neighb_pid]*W((obj.pos[i] - nobj.pos[neighb_pid]).norm())
+                        neighb_pid = ngrid.part_pid_in_node[shift]                       
 
 @ti.kernel
 def SPH_clean_value(obj: ti.template()):
@@ -32,6 +31,8 @@ def SPH_clean_value(obj: ti.template()):
             obj.acce_adv[i][j] = 0
             obj.alpha_1[i][j] = 0
             obj.pressure_force[i][j] = 0
+        for j in ti.static(range(phase_num)):
+            obj.volume_frac_tmp[i][j] = 0
 
 @ti.kernel
 def cfl_condition(obj: ti.template()):
@@ -206,3 +207,44 @@ def SPH_update_pos(obj: ti.template()):
     for i in range(obj.part_num[None]):
         obj.vel[i] = obj.vel_adv[i]
         obj.pos[i] += obj.vel[i]*dt[None]
+
+@ti.kernel
+def SPH_update_mass(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        obj.mass[i] = obj.volume_frac[i].dot(phase_rest_density[None])
+
+@ti.kernel
+def SPH_update_color(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        color = ti.Vector([0.0, 0.0, 0.0])
+        for j in ti.static(range(phase_num)):
+            for k in ti.static(range(3)):
+                color[k] += obj.volume_frac[i][j] * phase_rgb[j][k]
+        for j in ti.static(range(3)):
+            color[j] = min(1, color[j])
+        obj.color[i] = rgb2hex(color[0],color[1],color[2])
+
+@ti.kernel
+def SPH_FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+    for i in range(obj.part_num[None]):
+        for t in range(neighb_template.shape[0]):
+            node_code = dim_encode(obj.node[i]+neighb_template[t])
+            if 0 < node_code < node_num:
+                for j in range(ngrid.node_part_count[node_code]):
+                    shift = ngrid.node_part_shift[node_code]+j
+                    neighb_uid = ngrid.part_uid_in_node[shift]
+                    if neighb_uid == nobj.uid:
+                        neighb_pid = ngrid.part_pid_in_node[shift]
+                        xij = obj.pos[i] - nobj.pos[neighb_pid]
+                        r = xij.norm()
+                        if r>0:
+                            tmp = dt[None] * fbm_diffusion_term[None] * (
+                                obj.volume_frac[i]-nobj.volume_frac[neighb_pid]) * nobj.rest_volume[neighb_pid] * r*W_grad(r) / (r**2 + 0.01*sph_h[2])
+                            if not (has_negative(obj.volume_frac[i]+obj.volume_frac_tmp[i]+tmp) or has_negative(nobj.volume_frac[neighb_pid]+nobj.volume_frac_tmp[neighb_pid]-tmp)):
+                                obj.volume_frac_tmp[i] += tmp
+
+@ti.kernel
+def SPH_update_volume_frac(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        obj.volume_frac[i] += obj.volume_frac_tmp[i]
+                            

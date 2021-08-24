@@ -25,6 +25,8 @@ iter_threshold_max = 100
 refreshing_rate = 120 # frames per second
 relaxing_factor=1.001
 cfl_factor = 0.5
+init_fbm_diffusion_term = 0.002
+init_fbm_convection_term = 0.002
 
 np_phase_rest_density = np.empty(shape=phase_num, dtype=np.float32)
 np_sim_space_lb = np.empty(shape=dim, dtype=np.float32)
