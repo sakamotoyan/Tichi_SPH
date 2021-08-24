@@ -9,4 +9,5 @@
 > For more about Taichi, please refer to https://github.com/taichi-dev/taichi
 
 ## Run this project
-`ti main.py` to run
+* create a folder called `img` to save simulation images
+* `ti main.py` to run
