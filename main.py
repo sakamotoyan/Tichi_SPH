@@ -33,8 +33,8 @@ rt = np.zeros(dim, np.float32)
 mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
 """ push cube """
-fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1, 0], color=0x068587)
-fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0x8f0000)
+fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[0.5, 0.5], color=0x068587)
+fluid.push_2d_cube([1,0],[1.8, 3.6],[0.5, 0.5],0x8f0000)
 bound.push_2d_cube([0,0],[4,4],[1,0],0xFF4500,4)
 
 def sph_step():
@@ -103,8 +103,13 @@ def sph_step():
     # WC_pressure_acce(ngrid, fluid, fluid)
     # WC_pressure_acce(ngrid, fluid, bound)
     # SPH_advection_update_vel_adv(fluid)
-    """ SPH uodate """
-    SPH_FBM_diffuse(ngrid, fluid, fluid)
+    """ FBM procedure """
+    while fluid.general_flag[None] > 0:
+        SPH_FBM_clean_tmp(fluid)
+        SPH_FBM_convect(ngrid, fluid, fluid)
+        SPH_FBM_diffuse(ngrid, fluid, fluid)
+        SPH_FBM_check_tmp(fluid)
+    """ SPH update """
     SPH_update_volume_frac(fluid)
     SPH_update_mass(fluid)
     SPH_update_pos(fluid)
@@ -125,6 +130,7 @@ while gui.running and not gui.get_event(gui.ESCAPE):
     time_counter += 1
     print('current time: ', time_count)
     print('time step: ', dt[None])
+    statistic(fluid)
     SPH_update_color(fluid)
     gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
     gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))

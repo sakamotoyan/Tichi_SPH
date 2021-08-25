@@ -12,11 +12,13 @@ class Fluid:
         self.pushed_part_seq_coder = ti.field(int, dim)
         obj_list.append(self)
         self.compression = ti.field(float, ())
+        self.general_flag = ti.field(int, ())
 
         self.node_code = ti.field(int)
         self.node_code_seq = ti.field(int)
         self.node = ti.Vector.field(dim, int)
         self.ones = ti.field(int)
+        self.flag = ti.field(int)
         self.color = ti.field(int)
         self.W = ti.field(float)
         self.W_grad = ti.Vector.field(dim, float)
@@ -38,6 +40,8 @@ class Fluid:
         self.alpha = ti.field(float)
         self.alpha_1 = ti.Vector.field(dim, float)
         self.alpha_2 = ti.field(float)
+        self.drift_vel = ti.Vector.field(dim, float)
+        self.fbm_zeta = ti.field(float)
 
         # self.X = ti.static(self.mass)
         # self.sph_psi = ti.static(self.sph_density)
@@ -46,12 +50,14 @@ class Fluid:
         self.X = ti.static(self.rest_volume)
         self.sph_psi = ti.static(self.sph_compression)
         self.rest_psi = ti.static(self.ones)
-
-        self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.color, self.W, self.W_grad, self.volume_frac, self.volume_frac_tmp, self.mass, self.rest_density, self.rest_volume, self.sph_density,
-                          self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2]
+        self.fbm_acce = ti.static(self.acce)
+        self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.flag, self.color, self.W, self.W_grad, self.volume_frac, self.volume_frac_tmp, self.mass, self.rest_density, self.rest_volume, self.sph_density,
+                          self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta]
 
         for attr in self.attr_list:
             ti.root.dense(ti.i, self.max_part_num).place(attr)
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, phase_num).place(self.drift_vel)
+        self.attr_list.append(self.drift_vel)
 
     def set_zero(self):
         for attr in self.attr_list:
