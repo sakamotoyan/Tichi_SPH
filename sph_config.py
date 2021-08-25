@@ -7,7 +7,7 @@ ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_GB=3.4)
 
 dim = 2
 phase_num = 2
-init_part_size = 0.02
+init_part_size = 0.0105
 part_radii_relax = 2
 cs = 100
 wc_gamma = 7
@@ -17,7 +17,7 @@ bound_part_num = int(2e5)
 max_part_num = fluid_part_num + bound_part_num
 node_num = int(1)
 neighb_range = int(1)
-gui_res_0 = 960
+gui_res_0 = 1080
 divergence_threshold = 1e-3
 compression_threshold = 1e-4
 iter_threshold_min = 2

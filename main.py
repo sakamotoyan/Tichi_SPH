@@ -37,9 +37,9 @@ rt = np.zeros(dim, np.float32)
 mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
 """ push cube """
-fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1,0], color=0x068587)
-fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0x8f0000)
-bound.push_2d_cube([0,0],[4,4],[1,0],0xFF4500,4)
+fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1,0], color=0x6F7DBC)
+fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0xeacd76)
+bound.push_2d_cube([0,0],[4,4],[1,0],0xaaaaaa,4)
 
 def sph_step():
     global div_iter_count, incom_iter_count
@@ -134,7 +134,7 @@ def write_json():
         }
     }
     s = json.dumps(data)
-    with open("json\\"+ ("VF" if use_VF else "DF") + str(step_counter),"w") as f:
+    with open("json\\"+ ("VF" if use_VF else "DF") + str(step_counter) + ".json","w") as f:
         f.write(s)
 
 """ GUI system """
