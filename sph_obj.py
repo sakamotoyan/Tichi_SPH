@@ -43,13 +43,15 @@ class Fluid:
         self.drift_vel = ti.Vector.field(dim, float)
         self.fbm_zeta = ti.field(float)
 
-        # self.X = ti.static(self.mass)
-        # self.sph_psi = ti.static(self.sph_density)
-        # self.rest_psi = ti.static(self.rest_density)
+        #VFSPH
+        # self.X = ti.static(self.rest_volume)
+        # self.sph_psi = ti.static(self.sph_compression)
+        # self.rest_psi = ti.static(self.ones)
+        #DFSPH
+        self.X = ti.static(self.mass)
+        self.sph_psi = ti.static(self.sph_density)
+        self.rest_psi = ti.static(self.rest_density)
 
-        self.X = ti.static(self.rest_volume)
-        self.sph_psi = ti.static(self.sph_compression)
-        self.rest_psi = ti.static(self.ones)
         self.fbm_acce = ti.static(self.acce)
         self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.flag, self.color, self.W, self.W_grad, self.volume_frac, self.volume_frac_tmp, self.mass, self.rest_density, self.rest_volume, self.sph_density,
                           self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta]

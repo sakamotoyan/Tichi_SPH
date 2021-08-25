@@ -1,4 +1,5 @@
 from sph import *
+import json
 
 """ init data structure """
 ngrid = Ngrid()
@@ -24,8 +25,11 @@ for i in range(np_neighb_template.shape[1]):
     for j in range(dim):
         neighb_template[i][j] = np_neighb_template[j][i]
 
-assign_phase_color(0xffffff,0)
-assign_phase_color(0x0000ff,1)
+div_iter_count = 0
+incom_iter_count = 0
+
+assign_phase_color(0x6F7DBC,0)
+assign_phase_color(0xeacd76,1)
 
 """ setup scene """
 lb = np.zeros(dim, np.float32)
@@ -33,11 +37,12 @@ rt = np.zeros(dim, np.float32)
 mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
 """ push cube """
-fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[0.5, 0.5], color=0x068587)
-fluid.push_2d_cube([1,0],[1.8, 3.6],[0.5, 0.5],0x8f0000)
-bound.push_2d_cube([0,0],[4,4],[1,0],0xFF4500,4)
+fluid.push_2d_cube(center_pos=[-1, 0], size=[1.2, 3.6], volume_frac=[0.0, 1.0], color=0xeacd76)
+fluid.push_2d_cube([1,0],[1.2, 3.6],[1.0, 0.0],0x6F7DBC)
+bound.push_2d_cube([0,0],[4,4],[1,0],0xaaaaaa,4)
 
 def sph_step():
+    global div_iter_count, incom_iter_count
     """ neighbour search """
     ngrid.clear_node()
     ngrid.encode(fluid)
@@ -104,11 +109,11 @@ def sph_step():
     # WC_pressure_acce(ngrid, fluid, bound)
     # SPH_advection_update_vel_adv(fluid)
     """ FBM procedure """
-    while fluid.general_flag[None] > 0:
-        SPH_FBM_clean_tmp(fluid)
-        SPH_FBM_convect(ngrid, fluid, fluid)
-        SPH_FBM_diffuse(ngrid, fluid, fluid)
-        SPH_FBM_check_tmp(fluid)
+    # while fluid.general_flag[None] > 0:
+    #     SPH_FBM_clean_tmp(fluid)
+    #     SPH_FBM_convect(ngrid, fluid, fluid)
+    #     SPH_FBM_diffuse(ngrid, fluid, fluid)
+    #     SPH_FBM_check_tmp(fluid)
     """ SPH update """
     SPH_update_volume_frac(fluid)
     SPH_update_mass(fluid)
@@ -116,18 +121,37 @@ def sph_step():
     return div_iter_count, incom_iter_count
     """ SPH debug """
 
+def write_json():
+    data={
+        "step": step_counter,
+        "frame": time_counter,
+        "timeInSimulation": time_count,
+        "timeStep": dt[None],
+        "fps":refreshing_rate,
+        "iteration" : {
+            "divergenceFree_iteration" : div_iter_count,
+            "incompressible_iteration" : incom_iter_count
+        }
+    }
+    s = json.dumps(data)
+    with open("json\\"+ ("VF" if use_VF else "DF") + str(step_counter),"w") as f:
+        f.write(s)
+
 """ GUI system """
 time_count = float(0)
 time_counter = int(0)
+step_counter = int(0)
 print('fluid particle count: ', fluid.part_num[None])
 print('bound particle count: ', bound.part_num[None])
 gui = ti.GUI('SPH', to_gui_res(gui_res_0))
 while gui.running and not gui.get_event(gui.ESCAPE):
-    gui.clear(0x112F41)
+    gui.clear(0xFFFFFF)
     while time_count*refreshing_rate < time_counter:
         cfl_condition(fluid)
         time_count += dt[None]
+        step_counter+=1
         sph_step()
+        write_json()
     time_counter += 1
     print('current time: ', time_count)
     print('time step: ', dt[None])

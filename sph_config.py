@@ -22,11 +22,12 @@ divergence_threshold = 1e-3
 compression_threshold = 1e-4
 iter_threshold_min = 2
 iter_threshold_max = 100
-refreshing_rate = 120 # frames per second
+refreshing_rate = 30 # frames per second
 relaxing_factor=1.01
 cfl_factor = 0.5
 init_fbm_diffusion_term = 0.000
 init_fbm_convection_term = 50
+use_VF = True
 
 np_phase_rest_density = np.empty(shape=phase_num, dtype=np.float32)
 np_sim_space_lb = np.empty(shape=dim, dtype=np.float32)
