@@ -113,6 +113,7 @@ def sph_step():
     SPH_update_volume_frac(fluid)
     SPH_update_mass(fluid)
     SPH_update_pos(fluid)
+    return div_iter_count, incom_iter_count
     """ SPH debug """
 
 """ GUI system """
@@ -125,12 +126,12 @@ while gui.running and not gui.get_event(gui.ESCAPE):
     gui.clear(0x112F41)
     while time_count*refreshing_rate < time_counter:
         cfl_condition(fluid)
-        sph_step()
         time_count += dt[None]
+        sph_step()
     time_counter += 1
     print('current time: ', time_count)
     print('time step: ', dt[None])
-    statistic(fluid)
+    # statistic(fluid)
     SPH_update_color(fluid)
     gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
     gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
