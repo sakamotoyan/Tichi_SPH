@@ -213,7 +213,8 @@ def SPH_update_pos(obj: ti.template()):
 @ti.kernel
 def SPH_update_mass(obj: ti.template()):
     for i in range(obj.part_num[None]):
-        obj.mass[i] = obj.volume_frac[i].dot(phase_rest_density[None])
+        obj.rest_density[i] = phase_rest_density[None].dot(obj.volume_frac[i])
+        obj.mass[i] = obj.rest_density[i] * obj.rest_volume[i]
 
 @ti.kernel
 def SPH_update_color(obj: ti.template()):

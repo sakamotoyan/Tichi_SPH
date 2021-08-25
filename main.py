@@ -37,9 +37,9 @@ rt = np.zeros(dim, np.float32)
 mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
 """ push cube """
-fluid.push_2d_cube(center_pos=[-1, 0], size=[1.2, 3.6], volume_frac=[0.0, 1.0], color=0xeacd76)
-fluid.push_2d_cube([1,0],[1.2, 3.6],[1.0, 0.0],0x6F7DBC)
-bound.push_2d_cube([0,0],[4,4],[1,0],0xaaaaaa,4)
+fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1,0], color=0x068587)
+fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0x8f0000)
+bound.push_2d_cube([0,0],[4,4],[1,0],0xFF4500,4)
 
 def sph_step():
     global div_iter_count, incom_iter_count
@@ -65,8 +65,8 @@ def sph_step():
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
     """ IPPE SPH divergence """
-    SPH_vel_2_vel_adv(fluid)
     div_iter_count = 0
+    SPH_vel_2_vel_adv(fluid)
     while div_iter_count<iter_threshold_min or fluid.compression[None]>divergence_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
