@@ -1,4 +1,4 @@
-from taichi.lang.ops import atomic_add
+from taichi.lang.ops import atomic_add, sqrt
 from sph_util import *
 
 
@@ -7,19 +7,21 @@ class Fluid:
     def __init__(self, max_part_num):
         self.max_part_num = max_part_num
         self.part_num = ti.field(int, ())
-        self.uid = len(obj_list)
-        self.pushed_part_seq = ti.Vector.field(dim, int, ())
-        self.pushed_part_seq_coder = ti.field(int, dim)
+        self.uid = len(obj_list) #uid of the Fluid object
+        self.pushed_part_seq = ti.Vector.field(dim, int, ()) #?
+        self.pushed_part_seq_coder = ti.field(int, dim) #?
         obj_list.append(self)
-        self.compression = ti.field(float, ())
-        self.general_flag = ti.field(int, ())
+        self.compression = ti.field(float, ()) #compression rate gamma for [VFSPH]?
+        self.general_flag = ti.field(int, ()) #?
+        self.kinetic_energy = ti.field(float,()) #total kinetic energy of particles
+        self.gravity_potential_energy = ti.field(float,()) #total gravitational potential energy of particles
 
-        self.node_code = ti.field(int)
-        self.node_code_seq = ti.field(int)
-        self.node = ti.Vector.field(dim, int)
-        self.ones = ti.field(int)
-        self.flag = ti.field(int)
-        self.color = ti.field(int)
+        self.node_code = ti.field(int) #?
+        self.node_code_seq = ti.field(int) #?
+        self.node = ti.Vector.field(dim, int) #?
+        self.ones = ti.field(int) #?
+        self.flag = ti.field(int) #?
+        self.color = ti.field(int) #?
         self.W = ti.field(float)
         self.W_grad = ti.Vector.field(dim, float)
         self.volume_frac = ti.Vector.field(phase_num, float)
@@ -27,46 +29,54 @@ class Fluid:
         self.mass = ti.field(float)
         self.rest_density = ti.field(float)
         self.rest_volume = ti.field(float)
-        self.sph_compression = ti.field(float)
-        self.sph_density = ti.field(float)
-        self.psi_adv = ti.field(float)
-        self.pressure = ti.field(float)
-        self.pressure_force = ti.Vector.field(dim, float)
-        self.pos = ti.Vector.field(dim, float)
-        self.vel = ti.Vector.field(dim, float)
-        self.vel_adv = ti.Vector.field(dim, float)
-        self.acce = ti.Vector.field(dim, float)
-        self.acce_adv = ti.Vector.field(dim, float)
-        self.alpha = ti.field(float)
-        self.alpha_1 = ti.Vector.field(dim, float)
-        self.alpha_2 = ti.field(float)
-        self.drift_vel = ti.Vector.field(dim, float)
+        self.sph_compression = ti.field(float) #diff from compression?
+        self.sph_density = ti.field(float) #density computed from sph approximation 
+        self.psi_adv = ti.field(float) #?
+        self.pressure = ti.field(float) #?
+        self.pressure_force = ti.Vector.field(dim, float) #?
+        self.pos = ti.Vector.field(dim, float) #position
+        self.vel = ti.Vector.field(dim, float) #velocity
+        self.vel_adv = ti.Vector.field(dim, float) #?
+        self.acce = ti.Vector.field(dim, float) #acceleration
+        self.acce_adv = ti.Vector.field(dim, float) #?
+        self.alpha = ti.field(float) #alpha for [DFSPH] and [VFSPH]
+        self.alpha_1 = ti.Vector.field(dim, float) #1st term of alpha
+        self.alpha_2 = ti.field(float) #2nd term of alpha
+        self.drift_vel = ti.Vector.field(dim, float) #?
         self.fbm_zeta = ti.field(float)
+        self.normal = ti.Vector.field(dim, float) #surface normal in [AKINCI12] for computing curvature force in surface tension 
 
-        #VFSPH
+        '''
+        [VFSPH] and [DFSPH] use the same framework, aliases for interchangeable variables 
+        '''
         if use_VF:
             self.X = ti.static(self.rest_volume)
             self.sph_psi = ti.static(self.sph_compression)
             self.rest_psi = ti.static(self.ones)
-        #DFSPH
         else:
             self.X = ti.static(self.mass)
             self.sph_psi = ti.static(self.sph_density)
             self.rest_psi = ti.static(self.rest_density)
 
-        self.fbm_acce = ti.static(self.acce)
+        self.fbm_acce = ti.static(self.acce)#?
+
+        '''
+        put for-each-particle attributes in this list to register them!
+        '''
         self.attr_list = [self.node_code, self.node_code_seq, self.node, self.ones, self.flag, self.color, self.W, self.W_grad, self.volume_frac, self.volume_frac_tmp, self.mass, self.rest_density, self.rest_volume, self.sph_density,
-                          self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta]
+                          self.sph_compression, self.psi_adv, self.pressure, self.pressure_force, self.pos, self.vel, self.vel_adv, self.acce, self.acce_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta, self.normal]
 
-        for attr in self.attr_list:
-            ti.root.dense(ti.i, self.max_part_num).place(attr)
-        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, phase_num).place(self.drift_vel)
-        self.attr_list.append(self.drift_vel)
+        for attr in self.attr_list: #allocate memory for attributes (1-D fields)
+            ti.root.dense(ti.i, self.max_part_num).place(attr) #SOA(see Taichi advanced layout: https://docs.taichi.graphics/docs/lang/articles/advanced/layout#from-shape-to-tirootx)
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, phase_num).place(self.drift_vel) #allocate memory for drift velocity (2-D field)
+        self.attr_list.append(self.drift_vel) # add drift velocity to attr_list
 
+    #set all attrs in attr_list to zero
     def set_zero(self):
         for attr in self.attr_list:
             attr.fill(0)
 
+    #update mass for volume fraction multiphase
     @ti.kernel
     def update_mass(self):
         for i in range(self.part_num[None]):
@@ -129,6 +139,7 @@ class Fluid:
             self.rest_density[i] = phase_rest_density[None].dot(self.volume_frac[i])
             self.mass[i] = self.rest_density[i]*self.rest_volume[i]
 
+
     def inc_unit(self, seq, length, lim, cur_dim):
         for i in range(length):
             if not seq[cur_dim][i] < lim[cur_dim]:
@@ -143,7 +154,7 @@ class Fluid:
             self.push_cube(ti.Vector(lb), ti.Vector(rt), ti.Vector(mask), ti.Vector(volume_frac), color)
         elif layer>0:
             cube_part = np.zeros(dim, np.int32)
-            cube_part[:] = np.ceil(np.array(size) / part_size[1])[:]
+            cube_part[:] = np.ceil(np.array(size) / part_size[1] / relaxing_factor)[:]
             for i in range(cube_part.shape[0]):
                 if cube_part[i]<layer*2:
                     layer = int(np.floor(cube_part[i]/2))

@@ -120,6 +120,40 @@ def SPH_advection_viscosity_acc(ngrid: ti.template(), obj: ti.template(), nobj: 
                             obj.acce_adv[i] += W_lap(xij, r, nobj.X[neighb_pid]/nobj.sph_psi[neighb_pid], obj.vel[i] - nobj.vel[neighb_pid])*dynamic_viscosity/obj.rest_density[i]
 
 @ti.kernel
+def SPH_advection_surface_tension_acc(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+    for i in range(obj.part_num[None]):
+        for j in ti.static(range(dim)):
+            obj.normal[i][j] = 0
+        for t in range(neighb_template.shape[0]):
+            node_code = dim_encode(obj.node[i]+neighb_template[t]) #index of node to search
+            if 0 < node_code < node_num:
+                for j in range(ngrid.node_part_count[node_code]):
+                    shift = ngrid.node_part_shift[node_code]+j
+                    neighb_uid = ngrid.part_uid_in_node[shift]
+                    if neighb_uid == nobj.uid:
+                        neighb_pid = ngrid.part_pid_in_node[shift]
+                        xij = obj.pos[i] - nobj.pos[neighb_pid]
+                        r = xij.norm()
+                        if r>0:
+                            obj.normal[i] += -nobj.X[neighb_pid]/nobj.sph_psi[neighb_pid]*W_grad(r) * (xij)/r
+        obj.normal[i]*=sph_h[1]
+    for i in range(obj.part_num[None]):
+        for t in range(neighb_template.shape[0]):
+            node_code = dim_encode(obj.node[i]+neighb_template[t])
+            if 0 < node_code < node_num:
+                for j in range(ngrid.node_part_count[node_code]):
+                    shift = ngrid.node_part_shift[node_code]+j
+                    neighb_uid = ngrid.part_uid_in_node[shift]
+                    if neighb_uid == nobj.uid:
+                        neighb_pid = ngrid.part_pid_in_node[shift]
+                        xij = obj.pos[i] - nobj.pos[neighb_pid]
+                        r = xij.norm()
+                        if r>0 and obj.volume_frac[i][1] > 0.99 and nobj.volume_frac[neighb_pid][1] > 0.99:
+                            cohesion = -surface_tension_gamma * nobj.mass[neighb_pid] * C(r) * xij / r
+                            curvature = surface_tension_gamma*(obj.normal[i]-nobj.normal[neighb_pid])
+                            obj.acce_adv[i] += 2*obj.rest_psi[i]/(obj.sph_psi[i]+nobj.sph_psi[neighb_pid])*(cohesion+curvature)
+
+@ti.kernel
 def WC_pressure_val(obj: ti.template()):
     for i in range(obj.part_num[None]):
         obj.pressure[i] = (obj.rest_density[i] * cs**2 / wc_gamma)*((obj.sph_density[i]/obj.rest_density[i])**7-1)
@@ -209,6 +243,15 @@ def SPH_update_pos(obj: ti.template()):
     for i in range(obj.part_num[None]):
         obj.vel[i] = obj.vel_adv[i]
         obj.pos[i] += obj.vel[i]*dt[None]
+
+@ti.kernel
+def SPH_update_energy(obj: ti.template()):
+    obj.kinetic_energy[None]=0
+    obj.gravity_potential_energy[None]=0
+    
+    for i in range(obj.part_num[None]):
+        obj.kinetic_energy[None] += 0.5*obj.mass[i]*obj.vel[i].norm_sqr()
+        obj.gravity_potential_energy[None] += -obj.mass[i]*gravity[None][1]*(obj.pos[i][1]-sim_space_lb[None][1])
 
 @ti.kernel
 def SPH_update_mass(obj: ti.template()):
@@ -315,4 +358,18 @@ def SPH_update_volume_frac(obj: ti.template()):
     for i in range(obj.part_num[None]):
         if not obj.flag[i]>0:
             obj.volume_frac[i] += obj.volume_frac_tmp[i]
-                            
+                    
+@ti.kernel
+def map_velocity(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+    for i in range(obj.part_num[None]):
+        for j in ti.static(range(dim)):
+            obj.vel[i][j] = 0
+        for t in range(neighb_template.shape[0]):
+            node_code = dim_encode(obj.node[i]+neighb_template[t])
+            if 0 < node_code < node_num:
+                for j in range(ngrid.node_part_count[node_code]):
+                    shift = ngrid.node_part_shift[node_code]+j
+                    neighb_uid = ngrid.part_uid_in_node[shift]
+                    if neighb_uid == nobj.uid:
+                        neighb_pid = ngrid.part_pid_in_node[shift]   
+                        obj.vel[i] += nobj.X[neighb_pid]/nobj.sph_psi[neighb_pid]*nobj.vel[neighb_pid]*W((obj.pos[i] - nobj.pos[neighb_pid]).norm())

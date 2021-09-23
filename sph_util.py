@@ -20,6 +20,17 @@ fbm_diffusion_term = ti.field(float, ())
 fbm_convection_term = ti.field(float, ())
 
 @ti.func
+def C(r):
+    q = r/sph_h[1]
+    tmp = 0.0
+    if q <= 0.5:
+        tmp = (2*(1-q)**3*q**3-1/64)
+    elif q > 0.5 and q < 1:
+        tmp = (1-q)**3*q**3
+    tmp *= 32/ math.pi/ np_sph_h[1]**3
+    return tmp
+
+@ti.func
 def W(r):
     q = r/sph_h[1]
     tmp = 0.0
