@@ -360,16 +360,18 @@ def SPH_update_volume_frac(obj: ti.template()):
             obj.volume_frac[i] += obj.volume_frac_tmp[i]
                     
 @ti.kernel
-def map_velocity(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
-    for i in range(obj.part_num[None]):
+def map_velocity(ngrid: ti.template(), grid: ti.template(), nobj: ti.template()):
+    for I in ti.grouped(grid.vel):
+        grid_pos = grid.pos[I] #get grid pos
+        nnode = node_encode(grid_pos)#get grid neighb node
         for j in ti.static(range(dim)):
-            obj.vel[i][j] = 0
+            grid.vel[I][j] = 0
         for t in range(neighb_template.shape[0]):
-            node_code = dim_encode(obj.node[i]+neighb_template[t])
+            node_code = dim_encode(nnode+neighb_template[t])
             if 0 < node_code < node_num:
                 for j in range(ngrid.node_part_count[node_code]):
                     shift = ngrid.node_part_shift[node_code]+j
                     neighb_uid = ngrid.part_uid_in_node[shift]
                     if neighb_uid == nobj.uid:
                         neighb_pid = ngrid.part_pid_in_node[shift]   
-                        obj.vel[i] += nobj.X[neighb_pid]/nobj.sph_psi[neighb_pid]*nobj.vel[neighb_pid]*W((obj.pos[i] - nobj.pos[neighb_pid]).norm())
+                        grid.vel[I] += nobj.X[neighb_pid]/nobj.sph_psi[neighb_pid]*nobj.vel[neighb_pid]*W((grid_pos - nobj.pos[neighb_pid]).norm())

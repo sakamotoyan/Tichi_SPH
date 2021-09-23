@@ -80,6 +80,10 @@ def has_negative(vec: ti.template()):
 
 
 @ti.func
+def node_encode(pos: ti.template()):
+    return int((pos - sim_space_lb[None])//sph_h[1])
+
+@ti.func
 def dim_encode(dim: ti.template()):
     return node_dim_coder[None].dot(dim)
 
@@ -94,5 +98,8 @@ def to_gui_radii(relaxing_factor=1):
     return part_size[1]/(np_sim_space_rt[0]-np_sim_space_lb[0])*gui_res_0/2*relaxing_factor
 def to_gui_color(obj):
     return obj.color.to_numpy()[:obj.part_num[None]]
+
+def to_gui_pos_np(arr):
+    return (arr - np_sim_space_lb) / (np_sim_space_rt-np_sim_space_lb)
 
 

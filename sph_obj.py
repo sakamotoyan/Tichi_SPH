@@ -82,15 +82,21 @@ class Fluid:
         for i in range(self.part_num[None]):
             self.mass[i] = phase_rest_density[None].dot(self.volume_frac[i])
 
+    def push_voxels(self, voxels, lb, dist, volume_frac, color):
+        index = np.where(voxels==True)
+        pos_seq = np.stack(index,axis=1)*dist+lb
+        print(pos_seq.shape)
+        self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), color)
+
     @ti.kernel
     def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:int):
         current_part_num = self.part_num[None]
-        # generate seq
+        # generate seq (number of particles to push for each dimension)
         self.pushed_part_seq[None] = int(ti.ceil((rt-lb)/part_size[1]/relaxing_factor))
         self.pushed_part_seq[None] *= mask
         for i in ti.static(range(dim)):
             if self.pushed_part_seq[None][i] == 0:
-                self.pushed_part_seq[None][i] = 1
+                self.pushed_part_seq[None][i] = 1 #at least push one
         # coder for seq
         tmp=1
         for i in ti.static(range(dim)):
@@ -220,7 +226,7 @@ class Ngrid:
     @ti.kernel
     def encode(self, obj: ti.template()):
         for i in range(obj.part_num[None]):
-            obj.node[i] = int((obj.pos[i] - sim_space_lb[None])//sph_h[1])
+            obj.node[i] = node_encode(obj.pos[i])
             obj.node_code[i] = dim_encode(obj.node[i])
             if 0 < obj.node_code[i] < node_num:
                 ti.atomic_add(self.node_part_count[obj.node_code[i]], 1)
@@ -241,3 +247,25 @@ class Ngrid:
                     self.node_part_shift_count[obj.node_code[i]], 1)
                 self.part_pid_in_node[obj.node_code_seq[i]] = i
                 self.part_uid_in_node[obj.node_code_seq[i]] = obj.uid
+
+@ti.data_oriented
+class Grid:
+    def __init__(self, shape, lb, dist):
+        self.shape=shape
+        self.lb=lb
+        self.dist=dist
+        self.size=1
+        for i in range(len(shape)):
+            self.size*=shape[i]
+        self.vel=ti.Vector.field(dim,float,shape=self.shape)
+        self.pos=ti.Vector.field(dim,float,shape=self.shape)
+        lb_ti = ti.Vector.field(dim, float, ())
+        lb_ti.from_numpy(self.lb)
+        self.init_pos(lb_ti)
+
+    @ti.kernel
+    def init_pos(self, lb_ti: ti.template()):
+        for I in ti.grouped(self.pos):
+            self.pos[I]=lb_ti[None]+I*self.dist
+
+    

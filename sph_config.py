@@ -1,20 +1,24 @@
 import taichi as ti
 import numpy as np
 import math
+import sys
 
 # ti.init(arch=ti.cpu, default_fp=ti.f32, default_ip=ti.i32)
-ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_GB=1, excepthook=True)
+ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_GB=9, excepthook=True)
 
 dim = 2
 phase_num = 2
-init_part_size = 0.2
+res_up = int(sys.argv[1]) if len(sys.argv)>=2 else 1
+init_part_size = 0.04/res_up
+steps_per_frame = 84 * res_up
 part_radii_relax = 2
 cs = 100
 wc_gamma = 7
 dynamic_viscosity = np.float32(1e-2)
-fluid_part_num = int(2e4)
-bound_part_num = int(2e4)
-max_part_num = fluid_part_num + bound_part_num
+fluid_part_num = int(3e3*res_up**2)
+bound_part_num = int(4e2*res_up**2)
+#grid_node_num = int(1e7)
+max_part_num = fluid_part_num + bound_part_num #+ grid_node_num
 node_num = int(1)
 neighb_range = int(1) # range to search neighbors, e.g. when neighb_range=1, search neighbors in (x-1, x, x+1)
 gui_res_0 = 1080
@@ -27,8 +31,13 @@ relaxing_factor=1.01
 cfl_factor = 0.5
 init_fbm_diffusion_term = 0.000
 init_fbm_convection_term = 50
-surface_tension_gamma = 10
-use_VF = False
+surface_tension_gamma = 0
+use_VF = bool(int(sys.argv[2])) if len(sys.argv)>=3 else True
+print('use_VF:',use_VF)
+
+np_grid_size = np.array([4,4])
+np_grid_lb = np.array([-2,-2])
+grid_dist = init_part_size
 
 np_phase_rest_density = np.empty(shape=phase_num, dtype=np.float32)
 np_sim_space_lb = np.empty(shape=dim, dtype=np.float32)

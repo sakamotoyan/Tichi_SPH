@@ -1,17 +1,32 @@
+import numpy
 from sph import *
 import json
+import os
+
+'''make folders'''
+folder_name=f"{'VF' if use_VF else 'DF'}res{res_up}"
+try:
+    os.mkdir(f"{folder_name}")
+    os.mkdir(f"{folder_name}\\json")
+    os.mkdir(f"{folder_name}\\grid_data")
+    os.mkdir(f"{folder_name}\\part_data")
+    os.mkdir(f"{folder_name}\\img")
+except FileExistsError:
+    pass
+
 
 """ init data structure """
 ngrid = Ngrid()
 fluid = Fluid(max_part_num=fluid_part_num)
 bound = Fluid(max_part_num=bound_part_num)
-gridNodes = Fluid(max_part_num=fluid_part_num)
+grid = Grid(tuple((np_grid_size/grid_dist).astype(np.int32)),np_grid_lb,grid_dist)
 
 for obj in obj_list:
     obj.set_zero()
     obj.ones.fill(1)
 
 dt[None] = init_part_size/cs
+refreshing_rate = 1 / (dt[None] * steps_per_frame)
 phase_rest_density.from_numpy(np_phase_rest_density)
 sim_space_lb.from_numpy(np_sim_space_lb)
 sim_space_rt.from_numpy(np_sim_space_rt)
@@ -32,30 +47,30 @@ incom_iter_count = 0
 
 assign_phase_color(0x6F7DBC,0)
 assign_phase_color(0xeacd76,1)
-# assign_phase_color(0xA21212,0)
-# assign_phase_color(0xffffff,1)
 
 """ setup scene """
-lb = np.zeros(dim, np.float32)
-rt = np.zeros(dim, np.float32)
-mask = np.ones(dim, np.int32)
 volume_frac = np.zeros(phase_num, np.float32)
-""" push cube """
-fluid.push_2d_cube(center_pos=[-0.5, 0], size=[0.7, 1.6], volume_frac=[1,0], color=0x6F7DBC)
-fluid.push_2d_cube([0.5,0],[0.7, 1.6],[0,1],0xeacd76)
-bound.push_2d_cube([0,0],[2,2],[1,0],0xaaaaaa,4)
-""" push gridNodes with no relaxing factor"""
-tmp_relaxing_factor,relaxing_factor=relaxing_factor,1
-gridNodes.push_2d_cube([0,0],init_part_size * np.floor((np_sim_space_rt-np_sim_space_lb)/init_part_size),[1,0],0x000000)
-relaxing_factor=tmp_relaxing_factor
+fl_box=np.ones((35*res_up,79*res_up),dtype=np.bool_)
+box_voxels = 99*res_up
+box=np.ones((box_voxels,box_voxels),dtype=np.bool_)
+box_layers = res_up
+box[box_layers:box_voxels-box_layers,box_layers:box_voxels-box_layers]=False
 
-# fluid.push_2d_cube(center_pos=[-1, 0], size=[1.8, 3.6], volume_frac=[1,0], color=0x6F7DBC)
-# fluid.push_2d_cube([1,0],[1.8, 3.6],[0,1],0xeacd76)
-# bound.push_2d_cube([0,0],[4,4],[1,0],0xaaaaaa,4)
+""" add particles """
+fluid.push_voxels(fl_box,[-1.7,-1.6],init_part_size*relaxing_factor,[1,0],0x6F7DBC)
+bound.push_voxels(box,[-2,-2],init_part_size*relaxing_factor,[1,0],0xaaaaaa)
 
-# #fluid.push_2d_cube(center_pos=[0, 2], size=[0.8, 0.8], volume_frac=[1,0], color=0xA21212)
-# fluid.push_2d_cube([0,-1],[4-init_part_size*8*1.1, 4-init_part_size*8*1.1],[0,1],0xffffff)
-# bound.push_2d_cube([0,0],[4,6],[1,0],0x145b7d,4)
+""" write scene data """
+grid_data={
+    'grid_count':int(grid.size),
+    'grid_lb':[float(grid.lb[i]) for i in range(len(grid.lb))],
+    'init_part_size':init_part_size,
+    'fluid_part_count':fluid.part_num[None],
+    'bound_part_count':bound.part_num[None],
+    'dt':dt[None],
+    'frame_rate':steps_per_frame*dt[None]
+}
+json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
 
 def sph_step():
     global div_iter_count, incom_iter_count
@@ -63,11 +78,9 @@ def sph_step():
     ngrid.clear_node()
     ngrid.encode(fluid)
     ngrid.encode(bound)
-    ngrid.encode(gridNodes)
     ngrid.mem_shift()
     ngrid.fill_node(fluid)
     ngrid.fill_node(bound)
-    ngrid.fill_node(gridNodes)
     """ SPH clean value """
     SPH_clean_value(fluid)
     SPH_clean_value(bound)
@@ -102,7 +115,7 @@ def sph_step():
     """ SPH advection """
     SPH_advection_gravity_acc(fluid)
     SPH_advection_viscosity_acc(ngrid, fluid, fluid)
-    SPH_advection_surface_tension_acc(ngrid, fluid, fluid)
+    # SPH_advection_surface_tension_acc(ngrid, fluid, fluid)
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
     incom_iter_count = 0
@@ -138,7 +151,7 @@ def sph_step():
     SPH_update_mass(fluid)
     SPH_update_pos(fluid)
     SPH_update_energy(fluid)
-    map_velocity(ngrid, gridNodes,fluid)
+    map_velocity(ngrid, grid,fluid)
     return div_iter_count, incom_iter_count
     """ SPH debug """
 
@@ -164,7 +177,7 @@ def write_json():
     with open("json\\"+ ("VF" if use_VF else "DF") + str(step_counter) + ".json","w") as f:
         f.write(s)
 
-def write_full_json():
+def write_full_json(fname):
     global frame_div_iter, frame_incom_iter
     data={
         "step": step_counter,
@@ -182,7 +195,6 @@ def write_full_json():
             "gravity_potential_energy":fluid.gravity_potential_energy[None],
             "sum_energy":fluid.kinetic_energy[None]+fluid.gravity_potential_energy[None]
         }
-        
         #,
         # "info":
         # [
@@ -203,7 +215,7 @@ def write_full_json():
     #     info.append(fluid.volume_frac[i][1])
     #     data["data"].append(info)
     s = json.dumps(data)
-    with open("part_json\\"+ ("VF" if use_VF else "DF") +"_" +str(surface_tension_gamma)+"_"+ str(time_counter) + ".json","w") as f:
+    with open(fname,"w") as f:
         f.write(s)
 
 """ GUI system """
@@ -215,32 +227,43 @@ frame_incom_iter=0
 flg = True
 print('fluid particle count: ', fluid.part_num[None])
 print('bound particle count: ', bound.part_num[None])
+print('grid count:',grid.size)
+numpy.save(f"{folder_name}\\grid_data\\pos",grid.pos.to_numpy())
 gui = ti.GUI('SPH', to_gui_res(gui_res_0))
-while gui.running and not gui.get_event(gui.ESCAPE) and time_counter<250:
+while gui.running and not gui.get_event(gui.ESCAPE) and time_counter<1000:
+    print('current time: ', time_count)
+    print('time step: ', dt[None])
+
+    '''update gui'''
     gui.clear(0xffffff)
+    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
+    gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
+    grid_vel = grid.vel.to_numpy()
+    gui.circles(to_gui_pos_np(grid.pos.to_numpy().reshape((grid.size,dim))), radius=to_gui_radii(part_radii_relax)*0.5, color=0x000000)
+    gui.show(f"{folder_name}\\img\\rf{int(refreshing_rate+1e-5)}_{time_counter}.png")
+
+    '''save data'''
+    write_full_json(f"{folder_name}\\json\\"+ "frame"+ str(time_counter) + ".json")
+    print("div iter:",frame_div_iter,",frame iter:",frame_incom_iter)
+    print('sum grid vel:',np.sum(grid.vel.to_numpy()))
+    numpy.save(f"{folder_name}\\grid_data\\vel_{time_counter}",grid_vel)
+    numpy.save(f"{folder_name}\\part_data\\vel_{time_counter}",fluid.vel.to_numpy()[0:fluid.part_num[None],:])
+    print(fluid.vel.to_numpy()[0:fluid.part_num[None],:].shape)
+    numpy.save(f"{folder_name}\\part_data\\pos_{time_counter}",fluid.pos.to_numpy()[0:fluid.part_num[None],:])
+    print(fluid.pos.to_numpy()[0:fluid.part_num[None],:].shape)
+
+    '''sph steps'''
     frame_div_iter=0
     frame_incom_iter=0
-    while time_count*refreshing_rate < time_counter:
-        cfl_condition(fluid)
+    for i in range(steps_per_frame):
+        #cfl_condition(fluid)
         time_count += dt[None]
-        step_counter+=1
         # if time_count >1.1 and flg:
         #     fluid.push_2d_cube(center_pos=[0, 1.3], size=[0.8, 0.8], volume_frac=[1,0], color=0xA21212)
         #     flg=False
         sph_step()
-        #print(dt[None],time_count)
         frame_div_iter+=div_iter_count
         frame_incom_iter+=incom_iter_count
-        #write_json()
     time_counter += 1
-    print('current time: ', time_count)
-    print('time step: ', dt[None])
     # statistic(fluid)
     SPH_update_color(fluid)
-    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
-    gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
-    gui.circles(to_gui_pos(gridNodes), radius=to_gui_radii(part_radii_relax*0.1), color=to_gui_color(gridNodes))
-    gui.show(f"D:\\workspace\\Tichi_SPH\\Tichi_SPH\\img\\rf{refreshing_rate}_{'VF'if use_VF else 'DF'}_{surface_tension_gamma}_{time_counter}.png")
-    #write_full_json()
-    print("div iter:",frame_div_iter,",frame iter:",frame_incom_iter)
-    print(gridNodes.vel.to_numpy())
