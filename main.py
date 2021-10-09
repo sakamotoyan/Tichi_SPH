@@ -4,7 +4,7 @@ import json
 import os
 
 '''make folders'''
-folder_name=f"{'VF' if use_VF else 'DF'}res{res_up}"
+folder_name=f"{'VF' if use_VF else 'DF'}"
 try:
     os.mkdir(f"{folder_name}")
     os.mkdir(f"{folder_name}\\json")
@@ -26,7 +26,6 @@ for obj in obj_list:
     obj.ones.fill(1)
 
 dt[None] = init_part_size/cs
-refreshing_rate = 1 / (dt[None] * steps_per_frame)
 phase_rest_density.from_numpy(np_phase_rest_density)
 sim_space_lb.from_numpy(np_sim_space_lb)
 sim_space_rt.from_numpy(np_sim_space_rt)
@@ -50,15 +49,15 @@ assign_phase_color(0xeacd76,1)
 
 """ setup scene """
 volume_frac = np.zeros(phase_num, np.float32)
-fl_box=np.ones((35*res_up,79*res_up),dtype=np.bool_)
-box_voxels = 99*res_up
+fl_box=np.ones((int(1.4/init_part_size),int(3.2/init_part_size)),dtype=np.bool_)
+box_voxels = int(4/init_part_size)
 box=np.ones((box_voxels,box_voxels),dtype=np.bool_)
-box_layers = res_up
+box_layers = 1
 box[box_layers:box_voxels-box_layers,box_layers:box_voxels-box_layers]=False
 
 """ add particles """
-fluid.push_voxels(fl_box,[-1.7,-1.6],init_part_size*relaxing_factor,[1,0],0x6F7DBC)
-bound.push_voxels(box,[-2,-2],init_part_size*relaxing_factor,[1,0],0xaaaaaa)
+fluid.push_matrix(fl_box,[-1.7,-1.6],init_part_size*relaxing_factor,[1,0],0x6F7DBC)
+bound.push_matrix(box,[-2,-2],init_part_size*relaxing_factor,[1,0],0xaaaaaa)
 
 """ write scene data """
 grid_data={
@@ -68,7 +67,7 @@ grid_data={
     'fluid_part_count':fluid.part_num[None],
     'bound_part_count':bound.part_num[None],
     'dt':dt[None],
-    'frame_rate':steps_per_frame*dt[None]
+    'frame_rate':refreshing_rate
 }
 json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
 
@@ -115,7 +114,7 @@ def sph_step():
     """ SPH advection """
     SPH_advection_gravity_acc(fluid)
     SPH_advection_viscosity_acc(ngrid, fluid, fluid)
-    # SPH_advection_surface_tension_acc(ngrid, fluid, fluid)
+    SPH_advection_surface_tension_acc(ngrid, fluid, fluid)
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
     incom_iter_count = 0
@@ -255,8 +254,8 @@ while gui.running and not gui.get_event(gui.ESCAPE) and time_counter<1000:
     '''sph steps'''
     frame_div_iter=0
     frame_incom_iter=0
-    for i in range(steps_per_frame):
-        #cfl_condition(fluid)
+    while time_count<time_counter/refreshing_rate:
+        cfl_condition(fluid)
         time_count += dt[None]
         # if time_count >1.1 and flg:
         #     fluid.push_2d_cube(center_pos=[0, 1.3], size=[0.8, 0.8], volume_frac=[1,0], color=0xA21212)

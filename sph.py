@@ -148,7 +148,8 @@ def SPH_advection_surface_tension_acc(ngrid: ti.template(), obj: ti.template(), 
                         neighb_pid = ngrid.part_pid_in_node[shift]
                         xij = obj.pos[i] - nobj.pos[neighb_pid]
                         r = xij.norm()
-                        if r>0 and obj.volume_frac[i][1] > 0.99 and nobj.volume_frac[neighb_pid][1] > 0.99:
+                        # only phase 0 has surface tension now
+                        if r>0 and obj.volume_frac[i][0] > 0.99 and nobj.volume_frac[neighb_pid][0] > 0.99:
                             cohesion = -surface_tension_gamma * nobj.mass[neighb_pid] * C(r) * xij / r
                             curvature = surface_tension_gamma*(obj.normal[i]-nobj.normal[neighb_pid])
                             obj.acce_adv[i] += 2*obj.rest_psi[i]/(obj.sph_psi[i]+nobj.sph_psi[neighb_pid])*(cohesion+curvature)

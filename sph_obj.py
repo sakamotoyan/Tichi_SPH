@@ -82,9 +82,11 @@ class Fluid:
         for i in range(self.part_num[None]):
             self.mass[i] = phase_rest_density[None].dot(self.volume_frac[i])
 
-    def push_voxels(self, voxels, lb, dist, volume_frac, color):
-        index = np.where(voxels==True)
-        pos_seq = np.stack(index,axis=1)*dist+lb
+    # add particles according to true and false in the matrix
+    # matrix: np array (dimension: dim, dtype: np.bool)
+    def push_matrix(self, matrix, start_position, spacing, volume_frac, color):
+        index = np.where(matrix==True)
+        pos_seq = np.stack(index,axis=1)*spacing+start_position
         print(pos_seq.shape)
         self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), color)
 
