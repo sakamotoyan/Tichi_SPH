@@ -193,6 +193,9 @@ class Fluid:
             pos_seq -= (np.array(center_pos) + np.array(size)/2)
             # print(pos_seq)
             self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color)
+    
+    def push_part_from_ply(self, p_sum, pos_seq, volume_frac, color: int):
+        self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color)
             
 
             

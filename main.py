@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 from sph import *
 import json
 import os
@@ -70,6 +70,14 @@ grid_data={
     'frame_rate':refreshing_rate
 }
 json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
+
+""" setup 3d scene from ply"""
+bunny_verts = read_ply('ply_models/bunny_0.05.ply')
+f_part_num = len(bunny_verts)
+fluid.push_part_from_ply(f_part_num, bunny_verts, volume_frac=[0, 1], color=0x068587)
+cube_verts = read_ply('ply_models/cube_0.05.ply')
+b_part_num = len(cube_verts)
+bound.push_part_from_ply(b_part_num, cube_verts, volume_frac=[0, 1], color=0xFF4500)
 
 def sph_step():
     global div_iter_count, incom_iter_count
@@ -217,52 +225,75 @@ def write_full_json(fname):
     with open(fname,"w") as f:
         f.write(s)
 
-""" GUI system """
-time_count = float(0)
-time_counter = int(0)
-step_counter = int(0)
-frame_div_iter=0
-frame_incom_iter=0
-flg = True
-print('fluid particle count: ', fluid.part_num[None])
-print('bound particle count: ', bound.part_num[None])
-print('grid count:',grid.size)
-numpy.save(f"{folder_name}\\grid_data\\pos",grid.pos.to_numpy())
-gui = ti.GUI('SPH', to_gui_res(gui_res_0))
-while gui.running and not gui.get_event(gui.ESCAPE) and time_counter<1000:
-    print('current time: ', time_count)
-    print('time step: ', dt[None])
-
-    '''update gui'''
-    gui.clear(0xffffff)
-    gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
-    gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
-    grid_vel = grid.vel.to_numpy()
-    gui.circles(to_gui_pos_np(grid.pos.to_numpy().reshape((grid.size,dim))), radius=to_gui_radii(part_radii_relax)*0.5, color=0x000000)
-    gui.show(f"{folder_name}\\img\\rf{int(refreshing_rate+1e-5)}_{time_counter}.png")
-
-    '''save data'''
-    write_full_json(f"{folder_name}\\json\\"+ "frame"+ str(time_counter) + ".json")
-    print("div iter:",frame_div_iter,",frame iter:",frame_incom_iter)
-    print('sum grid vel:',np.sum(grid.vel.to_numpy()))
-    numpy.save(f"{folder_name}\\grid_data\\vel_{time_counter}",grid_vel)
-    numpy.save(f"{folder_name}\\part_data\\vel_{time_counter}",fluid.vel.to_numpy()[0:fluid.part_num[None],:])
-    print(fluid.vel.to_numpy()[0:fluid.part_num[None],:].shape)
-    numpy.save(f"{folder_name}\\part_data\\pos_{time_counter}",fluid.pos.to_numpy()[0:fluid.part_num[None],:])
-    print(fluid.pos.to_numpy()[0:fluid.part_num[None],:].shape)
-
-    '''sph steps'''
+"""2d and record data"""
+if dim == 2:
+    """ GUI system """
+    time_count = float(0)
+    time_counter = int(0)
+    step_counter = int(0)
     frame_div_iter=0
     frame_incom_iter=0
-    while time_count<time_counter/refreshing_rate:
+    flg = True
+    print('fluid particle count: ', fluid.part_num[None])
+    print('bound particle count: ', bound.part_num[None])
+    print('grid count:',grid.size)
+    numpy.save(f"{folder_name}\\grid_data\\pos",grid.pos.to_numpy())
+    gui = ti.GUI('SPH', to_gui_res(gui_res_0))
+    while gui.running and not gui.get_event(gui.ESCAPE) and time_counter<1000:
+        print('current time: ', time_count)
+        print('time step: ', dt[None])
+
+        '''update gui'''
+        gui.clear(0xffffff)
+        gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
+        gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
+        grid_vel = grid.vel.to_numpy()
+        gui.circles(to_gui_pos_np(grid.pos.to_numpy().reshape((grid.size,dim))), radius=to_gui_radii(part_radii_relax)*0.5, color=0x000000)
+        gui.show(f"{folder_name}\\img\\rf{int(refreshing_rate+1e-5)}_{time_counter}.png")
+
+        '''save data'''
+        write_full_json(f"{folder_name}\\json\\"+ "frame"+ str(time_counter) + ".json")
+        print("div iter:",frame_div_iter,",frame iter:",frame_incom_iter)
+        print('sum grid vel:',np.sum(grid.vel.to_numpy()))
+        numpy.save(f"{folder_name}\\grid_data\\vel_{time_counter}",grid_vel)
+        numpy.save(f"{folder_name}\\part_data\\vel_{time_counter}",fluid.vel.to_numpy()[0:fluid.part_num[None],:])
+        print(fluid.vel.to_numpy()[0:fluid.part_num[None],:].shape)
+        numpy.save(f"{folder_name}\\part_data\\pos_{time_counter}",fluid.pos.to_numpy()[0:fluid.part_num[None],:])
+        print(fluid.pos.to_numpy()[0:fluid.part_num[None],:].shape)
+
+        '''sph steps'''
+        frame_div_iter=0
+        frame_incom_iter=0
+        while time_count<time_counter/refreshing_rate:
+            cfl_condition(fluid)
+            time_count += dt[None]
+            # if time_count >1.1 and flg:
+            #     fluid.push_2d_cube(center_pos=[0, 1.3], size=[0.8, 0.8], volume_frac=[1,0], color=0xA21212)
+            #     flg=False
+            sph_step()
+            frame_div_iter+=div_iter_count
+            frame_incom_iter+=incom_iter_count
+        time_counter += 1
+        # statistic(fluid)
+        SPH_update_color(fluid)
+else:
+    """3d only output ply"""
+    time_count = float(0)
+    time_counter = int(0)
+    print('fluid particle count: ', fluid.part_num[None])
+    print('bound particle count: ', bound.part_num[None])
+
+    while time_count < 60:
+        """ computation loop """
         cfl_condition(fluid)
         time_count += dt[None]
-        # if time_count >1.1 and flg:
-        #     fluid.push_2d_cube(center_pos=[0, 1.3], size=[0.8, 0.8], volume_frac=[1,0], color=0xA21212)
-        #     flg=False
         sph_step()
-        frame_div_iter+=div_iter_count
-        frame_incom_iter+=incom_iter_count
-    time_counter += 1
-    # statistic(fluid)
-    SPH_update_color(fluid)
+
+        """ recording """
+        if time_count*refreshing_rate > time_counter:
+            time_counter += 1
+            print('current time: ', time_count)
+            print('time step: ', dt[None])
+            SPH_update_color(fluid)
+            write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim, pos=fluid.pos.to_numpy())
+

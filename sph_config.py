@@ -2,11 +2,12 @@ import taichi as ti
 import numpy as np
 import math
 import sys
+from plyfile import *
 
 # ti.init(arch=ti.cpu, default_fp=ti.f32, default_ip=ti.i32)
 ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_GB=9, excepthook=True)
 
-dim = 2
+dim = 3
 phase_num = 2
 init_part_size = 0.04
 part_radii_relax = 2

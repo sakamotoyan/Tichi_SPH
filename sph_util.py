@@ -87,6 +87,25 @@ def node_encode(pos: ti.template()):
 def dim_encode(dim: ti.template()):
     return node_dim_coder[None].dot(dim)
 
+""" PLY funcs """
+def read_ply(path):
+    obj_ply = PlyData.read(path)
+    obj_verts = obj_ply['vertex'].data
+    verts_array = np.array([[x, y, z] for x,y,z in obj_verts])
+    return verts_array
+
+def write_ply(path, frame_num, dim, num, pos):
+    if dim==3:
+        list_pos = [(pos[i,0], pos[i,1], pos[i,2]) for i in range(num)]
+    elif dim==2:
+        list_pos = [(pos[i,0], pos[i,1], 0) for i in range(num)]
+    else:
+        print('write_ply(): dim exceeds default values')
+        return
+    np_pos = np.array(list_pos, dtype=[('x','f4'),('y','f4'),('z','f4')])
+    el_pos = PlyElement.describe(np_pos, 'vertex')
+    PlyData([el_pos]).write(str(path)+'_'+str(frame_num)+'.ply')
+    
 # GUI funcs
 def to_gui_res(res_0):
     return (res_0, int((np_sim_space_rt[1]-np_sim_space_lb[1])/(np_sim_space_rt[0]-np_sim_space_lb[0])*res_0))
