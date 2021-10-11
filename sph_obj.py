@@ -85,10 +85,38 @@ class Fluid:
     # add particles according to true and false in the matrix
     # matrix: np array (dimension: dim, dtype: np.bool)
     def push_matrix(self, matrix, start_position, spacing, volume_frac, color):
+        if len(matrix.shape)!=dim:
+            raise Exception('scenario error: wrong object dimension')
         index = np.where(matrix==True)
         pos_seq = np.stack(index,axis=1)*spacing+start_position
-        print(pos_seq.shape)
         self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), color)
+
+    # helper function for scene_add functions
+    def scene_add_help_centering(self, start_pos, end_pos, spacing):
+        end_pos = np.array(end_pos,dtype=np.float32)
+        start_pos = np.array(start_pos,dtype=np.float32)
+        matrix_shape = ((end_pos-start_pos+1e-7)/spacing).astype(np.int32)
+        padding = (end_pos-start_pos-matrix_shape*spacing)/2
+        return matrix_shape, padding
+
+    # add n dimension cube to scene
+    def scene_add_cube(self, start_pos, end_pos, volume_frac, color):
+        spacing = init_part_size * relaxing_factor
+        matrix_shape, padding = self.scene_add_help_centering(start_pos, end_pos, spacing)
+        self.push_matrix(np.ones(matrix_shape,dtype=np.bool_),start_pos+padding,spacing,volume_frac,color)
+
+    # add 3D or 2D hollow box to scene, with several layers
+    def scene_add_box(self, start_pos, end_pos, layers, volume_frac, color):
+        spacing = init_part_size * relaxing_factor
+        matrix_shape, padding = self.scene_add_help_centering(start_pos, end_pos, spacing)
+        box=np.ones(matrix_shape,dtype=np.bool_)
+        if len(matrix_shape) == 2:
+            box[layers : matrix_shape[0] - layers, layers : matrix_shape[1] - layers] = False
+        elif len(matrix_shape)==3:
+            box[layers : matrix_shape[0] - layers, layers : matrix_shape[1] - layers, layers : matrix_shape[2] - layers] = False
+        else:
+            raise Exception('scenario error: can only add 2D or 3D boxes')
+        self.push_matrix(box,start_pos+padding,spacing,volume_frac,color)
 
     @ti.kernel
     def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(), color:int):
@@ -253,12 +281,16 @@ class Ngrid:
                 self.part_pid_in_node[obj.node_code_seq[i]] = i
                 self.part_uid_in_node[obj.node_code_seq[i]] = obj.uid
 
+# for particle-grid mapping
 @ti.data_oriented
 class Grid:
-    def __init__(self, shape, lb, dist):
+    # shape: number of grids on each dimension
+    # start_position: smallest coordination of the grid
+    # spacing: distance between each grid cell
+    def __init__(self, shape, start_position, spacing):
         self.shape=shape
-        self.lb=lb
-        self.dist=dist
+        self.lb=start_position
+        self.dist=spacing
         self.size=1
         for i in range(len(shape)):
             self.size*=shape[i]

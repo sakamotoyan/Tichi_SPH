@@ -9,5 +9,7 @@
 > For more about Taichi, please refer to https://github.com/taichi-dev/taichi
 
 ## Run this project
-* create a folder called `img` to save simulation images
-* `ti main.py` to run
+* `python main.py` to run
+### command line parameters
+-c <configFile> or --configFile <configFile>: specify the path of parameters config file
+-s <scenarioFile> or --scenarioFile <scenarioFile>: specify the path of simulation scenario file

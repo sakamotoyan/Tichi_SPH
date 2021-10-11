@@ -1,4 +1,4 @@
-import numpy as np
+import numpy
 from sph import *
 import json
 import os
@@ -48,16 +48,27 @@ assign_phase_color(0x6F7DBC,0)
 assign_phase_color(0xeacd76,1)
 
 """ setup scene """
-volume_frac = np.zeros(phase_num, np.float32)
-fl_box=np.ones((int(1.4/init_part_size),int(3.2/init_part_size)),dtype=np.bool_)
-box_voxels = int(4/init_part_size)
-box=np.ones((box_voxels,box_voxels),dtype=np.bool_)
-box_layers = 1
-box[box_layers:box_voxels-box_layers,box_layers:box_voxels-box_layers]=False
-
-""" add particles """
-fluid.push_matrix(fl_box,[-1.7,-1.6],init_part_size*relaxing_factor,[1,0],0x6F7DBC)
-bound.push_matrix(box,[-2,-2],init_part_size*relaxing_factor,[1,0],0xaaaaaa)
+try:
+    scenario=json.load(open(scenario_file))
+    for part in scenario:
+        ob=None
+        if part=='fluid':
+            ob=fluid
+        elif part=='bound':
+            ob=bound
+        if ob is not None:
+            for a in scenario[part]:
+                if a['type']=='cube':
+                    ob.scene_add_cube(a['start_pos'],a['end_pos'],a['volume_frac'],int(a['color'],16))
+                elif a['type']=='box':
+                    ob.scene_add_box(a['start_pos'],a['end_pos'],a['layers'],a['volume_frac'],int(a['color'],16))
+except Exception:
+    print('no scenario file or scenario file invalid, use default scenario')
+    bound.scene_add_box([-1.5,-1.5,-1.5],[1.5,1.5,1.5],2,[1,0],0xaaaaaa)
+    """ setup 3d scene from ply"""
+    bunny_verts = read_ply('ply_models/bunny_0.05.ply')
+    f_part_num = len(bunny_verts)
+    fluid.push_part_from_ply(f_part_num, bunny_verts, volume_frac=[0, 1], color=0x068587)
 
 """ write scene data """
 grid_data={
@@ -71,13 +82,10 @@ grid_data={
 }
 json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
 
-""" setup 3d scene from ply"""
-bunny_verts = read_ply('ply_models/bunny_0.05.ply')
-f_part_num = len(bunny_verts)
-fluid.push_part_from_ply(f_part_num, bunny_verts, volume_frac=[0, 1], color=0x068587)
-cube_verts = read_ply('ply_models/cube_0.05.ply')
-b_part_num = len(cube_verts)
-bound.push_part_from_ply(b_part_num, cube_verts, volume_frac=[0, 1], color=0xFF4500)
+
+# cube_verts = read_ply('ply_models/cube_0.05.ply')
+# b_part_num = len(cube_verts)
+# bound.push_part_from_ply(b_part_num, cube_verts, volume_frac=[0, 1], color=0xFF4500)
 
 def sph_step():
     global div_iter_count, incom_iter_count
