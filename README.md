@@ -13,3 +13,7 @@
 ### command line parameters
 -c <configFile> or --configFile <configFile>: specify the path of parameters config file
 -s <scenarioFile> or --scenarioFile <scenarioFile>: specify the path of simulation scenario file
+### example
+```
+python main.py -c config_example\config_3d.json -s scenario_example\3d_bunny.json
+```

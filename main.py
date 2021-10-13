@@ -62,9 +62,12 @@ try:
                     ob.scene_add_cube(a['start_pos'],a['end_pos'],a['volume_frac'],int(a['color'],16))
                 elif a['type']=='box':
                     ob.scene_add_box(a['start_pos'],a['end_pos'],a['layers'],a['volume_frac'],int(a['color'],16))
+                elif a['type']=='ply':
+                    verts = read_ply(a['file_name'])
+                    ob.push_part_from_ply(len(verts), verts, volume_frac=a['volume_frac'], color=int(a['color'],16))
 except Exception:
     print('no scenario file or scenario file invalid, use default scenario')
-    bound.scene_add_box([-1.5,-1.5,-1.5],[1.5,1.5,1.5],2,[1,0],0xaaaaaa)
+    bound.scene_add_box([-2]*dim,[2]*dim,2,[1,0],0xaaaaaa)
     """ setup 3d scene from ply"""
     bunny_verts = read_ply('ply_models/bunny_0.05.ply')
     f_part_num = len(bunny_verts)

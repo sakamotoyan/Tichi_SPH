@@ -3,3 +3,4 @@
 *.png
 !/config_example/*.json
 !/scenario_example/*.json
+/ply_models/
