@@ -4,7 +4,9 @@
 
 * Python 3.7 or higher
 * numpy
-* taichi
+* taichi 0.8.0 or higher
+* Vulkan https://vulkan.lunarg.com/sdk/home
+
 (run `pip install taichi` to install)
 > For more about Taichi, please refer to https://github.com/taichi-dev/taichi
 

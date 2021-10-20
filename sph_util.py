@@ -121,4 +121,8 @@ def to_gui_color(obj):
 def to_gui_pos_np(arr):
     return (arr - np_sim_space_lb) / (np_sim_space_rt-np_sim_space_lb)
 
-
+@ti.kernel
+def update_color_vector(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        color = hex2rgb(obj.color[i])
+        obj.color_vector[i] = color

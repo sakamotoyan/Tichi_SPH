@@ -130,4 +130,6 @@ for j in range(np_neighb_template.shape[1]):
 
 '''init taichi'''
 ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32,
-        device_memory_GB=device_memory_GB, excepthook=True)
+       device_memory_GB=device_memory_GB, excepthook=True)
+#ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_fraction=0.6, excepthook=True)
+# ti.init(arch=ti.cpu)

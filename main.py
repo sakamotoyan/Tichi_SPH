@@ -44,6 +44,7 @@ for i in range(np_neighb_template.shape[1]):
 div_iter_count = 0
 incom_iter_count = 0
 
+
 assign_phase_color(0x6F7DBC,0)
 assign_phase_color(0xeacd76,1)
 
@@ -236,6 +237,87 @@ def write_full_json(fname):
     with open(fname,"w") as f:
         f.write(s)
 
+
+"""define window, canvas, scene and camera"""
+res = (1080, 720)
+window = ti.ui.Window("Fluid 3D", res, vsync=True)
+frame_id = 0
+canvas = window.get_canvas()
+scene = ti.ui.Scene()
+camera = ti.ui.make_camera()
+camera.position(8.0, 3.0, 0.0)
+camera.lookat(0.0, 2.0, 0.0)
+camera.fov(55)
+displayb = True  # is dispaly boundary
+meshb = False
+dispaly_radius = part_size[1]*0.5  # render particle size
+ambient_color = (0.7, 0.7, 0.7)
+background_color = (0.2, 0.2, 0.6)
+
+
+
+def show_options():
+    global displayb
+    global meshb
+
+    window.GUI.begin("options", 0.05, 0.1, 0.2, 0.2)
+    window.GUI.text("w:front")
+    window.GUI.text("s:back")
+    window.GUI.text("a:left")
+    window.GUI.text("d:right")
+    window.GUI.text("RMB:rotate")
+    window.GUI.text("b:display boundary")
+
+    window.GUI.end()
+
+    if window.get_event(ti.ui.PRESS):
+        # dispaly boundary
+        if window.event.key == 'b':
+            displayb = bool(1 - displayb)
+            print("Display boundary:", displayb)
+        # reset play todo
+        if window.event.key == 'r':
+            reset()
+        # mesh boundary  todo
+        # if window.event.key == 'm':
+        #     meshb = bool(1 - meshb)
+        #     print("Display mesh boundary:", meshb)
+
+
+
+
+def reset():
+    print("reset")
+
+
+def render():
+    canvas.set_background_color(background_color)
+    camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.RMB)
+    scene.set_camera(camera)
+
+    scene.ambient_light(ambient_color)
+
+    """Declare a set of particles within the scene"""
+    update_color_vector(fluid)
+    update_color_vector(bound)
+    scene.particles(fluid.pos, per_vertex_color=fluid.color_vector, radius=dispaly_radius)
+    if displayb:
+        if meshb:
+            scene.mesh(bound.pos, per_vertex_color=bound.color_vector, two_sided=True)
+        else:
+            scene.particles(bound.pos, per_vertex_color=bound.color_vector, radius=dispaly_radius)
+
+    """Configuring light sources, must set one plint light, otherwise occurs an error (seem to be a bug)"""
+    scene.point_light(pos=(2, 1.5, -1.5), color=(0.8, 0.8, 0.8))
+    # scene.point_light(pos=(2, 1.5, 1.5), color=(0.8, 0.8, 0.8))
+
+    """Render the scene"""
+    canvas.scene(scene)
+
+
+
+
+
 """2d and record data"""
 if dim == 2:
     """ GUI system """
@@ -294,17 +376,25 @@ else:
     print('fluid particle count: ', fluid.part_num[None])
     print('bound particle count: ', bound.part_num[None])
 
-    while time_count < 60:
+    while window.running:
+        frame_id += 1
+        frame_id = frame_id % 256
+
         """ computation loop """
         cfl_condition(fluid)
         time_count += dt[None]
         sph_step()
 
         """ recording """
-        if time_count*refreshing_rate > time_counter:
+        if time_count * refreshing_rate > time_counter:
             time_counter += 1
             print('current time: ', time_count)
             print('time step: ', dt[None])
             SPH_update_color(fluid)
-            write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim, pos=fluid.pos.to_numpy())
+            write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim,
+                      pos=fluid.pos.to_numpy())
+
+        render()
+        show_options()
+        window.show()
 
