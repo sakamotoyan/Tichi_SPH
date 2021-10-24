@@ -1,5 +1,6 @@
 import numpy
 from sph import *
+from NeighborSearch import *
 import json
 import os
 
@@ -16,10 +17,10 @@ except FileExistsError:
 
 
 """ init data structure """
-ngrid = Ngrid()
 fluid = Fluid(max_part_num=fluid_part_num)
 bound = Fluid(max_part_num=bound_part_num)
 grid = Grid(tuple((np_grid_size/grid_dist).astype(np.int32)),np_grid_lb,grid_dist)
+ns = NeighborSearch(len(obj_list))
 
 for obj in obj_list:
     obj.set_zero()
@@ -94,24 +95,19 @@ json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
 def sph_step():
     global div_iter_count, incom_iter_count
     """ neighbour search """
-    ngrid.clear_node()
-    ngrid.encode(fluid)
-    ngrid.encode(bound)
-    ngrid.mem_shift()
-    ngrid.fill_node(fluid)
-    ngrid.fill_node(bound)
+    ns.establish_neighbs(fluid,bound)
     """ SPH clean value """
     SPH_clean_value(fluid)
     SPH_clean_value(bound)
     """ SPH compute W and W_grad """
-    SPH_prepare_attr(ngrid, fluid, fluid)
-    SPH_prepare_attr(ngrid, fluid, bound)
-    SPH_prepare_attr(ngrid, bound, bound)
-    SPH_prepare_attr(ngrid, bound, fluid)
-    SPH_prepare_alpha_1(ngrid, fluid, fluid)
-    SPH_prepare_alpha_1(ngrid, fluid, bound)
-    SPH_prepare_alpha_2(ngrid, fluid, fluid)
-    SPH_prepare_alpha_2(ngrid, bound, fluid)
+    SPH_prepare_attr(ns, fluid, fluid)
+    SPH_prepare_attr(ns, fluid, bound)
+    SPH_prepare_attr(ns, bound, bound)
+    SPH_prepare_attr(ns, bound, fluid)
+    SPH_prepare_alpha_1(ns, fluid, fluid)
+    SPH_prepare_alpha_1(ns, fluid, bound)
+    SPH_prepare_alpha_2(ns, fluid, fluid)
+    SPH_prepare_alpha_2(ns, bound, fluid)
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
     """ IPPE SPH divergence """
@@ -120,34 +116,34 @@ def sph_step():
     while div_iter_count<iter_threshold_min or fluid.compression[None]>divergence_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
-        IPPE_adv_psi(ngrid, fluid, fluid)
-        IPPE_adv_psi(ngrid, fluid, bound)
-        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_adv_psi(ns, fluid, fluid)
+        IPPE_adv_psi(ns, fluid, bound)
+        # IPPE_adv_psi(ns, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
-        IPPE_update_vel_adv(ngrid, fluid, fluid)
-        IPPE_update_vel_adv(ngrid, fluid, bound)
+        IPPE_update_vel_adv(ns, fluid, fluid)
+        IPPE_update_vel_adv(ns, fluid, bound)
         div_iter_count+=1
         if div_iter_count>iter_threshold_max:
             break
     SPH_vel_adv_2_vel(fluid)
     """ SPH advection """
     SPH_advection_gravity_acc(fluid)
-    SPH_advection_viscosity_acc(ngrid, fluid, fluid)
-    SPH_advection_surface_tension_acc(ngrid, fluid, fluid)
+    SPH_advection_viscosity_acc(ns, fluid, fluid)
+    SPH_advection_surface_tension_acc(ns, fluid, fluid)
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
     incom_iter_count = 0
     while incom_iter_count<iter_threshold_min or fluid.compression[None]>compression_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
-        IPPE_adv_psi(ngrid, fluid, fluid)
-        IPPE_adv_psi(ngrid, fluid, bound)
-        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_adv_psi(ns, fluid, fluid)
+        IPPE_adv_psi(ns, fluid, bound)
+        # IPPE_adv_psi(ns, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
-        IPPE_update_vel_adv(ngrid, fluid, fluid)
-        IPPE_update_vel_adv(ngrid, fluid, bound)
+        IPPE_update_vel_adv(ns, fluid, fluid)
+        IPPE_update_vel_adv(ns, fluid, bound)
         incom_iter_count+=1
         if incom_iter_count>iter_threshold_max:
             break
@@ -156,21 +152,21 @@ def sph_step():
     # print('incom div: ', incom_iter_count)
     """ WC SPH pressure """
     # WC_pressure_val(fluid)
-    # WC_pressure_acce(ngrid, fluid, fluid)
-    # WC_pressure_acce(ngrid, fluid, bound)
+    # WC_pressure_acce(ns, fluid, fluid)
+    # WC_pressure_acce(ns, fluid, bound)
     # SPH_advection_update_vel_adv(fluid)
     """ FBM procedure """
     # while fluid.general_flag[None] > 0:
     #     SPH_FBM_clean_tmp(fluid)
-    #     SPH_FBM_convect(ngrid, fluid, fluid)
-    #     SPH_FBM_diffuse(ngrid, fluid, fluid)
+    #     SPH_FBM_convect(ns, fluid, fluid)
+    #     SPH_FBM_diffuse(ns, fluid, fluid)
     #     SPH_FBM_check_tmp(fluid)
     """ SPH update """
     # SPH_update_volume_frac(fluid)
     SPH_update_mass(fluid)
     SPH_update_pos(fluid)
     SPH_update_energy(fluid)
-    map_velocity(ngrid, grid,fluid)
+    # map_velocity(ns, grid,fluid)
     return div_iter_count, incom_iter_count
     """ SPH debug """
 
@@ -393,8 +389,7 @@ else:
             SPH_update_color(fluid)
             write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim,
                       pos=fluid.pos.to_numpy())
-
-        render()
-        show_options()
-        window.show()
+            render()
+            show_options()
+            window.show()
 

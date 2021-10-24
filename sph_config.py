@@ -65,6 +65,7 @@ np_gravity = np.array(read_array_param(config.get('np_gravity'),default=[(-9.8 i
 
 #neighbor search
 neighb_range  = int(read_param(config.get('neighb_range'),default=1)) # range to search neighbors, e.g. when neighb_range=1, search neighbors in (x-1, x, x+1)
+max_neighb_per_part = int(read_param(config.get('max_neighb_per_part'),default=250))
 
 #saves
 refreshing_rate  = read_param(config.get('refreshing_rate'),default=30) # approximate frames per second
@@ -90,6 +91,7 @@ grid_dist  = read_param(config.get('grid_dist'),default=0.04) # spacing of grid
 
 '''calculated parameters'''
 max_part_num = fluid_part_num + bound_part_num
+max_part_num_list=[fluid_part_num,bound_part_num]
 #powers of particle size
 np_part_size = np.empty(shape=5, dtype=np.float32)
 np_part_size[1] = init_part_size
@@ -133,3 +135,22 @@ ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32,
        device_memory_GB=device_memory_GB, excepthook=True)
 #ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, device_memory_fraction=0.6, excepthook=True)
 # ti.init(arch=ti.cpu)
+
+obj_list = []
+tmp_int = ti.field(float, 32)
+tmp_val = ti.field(float, 32)
+dt = ti.field(float, ())
+tmp_val_dim = ti.Vector.field(dim, float, 32)
+phase_rest_density = ti.Vector.field(phase_num, float, ())
+phase_rgb = ti.Vector.field(3, float, phase_num)
+sim_space_lb = ti.Vector.field(dim, float, ())
+sim_space_rt = ti.Vector.field(dim, float, ())
+part_size = ti.field(float, 5)
+sph_h = ti.field(float, 5)
+sph_sig = ti.field(float, 4)
+gravity = ti.Vector.field(dim, float, ())
+node_dim = ti.Vector.field(dim, float, ())
+node_dim_coder = ti.Vector.field(dim, int, ())
+neighb_template = ti.Vector.field(dim, int, (neighb_range*2+1)**dim)
+fbm_diffusion_term = ti.field(float, ())
+fbm_convection_term = ti.field(float, ())

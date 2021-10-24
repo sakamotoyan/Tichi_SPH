@@ -1,24 +1,5 @@
 from sph_config import *
 
-obj_list = []
-tmp_int = ti.field(float, 32)
-tmp_val = ti.field(float, 32)
-dt = ti.field(float, ())
-tmp_val_dim = ti.Vector.field(dim, float, 32)
-phase_rest_density = ti.Vector.field(phase_num, float, ())
-phase_rgb = ti.Vector.field(3, float, phase_num)
-sim_space_lb = ti.Vector.field(dim, float, ())
-sim_space_rt = ti.Vector.field(dim, float, ())
-part_size = ti.field(float, 5)
-sph_h = ti.field(float, 5)
-sph_sig = ti.field(float, 4)
-gravity = ti.Vector.field(dim, float, ())
-node_dim = ti.Vector.field(dim, float, ())
-node_dim_coder = ti.Vector.field(dim, int, ())
-neighb_template = ti.Vector.field(dim, int, (neighb_range*2+1)**dim)
-fbm_diffusion_term = ti.field(float, ())
-fbm_convection_term = ti.field(float, ())
-
 @ti.func
 def C(r):
     q = r/sph_h[1]
