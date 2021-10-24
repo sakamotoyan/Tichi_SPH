@@ -2,6 +2,13 @@ import taichi as ti
 from sph_config import *
 
 @ti.data_oriented
+class PartNeighbs:
+    def __init__(self,part_num,number_of_uids):
+        self.neighbs=ti.field(int,shape=(part_num,max_neighb_per_part))
+        self.neighbs_shift=ti.field(int,shape=(part_num,number_of_uids))
+        self.neighbs_count=ti.field(int,shape=(part_num,number_of_uids))
+
+@ti.data_oriented
 class NeighborSearch:
     def __init__(self,number_of_uids):
         self.number_of_uids=number_of_uids
@@ -15,10 +22,11 @@ class NeighborSearch:
         ti.root.dense(ti.i, node_num).dense(ti.j,number_of_uids).place(self.node_part_shift_count)
         ti.root.dense(ti.i, max_part_num).place(self.part_pid_in_node)
 
-        self.neighbs=ti.field(int,shape=(max_part_num,max_neighb_per_part))
-        self.neighbs_shift=ti.field(int,shape=(max_part_num,number_of_uids))
-        self.neighbs_count=ti.field(int,shape=(max_part_num,number_of_uids))
-        self.part_shift=ti.field(int,shape=number_of_uids)
+        self.parts=[PartNeighbs(max_part_num_list[i],number_of_uids) for i in range(number_of_uids)]
+        # self.neighbs=ti.field(int,shape=(max_part_num,max_neighb_per_part))
+        # self.neighbs_shift=ti.field(int,shape=(max_part_num,number_of_uids))
+        # self.neighbs_count=ti.field(int,shape=(max_part_num,number_of_uids))
+        # self.part_shift=ti.field(int,shape=number_of_uids)
 
     @ti.kernel
     def clear_node(self):
@@ -26,13 +34,13 @@ class NeighborSearch:
             for j in range(self.number_of_uids):
                 self.node_part_count[i,j] = 0
 
-    #determine part_shift
-    def shift_part(self, *args):
-        for obj in args:
-            self.part_shift[obj.uid]=obj.part_num[None]
-        sum=0
-        for i in range(self.number_of_uids):
-            self.part_shift[i],sum=sum,self.part_shift[i]+sum
+    # #determine part_shift
+    # def shift_part(self, *args):
+    #     for obj in args:
+    #         self.part_shift[obj.uid]=obj.part_num[None]
+    #     sum=0
+    #     for i in range(self.number_of_uids):
+    #         self.part_shift[i],sum=sum,self.part_shift[i]+sum
 
     @ti.func
     def node_encode(self,pos: ti.template()):
@@ -75,35 +83,46 @@ class NeighborSearch:
     # fill neighbs
     @ti.kernel
     def fill_neighbs(self, obj: ti.template()):
-        p_shift=self.part_shift[obj.uid]
+        # part=ti.static(self.parts[obj.uid])
+        # p_shift=self.part_shift[obj.uid]
         for i in range(obj.part_num[None]):
             node=self.node_encode(obj.pos[i])
             count=0
             for k in range(self.number_of_uids):
-                self.neighbs_shift[i+p_shift,k]=count
+                self.parts[obj.uid].neighbs_shift[i,k]=count
                 for t in range(neighb_template.shape[0]):
                     node_code = self.dim_encode(node+neighb_template[t])
                     if 0 < node_code < node_num:
                         for j in range(self.node_part_count[node_code,k]):
                             shift = self.node_part_shift[node_code,k]+j
                             neighb_pid = self.part_pid_in_node[shift] 
-                            self.neighbs[i+p_shift,count]=neighb_pid
+                            self.parts[obj.uid].neighbs[i,count]=neighb_pid
                             count += 1
-                self.neighbs_count[i+p_shift,k]=count-self.neighbs_shift[i+p_shift,k]
+                self.parts[obj.uid].neighbs_count[i,k]=count-self.parts[obj.uid].neighbs_shift[i,k]
+
+    # @ti.func
+    # def neighbor(self,obj,nobj,i,j):
+    #     return self.neighbs[i+self.part_shift[obj.uid],j+self.neighbs_shift[i+self.part_shift[obj.uid],nobj.uid]]
+
+    # @ti.func
+    # def neighbor_count(self,obj,nobj,i):
+    #     return self.neighbs_count[i+self.part_shift[obj.uid],nobj.uid]
+
+    # @ti.func
+    # def neighbor1(self,obj,nobj,i,j):
+    #     return self.neighbs[i+self.part_shift[obj.uid],j+]
 
     @ti.func
-    def neighbor(self,obj,nobj,i,j):
-        p_shift=self.part_shift[obj.uid]
-        return self.neighbs[i+p_shift,j+self.neighbs_shift[i+p_shift,nobj.uid]]
-
+    def neighbor_first(self,obj,nobj,i):
+        return self.parts[obj.uid].neighbs_shift[i,nobj.uid]
+    
     @ti.func
-    def neighbor_count(self,obj,nobj,i):
-        p_shift=self.part_shift[obj.uid]
-        return self.neighbs_count[i+p_shift,nobj.uid]
+    def neighbor_last(self,obj,nobj,i):
+        return self.parts[obj.uid].neighbs_shift[i,nobj.uid] + self.parts[obj.uid].neighbs_count[i,nobj.uid]
             
     def establish_neighbs(self, *args):
         self.clear_node()
-        self.shift_part(*args)
+        # self.shift_part(*args)
         for obj in args:
             self.encode(obj)
         self.mem_shift()

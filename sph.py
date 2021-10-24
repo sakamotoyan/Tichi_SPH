@@ -9,8 +9,9 @@ from sph_obj import *
 @ti.kernel
 def SPH_neighbour_loop_template(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)                 
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
+     
 
 @ti.kernel
 def SPH_clean_value(obj: ti.template()):
@@ -41,8 +42,8 @@ def cfl_condition(obj: ti.template()):
 @ti.kernel
 def SPH_prepare_attr(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]    
             Wr = W((obj.pos[i] - nobj.pos[neighb_pid]).norm())
             obj.W[i] += Wr
             obj.sph_compression[i] += Wr*nobj.rest_volume[neighb_pid]
@@ -51,8 +52,8 @@ def SPH_prepare_attr(ns: ti.template(), obj: ti.template(), nobj: ti.template())
 @ti.kernel
 def SPH_prepare_alpha_1(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             if r>0:
@@ -61,8 +62,8 @@ def SPH_prepare_alpha_1(ns: ti.template(), obj: ti.template(), nobj: ti.template
 @ti.kernel
 def SPH_prepare_alpha_2(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             r = (obj.pos[i] - nobj.pos[neighb_pid]).norm()
             if r>0:
                 obj.alpha_2[i] += W_grad(r)**2 * nobj.X[neighb_pid]**2 / nobj.mass[neighb_pid]
@@ -82,8 +83,8 @@ def SPH_advection_gravity_acc(obj: ti.template()):
 @ti.kernel
 def SPH_advection_viscosity_acc(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             if r>0:
@@ -92,16 +93,16 @@ def SPH_advection_viscosity_acc(ns: ti.template(), obj: ti.template(), nobj: ti.
 @ti.kernel
 def SPH_advection_surface_tension_acc(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             if r>0:
                 obj.normal[i] += -nobj.X[neighb_pid]/nobj.sph_psi[neighb_pid]*W_grad(r) * (xij)/r
         obj.normal[i]*=sph_h[1]
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             # only phase 0 has surface tension now
@@ -119,8 +120,8 @@ def WC_pressure_val(obj: ti.template()):
 @ti.kernel
 def WC_pressure_acce(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             p_term = obj.pressure[i]/((obj.sph_density[i])**2) + nobj.pressure[neighb_pid]/((nobj.sph_density[neighb_pid])**2)
@@ -135,8 +136,8 @@ def IPPE_adv_psi_init(obj: ti.template()):
 @ti.kernel
 def IPPE_adv_psi(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             if r>0:
@@ -154,8 +155,8 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
 @ti.kernel
 def IPPE_update_vel_adv(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in range(ns.neighbor_count(obj,nobj,i)):
-            neighb_pid=ns.neighbor(obj,nobj,i,j)   
+        for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+            neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
             xij = obj.pos[i] - nobj.pos[neighb_pid]
             r = xij.norm()
             if r>0:
@@ -219,8 +220,8 @@ def SPH_FBM_clean_tmp(obj: ti.template()):
 def SPH_FBM_diffuse(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
     for i in range(obj.part_num[None]):
         if obj.flag[i] == 0: # flag check
-            for j in range(ns.neighbor_count(obj,nobj,i)):
-                neighb_pid=ns.neighbor(obj,nobj,i,j)   
+            for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+                neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
                 if nobj.flag[neighb_pid] == 0: # flag check
                     xij = obj.pos[i] - nobj.pos[neighb_pid]
                     r = xij.norm()
@@ -248,8 +249,8 @@ def SPH_FBM_convect(ns: ti.template(), obj: ti.template(), nobj: ti.template()):
             obj.drift_vel[i,j] *= dt[None]
     for i in range(obj.part_num[None]):
         if obj.flag[i] == 0: # flag check
-            for j in range(ns.neighbor_count(obj,nobj,i)):
-                neighb_pid=ns.neighbor(obj,nobj,i,j)   
+            for j in range(ns.neighbor_first(obj,nobj,i),ns.neighbor_last(obj,nobj,i)):
+                neighb_pid=ns.parts[obj.uid].neighbs[i,j]   
                 if nobj.flag[neighb_pid] == 0: # flag check
                     xij = obj.pos[i] - nobj.pos[neighb_pid]
                     r = xij.norm()
