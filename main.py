@@ -2,6 +2,7 @@ import numpy
 from sph import *
 import json
 import os
+import time
 
 '''make folders'''
 folder_name=f"{'VF' if use_VF else 'DF'}"
@@ -85,6 +86,10 @@ grid_data={
     'frame_rate':refreshing_rate
 }
 json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
+
+# for ggui
+set_unused_par(fluid)
+set_unused_par(bound)
 
 
 # cube_verts = read_ply('ply_models/cube_0.05.ply')
@@ -239,55 +244,75 @@ def write_full_json(fname):
 
 
 """define window, canvas, scene and camera"""
-res = (1080, 720)
-window = ti.ui.Window("Fluid 3D", res, vsync=True)
-frame_id = 0
+window = ti.ui.Window("Fluid 3D", to_gui_res(gui_res_0), vsync=True)
 canvas = window.get_canvas()
 scene = ti.ui.Scene()
 camera = ti.ui.make_camera()
 camera.position(8.0, 3.0, 0.0)
 camera.lookat(0.0, 2.0, 0.0)
 camera.fov(55)
-displayb = True  # is dispaly boundary
-meshb = False
-dispaly_radius = part_size[1]*0.5  # render particle size
+
 ambient_color = (0.7, 0.7, 0.7)
 background_color = (0.2, 0.2, 0.6)
+dispaly_radius = part_size[1]*0.5  # render particle size
 
+displayb = False  # is dispaly boundary
+fluid_system_run = False
+write_file = False
+meshb = False
+displayhelp = False
 
 
 def show_options():
     global displayb
     global meshb
+    global fluid_system_run
+    global write_file
+    global displayhelp
 
-    window.GUI.begin("options", 0.05, 0.1, 0.2, 0.2)
-    window.GUI.text("w:front")
-    window.GUI.text("s:back")
-    window.GUI.text("a:left")
-    window.GUI.text("d:right")
-    window.GUI.text("RMB:rotate")
-    window.GUI.text("b:display boundary")
-
+    window.GUI.begin("time info", 0.05, 0.05, 0.2, 0.2)
+    window.GUI.text("fluid particle count: " + str(fluid.part_num[None]))
+    window.GUI.text("bound particle count: " + str(bound.part_num[None]))
+    window.GUI.text("simulation time: " + str('%.3f' % time_count))
+    window.GUI.text("real time: " + str('%.3f' % real_time))
+    window.GUI.text("time step: " + str('%.3f' % dt[None]))
     window.GUI.end()
+
+    if displayhelp:
+        window.GUI.begin("options", 0.05, 0.3, 0.2, 0.2)
+        window.GUI.text("h: help")
+        window.GUI.text("w: front")
+        window.GUI.text("s: back")
+        window.GUI.text("a: left")
+        window.GUI.text("d: right")
+        window.GUI.text("RMB: rotate")
+        window.GUI.text("b: display boundary")
+        window.GUI.text("r: run system")
+        window.GUI.text("f: write file")
+        window.GUI.end()
 
     if window.get_event(ti.ui.PRESS):
         # dispaly boundary
         if window.event.key == 'b':
             displayb = bool(1 - displayb)
-            print("Display boundary:", displayb)
-        # reset play todo
+            print("display boundary:", displayb)
+        # run
         if window.event.key == 'r':
-            reset()
+            fluid_system_run = bool(1 - fluid_system_run)
+            print("start to run:", fluid_system_run)
+
+        if window.event.key == 'f':
+            write_file = bool(1 - write_file)
+            print("write file:", write_file)
+
+        if window.event.key == 'h':
+            displayhelp = bool(1 - displayhelp)
+
         # mesh boundary  todo
         # if window.event.key == 'm':
         #     meshb = bool(1 - meshb)
         #     print("Display mesh boundary:", meshb)
 
-
-
-
-def reset():
-    print("reset")
 
 
 def render():
@@ -315,9 +340,11 @@ def render():
     canvas.scene(scene)
 
 
+# for time record
+isfirsttime = True
+real_time = 0
 
-
-
+time_start = 0
 """2d and record data"""
 if dim == 2:
     """ GUI system """
@@ -376,25 +403,49 @@ else:
     print('fluid particle count: ', fluid.part_num[None])
     print('bound particle count: ', bound.part_num[None])
 
+    ''' no render'''
+    # while time_count < 60:
+    #     """ computation loop """
+    #     cfl_condition(fluid)
+    #     time_count += dt[None]
+    #     sph_step()
+    #     if isfirsttime:
+    #         time_start = time.time()
+    #         isfirsttime = False
+    #
+    #     """ recording """
+    #     if time_count * refreshing_rate > time_counter:
+    #         time_counter += 1
+    #         SPH_update_color(fluid)
+    #         write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim,
+    #                   pos=fluid.pos.to_numpy())
+
+    '''with render'''
     while window.running:
-        frame_id += 1
-        frame_id = frame_id % 256
-
-        """ computation loop """
-        cfl_condition(fluid)
-        time_count += dt[None]
-        sph_step()
-
-        """ recording """
-        if time_count * refreshing_rate > time_counter:
-            time_counter += 1
-            print('current time: ', time_count)
-            print('time step: ', dt[None])
-            SPH_update_color(fluid)
-            write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim,
-                      pos=fluid.pos.to_numpy())
-
         render()
         show_options()
+
+        if fluid_system_run:
+            time_counter += 1
+            while time_count <= time_counter / refreshing_rate:
+                if isfirsttime:
+                    time_start = time.time()
+                    isfirsttime = False
+                """ computation loop """
+                cfl_condition(fluid)
+                time_count += dt[None]
+                sph_step()
+            real_time = time.time() - time_start
+        # print('current time: ', time_count)
+        # print('real time: ', time.time() - time_start)
+        # print('time step: ', dt[None])
+        SPH_update_color(fluid) 
+
+        if write_file:
+            write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim,
+                      pos=fluid.pos.to_numpy())
+            # 0.8.5+
+            window.write_image(f"{folder_name}\\img\\rf{int(refreshing_rate+1e-5)}_{time_counter}.png")
+
         window.show()
 
