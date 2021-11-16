@@ -4,7 +4,7 @@ import math
 import sys
 import getopt
 import json
-from plyfile import *
+# from plyfile import *
 
 
 def read_param(param,default):

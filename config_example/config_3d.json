@@ -1,5 +1,5 @@
 {
-    "device_memory_GB":6,
+    "device_memory_GB":20,
     "fluid_part_num":2e6,
     "bound_part_num":2e5,
     "dim":3,
