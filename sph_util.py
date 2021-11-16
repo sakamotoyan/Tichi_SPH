@@ -107,3 +107,9 @@ def update_color_vector(obj: ti.template()):
     for i in range(obj.part_num[None]):
         color = hex2rgb(obj.color[i])
         obj.color_vector[i] = color
+
+@ti.kernel
+def set_unused_par(obj: ti.template()):
+    # temporary method: throw the unused particles away so they aren't rendered
+    for i in range(obj.part_num[None], obj.max_part_num):
+        obj.pos[i] = ti.Vector([533799.0, 533799.0, 533799.0])
