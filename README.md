@@ -18,4 +18,7 @@
 ### example
 ```
 python main.py -c config_example\config_3d.json -s scenario_example\3d_bunny.json
+
+multiphase example:
+python main.py -c config_example\config_3d.json -s scenario_example\two_phases.json
 ```
