@@ -4,9 +4,10 @@ from NeighborSearch import *
 import json
 import os
 import time
+from sample_csv import save_csv, save_scene_config
 
 '''make folders'''
-folder_name=f"{'VF' if use_VF else 'DF'}"
+folder_name = f"{'VF' if use_VF else 'DF'}"
 try:
     os.mkdir(f"{folder_name}")
     os.mkdir(f"{folder_name}\\json")
@@ -16,18 +17,17 @@ try:
 except FileExistsError:
     pass
 
-
 """ init data structure """
 fluid = Fluid(max_part_num=fluid_part_num)
 bound = Fluid(max_part_num=bound_part_num)
-grid = Grid(tuple((np_grid_size/grid_dist).astype(np.int32)),np_grid_lb,grid_dist)
+grid = Grid(tuple((np_grid_size / grid_dist).astype(np.int32)), np_grid_lb, grid_dist)
 ns = NeighborSearch(len(obj_list))
 
 for obj in obj_list:
     obj.set_zero()
     obj.ones.fill(1)
 
-dt[None] = init_part_size/cs
+dt[None] = init_part_size / cs
 phase_rest_density.from_numpy(np_phase_rest_density)
 sim_space_lb.from_numpy(np_sim_space_lb)
 sim_space_rt.from_numpy(np_sim_space_rt)
@@ -46,47 +46,46 @@ for i in range(np_neighb_template.shape[1]):
 div_iter_count = 0
 incom_iter_count = 0
 
-
-assign_phase_color(0x6F7DBC,0)
-assign_phase_color(0xeacd76,1)
+assign_phase_color(0x6F7DBC, 0)
+assign_phase_color(0xeacd76, 1)
 
 """ setup scene """
 try:
-    scenario=json.load(open(scenario_file))
+    scenario = json.load(open(scenario_file))
     for part in scenario:
-        ob=None
-        if part=='fluid':
-            ob=fluid
-        elif part=='bound':
-            ob=bound
+        ob = None
+        if part == 'fluid':
+            ob = fluid
+        elif part == 'bound':
+            ob = bound
         if ob is not None:
             for a in scenario[part]:
-                if a['type']=='cube':
-                    ob.scene_add_cube(a['start_pos'],a['end_pos'],a['volume_frac'],int(a['color'],16))
-                elif a['type']=='box':
-                    ob.scene_add_box(a['start_pos'],a['end_pos'],a['layers'],a['volume_frac'],int(a['color'],16))
-                elif a['type']=='ply':
+                if a['type'] == 'cube':
+                    ob.scene_add_cube(a['start_pos'], a['end_pos'], a['volume_frac'], int(a['color'], 16))
+                elif a['type'] == 'box':
+                    ob.scene_add_box(a['start_pos'], a['end_pos'], a['layers'], a['volume_frac'], int(a['color'], 16))
+                elif a['type'] == 'ply':
                     verts = read_ply(a['file_name'])
-                    ob.push_part_from_ply(len(verts), verts, volume_frac=a['volume_frac'], color=int(a['color'],16))
+                    ob.push_part_from_ply(len(verts), verts, volume_frac=a['volume_frac'], color=int(a['color'], 16))
 except Exception:
     print('no scenario file or scenario file invalid, use default scenario')
-    bound.scene_add_box([-2]*dim,[2]*dim,2,[1,0],0xaaaaaa)
+    bound.scene_add_box([-2] * dim, [2] * dim, 2, [1, 0], 0xaaaaaa)
     """ setup 3d scene from ply"""
     bunny_verts = read_ply('ply_models/bunny_0.05.ply')
     f_part_num = len(bunny_verts)
     fluid.push_part_from_ply(f_part_num, bunny_verts, volume_frac=[0, 1], color=0x068587)
 
 """ write scene data """
-grid_data={
-    'grid_count':int(grid.size),
-    'grid_lb':[float(grid.lb[i]) for i in range(len(grid.lb))],
-    'init_part_size':init_part_size,
-    'fluid_part_count':fluid.part_num[None],
-    'bound_part_count':bound.part_num[None],
-    'dt':dt[None],
-    'frame_rate':refreshing_rate
+grid_data = {
+    'grid_count': int(grid.size),
+    'grid_lb': [float(grid.lb[i]) for i in range(len(grid.lb))],
+    'init_part_size': init_part_size,
+    'fluid_part_count': fluid.part_num[None],
+    'bound_part_count': bound.part_num[None],
+    'dt': dt[None],
+    'frame_rate': refreshing_rate
 }
-json.dump(grid_data,open(f"{folder_name}\\data.json","w"))
+json.dump(grid_data, open(f"{folder_name}\\data.json", "w"))
 
 # for ggui
 set_unused_par(fluid)
@@ -100,7 +99,7 @@ set_unused_par(bound)
 def sph_step():
     global div_iter_count, incom_iter_count
     """ neighbour search """
-    ns.establish_neighbs(fluid,bound)
+    ns.establish_neighbs(fluid, bound)
     """ SPH clean value """
     SPH_clean_value(fluid)
     SPH_clean_value(bound)
@@ -118,7 +117,7 @@ def sph_step():
     """ IPPE SPH divergence """
     div_iter_count = 0
     SPH_vel_2_vel_adv(fluid)
-    while div_iter_count<iter_threshold_min or fluid.compression[None]>divergence_threshold:
+    while div_iter_count < iter_threshold_min or fluid.compression[None] > divergence_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ns, fluid, fluid)
@@ -128,8 +127,8 @@ def sph_step():
         # IPPE_psi_adv_non_negative(bound)
         IPPE_update_vel_adv(ns, fluid, fluid)
         IPPE_update_vel_adv(ns, fluid, bound)
-        div_iter_count+=1
-        if div_iter_count>iter_threshold_max:
+        div_iter_count += 1
+        if div_iter_count > iter_threshold_max:
             break
     SPH_vel_adv_2_vel(fluid)
     """ SPH advection """
@@ -139,7 +138,7 @@ def sph_step():
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
     incom_iter_count = 0
-    while incom_iter_count<iter_threshold_min or fluid.compression[None]>compression_threshold:
+    while incom_iter_count < iter_threshold_min or fluid.compression[None] > compression_threshold:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ns, fluid, fluid)
@@ -149,8 +148,8 @@ def sph_step():
         # IPPE_psi_adv_non_negative(bound)
         IPPE_update_vel_adv(ns, fluid, fluid)
         IPPE_update_vel_adv(ns, fluid, bound)
-        incom_iter_count+=1
-        if incom_iter_count>iter_threshold_max:
+        incom_iter_count += 1
+        if incom_iter_count > iter_threshold_max:
             break
     """ debug info """
     # print('iter div: ', div_iter_count)
@@ -175,47 +174,49 @@ def sph_step():
     return div_iter_count, incom_iter_count
     """ SPH debug """
 
+
 def write_json():
-    data={
+    data = {
         "step": step_counter,
         "frame": time_counter,
         "timeInSimulation": time_count,
         "timeStep": dt[None],
-        "fps":refreshing_rate,
-        "iteration" : {
-            "divergenceFree_iteration" : div_iter_count,
-            "incompressible_iteration" : incom_iter_count,
-            "sum_iteration" :div_iter_count+incom_iter_count
+        "fps": refreshing_rate,
+        "iteration": {
+            "divergenceFree_iteration": div_iter_count,
+            "incompressible_iteration": incom_iter_count,
+            "sum_iteration": div_iter_count + incom_iter_count
         },
-        "energy" :{
-            "kinetic_energy":fluid.kinetic_energy[None],
-            "gravity_potential_energy":fluid.gravity_potential_energy[None],
-            "sum_energy":fluid.kinetic_energy[None]+fluid.gravity_potential_energy[None]
+        "energy": {
+            "kinetic_energy": fluid.kinetic_energy[None],
+            "gravity_potential_energy": fluid.gravity_potential_energy[None],
+            "sum_energy": fluid.kinetic_energy[None] + fluid.gravity_potential_energy[None]
         }
     }
     s = json.dumps(data)
-    with open("json\\"+ ("VF" if use_VF else "DF") + str(step_counter) + ".json","w") as f:
+    with open("json\\" + ("VF" if use_VF else "DF") + str(step_counter) + ".json", "w") as f:
         f.write(s)
+
 
 def write_full_json(fname):
     global frame_div_iter, frame_incom_iter
-    data={
+    data = {
         "step": step_counter,
         "frame": time_counter,
         "timeInSimulation": time_count,
         "timeStep": dt[None],
-        "fps":refreshing_rate,
-        "iteration" : {
-            "divergenceFree_iteration" : frame_div_iter,
-            "incompressible_iteration" : frame_incom_iter,
-            "sum_iteration" :frame_div_iter+frame_incom_iter
+        "fps": refreshing_rate,
+        "iteration": {
+            "divergenceFree_iteration": frame_div_iter,
+            "incompressible_iteration": frame_incom_iter,
+            "sum_iteration": frame_div_iter + frame_incom_iter
         },
-        "energy" :{
-            "kinetic_energy":fluid.kinetic_energy[None],
-            "gravity_potential_energy":fluid.gravity_potential_energy[None],
-            "sum_energy":fluid.kinetic_energy[None]+fluid.gravity_potential_energy[None]
+        "energy": {
+            "kinetic_energy": fluid.kinetic_energy[None],
+            "gravity_potential_energy": fluid.gravity_potential_energy[None],
+            "sum_energy": fluid.kinetic_energy[None] + fluid.gravity_potential_energy[None]
         }
-        #,
+        # ,
         # "info":
         # [
         #     "index",
@@ -235,7 +236,7 @@ def write_full_json(fname):
     #     info.append(fluid.volume_frac[i][1])
     #     data["data"].append(info)
     s = json.dumps(data)
-    with open(fname,"w") as f:
+    with open(fname, "w") as f:
         f.write(s)
 
 
@@ -250,13 +251,14 @@ camera.fov(55)
 
 ambient_color = (0.7, 0.7, 0.7)
 background_color = (0.2, 0.2, 0.6)
-dispaly_radius = part_size[1]*0.5  # render particle size
+dispaly_radius = part_size[1] * 0.5  # render particle size
 
 displayb = False  # is dispaly boundary
 fluid_system_run = False
 write_file = False
 meshb = False
 displayhelp = False
+write_csv = False
 
 
 def show_options():
@@ -265,6 +267,7 @@ def show_options():
     global fluid_system_run
     global write_file
     global displayhelp
+    global write_csv
 
     window.GUI.begin("time info", 0.05, 0.05, 0.2, 0.2)
     window.GUI.text("fluid particle count: " + str(fluid.part_num[None]))
@@ -285,6 +288,7 @@ def show_options():
         window.GUI.text("b: display boundary")
         window.GUI.text("r: run system")
         window.GUI.text("f: write file")
+        window.GUI.text("z: write csv")
         window.GUI.end()
 
     if window.get_event(ti.ui.PRESS):
@@ -301,6 +305,10 @@ def show_options():
             write_file = bool(1 - write_file)
             print("write file:", write_file)
 
+        if window.event.key == 'z':
+            write_csv = bool(1 - write_csv)
+            print("write csv:", write_csv)
+
         if window.event.key == 'h':
             displayhelp = bool(1 - displayhelp)
 
@@ -308,7 +316,6 @@ def show_options():
         # if window.event.key == 'm':
         #     meshb = bool(1 - meshb)
         #     print("Display mesh boundary:", meshb)
-
 
 
 def render():
@@ -347,15 +354,15 @@ if dim == 2:
     time_count = float(0)
     time_counter = int(0)
     step_counter = int(0)
-    frame_div_iter=0
-    frame_incom_iter=0
+    frame_div_iter = 0
+    frame_incom_iter = 0
     flg = True
     print('fluid particle count: ', fluid.part_num[None])
     print('bound particle count: ', bound.part_num[None])
-    print('grid count:',grid.size)
-    numpy.save(f"{folder_name}\\grid_data\\pos",grid.pos.to_numpy())
+    print('grid count:', grid.size)
+    numpy.save(f"{folder_name}\\grid_data\\pos", grid.pos.to_numpy())
     gui = ti.GUI('SPH', to_gui_res(gui_res_0))
-    while gui.running and not gui.get_event(gui.ESCAPE) and time_counter<1000:
+    while gui.running and not gui.get_event(gui.ESCAPE) and time_counter < 1000:
         print('current time: ', time_count)
         print('time step: ', dt[None])
 
@@ -364,31 +371,32 @@ if dim == 2:
         gui.circles(to_gui_pos(fluid), radius=to_gui_radii(part_radii_relax), color=to_gui_color(fluid))
         gui.circles(to_gui_pos(bound), radius=to_gui_radii(part_radii_relax), color=to_gui_color(bound))
         grid_vel = grid.vel.to_numpy()
-        gui.circles(to_gui_pos_np(grid.pos.to_numpy().reshape((grid.size,dim))), radius=to_gui_radii(part_radii_relax)*0.5, color=0x000000)
-        gui.show(f"{folder_name}\\img\\rf{int(refreshing_rate+1e-5)}_{time_counter}.png")
+        gui.circles(to_gui_pos_np(grid.pos.to_numpy().reshape((grid.size, dim))),
+                    radius=to_gui_radii(part_radii_relax) * 0.5, color=0x000000)
+        gui.show(f"{folder_name}\\img\\rf{int(refreshing_rate + 1e-5)}_{time_counter}.png")
 
         '''save data'''
-        write_full_json(f"{folder_name}\\json\\"+ "frame"+ str(time_counter) + ".json")
-        print("div iter:",frame_div_iter,",frame iter:",frame_incom_iter)
-        print('sum grid vel:',np.sum(grid.vel.to_numpy()))
-        numpy.save(f"{folder_name}\\grid_data\\vel_{time_counter}",grid_vel)
-        numpy.save(f"{folder_name}\\part_data\\vel_{time_counter}",fluid.vel.to_numpy()[0:fluid.part_num[None],:])
-        print(fluid.vel.to_numpy()[0:fluid.part_num[None],:].shape)
-        numpy.save(f"{folder_name}\\part_data\\pos_{time_counter}",fluid.pos.to_numpy()[0:fluid.part_num[None],:])
-        print(fluid.pos.to_numpy()[0:fluid.part_num[None],:].shape)
+        write_full_json(f"{folder_name}\\json\\" + "frame" + str(time_counter) + ".json")
+        print("div iter:", frame_div_iter, ",frame iter:", frame_incom_iter)
+        print('sum grid vel:', np.sum(grid.vel.to_numpy()))
+        numpy.save(f"{folder_name}\\grid_data\\vel_{time_counter}", grid_vel)
+        numpy.save(f"{folder_name}\\part_data\\vel_{time_counter}", fluid.vel.to_numpy()[0:fluid.part_num[None], :])
+        print(fluid.vel.to_numpy()[0:fluid.part_num[None], :].shape)
+        numpy.save(f"{folder_name}\\part_data\\pos_{time_counter}", fluid.pos.to_numpy()[0:fluid.part_num[None], :])
+        print(fluid.pos.to_numpy()[0:fluid.part_num[None], :].shape)
 
         '''sph steps'''
-        frame_div_iter=0
-        frame_incom_iter=0
-        while time_count<time_counter/refreshing_rate:
+        frame_div_iter = 0
+        frame_incom_iter = 0
+        while time_count < time_counter / refreshing_rate:
             cfl_condition(fluid)
             time_count += dt[None]
             # if time_count >1.1 and flg:
             #     fluid.push_2d_cube(center_pos=[0, 1.3], size=[0.8, 0.8], volume_frac=[1,0], color=0xA21212)
             #     flg=False
             sph_step()
-            frame_div_iter+=div_iter_count
-            frame_incom_iter+=incom_iter_count
+            frame_div_iter += div_iter_count
+            frame_incom_iter += incom_iter_count
         time_counter += 1
         # statistic(fluid)
         SPH_update_color(fluid)
@@ -426,22 +434,26 @@ else:
             while time_count <= time_counter / refreshing_rate:
                 if isfirsttime:
                     time_start = time.time()
+                    if write_csv:
+                        save_scene_config(config_file, scenario_file)
                     isfirsttime = False
                 """ computation loop """
                 cfl_condition(fluid)
                 time_count += dt[None]
                 sph_step()
             real_time = time.time() - time_start
+            if write_csv:
+                save_csv(time_counter, fluid, bound)
+
         # print('current time: ', time_count)
         # print('real time: ', time.time() - time_start)
         # print('time step: ', dt[None])
-        SPH_update_color(fluid) 
+        SPH_update_color(fluid)
 
         if write_file:
             write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim,
                       pos=fluid.pos.to_numpy())
             # 0.8.5+
-            window.write_image(f"{folder_name}\\img\\rf{int(refreshing_rate+1e-5)}_{time_counter}.png")
+            window.write_image(f"{folder_name}\\img\\rf{int(refreshing_rate + 1e-5)}_{time_counter}.png")
 
         window.show()
-
