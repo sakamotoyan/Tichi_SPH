@@ -1,8 +1,3 @@
-*.json
-*.pyc
-*.png
-!/config_example/*.json
-!/scenario_example/*.json
-/ply_3d/
-/DF/
-*.ini
+DFSPH
+VFSPH
+ply_3d
