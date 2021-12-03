@@ -2,15 +2,15 @@
     "fluid":[
         {
             "type":"cube",
-            "start_pos":[-1.4,-1.4,-1.4],
-            "end_pos":[-0.3,-0.3,-0.3],
+            "start_pos":[-1.4,-1.8,-1.4],
+            "end_pos":[-0.3,-0.8,-0.3],
             "volume_frac":[1,0],
             "color":"0xFF0000"
         },
         {
             "type":"cube",
-            "start_pos":[0.3,0.3,0.3],
-            "end_pos":[1.4,1.4,1.4],
+            "start_pos":[0.3,-1.8,0.3],
+            "end_pos":[1.4,-0.8,1.4],
             "volume_frac":[0,1],
             "color":"0x0000FF"
         }

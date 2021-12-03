@@ -33,7 +33,7 @@ def SPH_clean_value(obj: ti.template()):
 
 @ti.kernel
 def cfl_condition(obj: ti.template()):
-    dt[None] = init_part_size/cs
+    dt[None] = init_part_size/cs  # update dt
     for i in range(obj.part_num[None]):
         v_norm = obj.vel[i].norm()
         if v_norm > 1e-4:

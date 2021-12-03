@@ -4,14 +4,20 @@ import pandas as pd
 import numpy as np
 import os
 
-SAMPLE_FOLDER = r'./sample_csv'
+SAMPLE_FOLDER = r'Z:\dufeilong\datasets\new'
 SCENE_ID = 0
 SAVE_FOLDER = os.path.join(SAMPLE_FOLDER, str(SCENE_ID))
-if os.path.exists(SAVE_FOLDER):
-    print('SAVE_FOLDER exists!')
-os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 TABLE_TITLE = ['pos0', 'pos1', 'pos2', 'vel0', 'vel1', 'vel2', 'mass']
+
+def make_save_dir(id):
+    global SCENE_ID
+    global SAVE_FOLDER
+    SCENE_ID = id
+    SAVE_FOLDER = os.path.join(SAMPLE_FOLDER, str(SCENE_ID))
+    if os.path.exists(SAVE_FOLDER):
+        print('SAVE_FOLDER exists!')
+    os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 
 def save_csv(fps, fluid, solid):
@@ -25,6 +31,7 @@ def save_csv(fps, fluid, solid):
                             0 - solid.mass.to_numpy()[:solid_num, np.newaxis]))
 
     df = pd.DataFrame(np.vstack([fluid_data, solid_data]), columns=TABLE_TITLE)
+    # df.fillna(0, inplace=True)
     df.to_csv(save_path, index=False)
 
 

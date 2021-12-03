@@ -1,10 +1,13 @@
 import numpy
+import pandas
+
 from sph import *
 from NeighborSearch import *
 import json
 import os
 import time
-from sample_csv import save_csv, save_scene_config
+from sample_csv import save_csv, save_scene_config,make_save_dir
+import pdb
 
 '''make folders'''
 folder_name = f"{'VF' if use_VF else 'DF'}"
@@ -27,7 +30,7 @@ for obj in obj_list:
     obj.set_zero()
     obj.ones.fill(1)
 
-dt[None] = init_part_size / cs
+dt[None] = init_part_size / cs  # init dt
 phase_rest_density.from_numpy(np_phase_rest_density)
 sim_space_lb.from_numpy(np_sim_space_lb)
 sim_space_rt.from_numpy(np_sim_space_rt)
@@ -254,11 +257,11 @@ background_color = (0.2, 0.2, 0.6)
 dispaly_radius = part_size[1] * 0.5  # render particle size
 
 displayb = False  # is dispaly boundary
-fluid_system_run = False
 write_file = False
 meshb = False
 displayhelp = False
-write_csv = False
+fluid_system_run = is_auto_start
+write_csv = is_save_csv
 
 
 def show_options():
@@ -435,6 +438,7 @@ else:
                 if isfirsttime:
                     time_start = time.time()
                     if write_csv:
+                        make_save_dir(save_csv_id)
                         save_scene_config(config_file, scenario_file)
                     isfirsttime = False
                 """ computation loop """
@@ -457,3 +461,13 @@ else:
             window.write_image(f"{folder_name}\\img\\rf{int(refreshing_rate + 1e-5)}_{time_counter}.png")
 
         window.show()
+
+        if is_auto_stop and time_counter > refreshing_rate:
+            vel_matrix = fluid.vel.to_numpy()[:fluid.part_num[None]]
+            if np.any(np.isnan(vel_matrix)):
+                break
+            # vel_matrix[np.isnan(vel_matrix)] = 0
+            max_vel = numpy.max(vel_matrix)
+            print(max_vel)
+            if max_vel < 0.4:
+                break

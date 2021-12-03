@@ -23,7 +23,7 @@ scenario_file=""
 try:
     opts, args = getopt.getopt(sys.argv[1:],"c:s:",["configFile=","scenarioFile="])
 except getopt.GetoptError:
-    print('main.py -c <configfile> -s <scenariofile>')
+    print('auto_sample.py -c <configfile> -s <scenariofile>')
     sys.exit(2)
 for opt, arg in opts:
     if opt in ("-c", "--configFile"):
@@ -39,6 +39,14 @@ except Exception:
     print('no config file or config file invalid, use default config values')
 
 '''init default parameters'''
+
+#run param
+is_auto_start = read_param(config.get('auto_start'),default=False)
+is_auto_stop = read_param(config.get('auto_stop'),default=False)
+is_save_csv = read_param(config.get('save_csv'),default=False)
+save_csv_id = int(read_param(config.get('save_csv_id'),default=0))
+
+
 #memory allocation
 device_memory_GB  = read_param(config.get('device_memory_GB'),default=9) # memory to allocate for tichi
 fluid_part_num  = int(read_param(config.get('fluid_part_num'),default=2e6)) # max number of fluid particles

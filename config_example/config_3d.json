@@ -1,5 +1,5 @@
 {
-    "device_memory_GB":20,
+    "device_memory_GB":18,
     "fluid_part_num":2e6,
     "bound_part_num":2e5,
     "dim":3,
@@ -28,5 +28,9 @@
     "surface_tension_gamma":0,
     "np_grid_size":[4,4,4],
     "np_grid_lb":[-2,-2,-2],
-    "grid_dist":0.05
+    "grid_dist":0.05,
+    "auto_start":true,
+    "auto_stop":false,
+    "save_csv":true,
+    "save_csv_id":-1
 }
