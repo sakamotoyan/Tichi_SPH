@@ -7,7 +7,7 @@ import time
 ngrid = Ngrid()
 fluid = Fluid(max_part_num=config.fluid_max_part_num[None])
 bound = Fluid(max_part_num=config.bound_max_part_num[None])
-grid = Grid()
+# grid = Grid()
 
 
 # config.dt[None] = 0.0005
@@ -108,7 +108,7 @@ def write_full_json(fname):
 
 ################################## End Write Json ############################################
 
-
+###################################### SPH SOLVER ############################################
 def sph_step():
     global div_iter_count, incom_iter_count
     """ neighbour search """
@@ -191,7 +191,7 @@ def sph_step():
     # map_velocity(ngrid, grid, fluid)
     return div_iter_count, incom_iter_count
     """ SPH debug """
-
+#################################### END SPH SOLVER ###########################################
 
 init_scenario()
 # write_scene_data()

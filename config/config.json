@@ -1,7 +1,7 @@
 {
 
-    "arch": "cpu",
-    "device_memory_GB":6,
+    "arch": "gpu",
+    "device_memory_GB":3,
 
     "solver_type":"VFSPH",
     "solver_wc_gamma":7,
@@ -12,7 +12,7 @@
 
     "solver_if_cfl": true,
     "solver_cs":100,
-    "solver_cfl_factor":0.5,
+    "solver_cfl_factor":0.2,
 
     "solver_neighb_range":1,
     "solver_neighb_grid_size_TO_global_part_size":2,
@@ -23,7 +23,7 @@
 
     "gui_res":[1080,1080],
     "gui_part_zoomer": 1.0,
-    "gui_fps":30,
+    "gui_fps":240,
     "gui_canvas_bgcolor": [0.2, 0.2, 0.6],
     "gui_camera_pos": [6.0, 1.0, 0.0],
     "gui_camera_lookat": [0.0, 0.0, 0.0]

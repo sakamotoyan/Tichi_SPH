@@ -1,0 +1,21 @@
+1. assign_phase_color() 函数改进
+
+    Taichi 0.8.6 运行遇到了报错:
+    File "main.py", line 196, in <module>
+        init_scenario()
+    File "main.py", line 17, in init_scenario
+        assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i)
+    ......
+    AttributeError: 'NoneType' object has no attribute 'Vector'
+
+想法：这个封装需要改进，明明式kernel，却没给并行实现
+--
+2. scenario_buffer 在 main.py 中出现的问题
+
+    感觉有点突兀？我建议 init_scenario() 移动到 sph_config.py 中
+    另吐槽：obj = fluid 看起来太不安全了! 可以用 eval() 来解决
+
+3. ggui刷新率
+
+4. global 用法问题
+    感觉不很科学
