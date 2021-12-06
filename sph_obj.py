@@ -123,10 +123,10 @@ class Fluid:
             layers: matrix_shape[2] - layers] = False
         else:
             raise Exception('scenario error: can only add 2D or 3D boxes')
-        self.push_matrix(box, start_pos + padding, spacing, volume_frac, vel, color)
+        self.push_matrix(box, start_pos + padding, spacing, volume_frac, vel, color, config)
 
     def push_part_from_ply(self, p_sum, pos_seq, volume_frac, vel, color, config):
-        self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color, config)
+        self.push_part_seq(p_sum, color, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), config)
 
     # add particles according to true and false in the matrix
     # matrix: np array (dimension: dim, dtype: np.bool)
@@ -135,16 +135,29 @@ class Fluid:
             raise Exception('push_matrix() [scenario error]: wrong object dimension')
         index = np.where(matrix == True)
         pos_seq = np.stack(index, axis=1) * spacing + start_position
-        self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color, config)
+        self.push_part_seq(len(pos_seq), color, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), config)
 
     @ti.kernel
-    def push_part_seq(self, pushed_part_num: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
-                      color: int, config: ti.template()):
+    def push_part_seq2(self, pushed_part_num: int, color: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
+                       config: ti.template()):
+        print(pushed_part_num)
+        print(color)
+        print(pos_seq[0,0])
+        print(volume_frac)
+        print(vel)
+        print(config.part_size[config.dim[None]])
+        print(self.pos)
+
+    @ti.kernel
+    def push_part_seq(self, pushed_part_num: int, color: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
+                       config: ti.template()):
         current_part_num = self.part_num[None]
         new_part_num = current_part_num + pushed_part_num
+        pos_seq_ti = ti.Vector.field(config.dim[None], float, pushed_part_num)
+        pos_seq_ti.from_numpy(pos_seq)
         for i in range(pushed_part_num):
             for j in ti.static(range(config.dim[None])):
-                self.pos[i + current_part_num][j] = pos_seq[i, j]
+                self.pos[i + current_part_num][j] = pos_seq_ti[i][j]
             self.volume_frac[i + current_part_num] = volume_frac
             self.vel[i + current_part_num] = vel
             self.rest_volume[i + current_part_num] = config.part_size[config.dim[None]]  # todo 1
@@ -241,7 +254,7 @@ class Fluid:
                     counter += 1
             pos_seq *= config.part_size[1] * relaxing_factor
             pos_seq -= (np.array(center_pos) + np.array(size) / 2)
-            self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color, config)
+            self.push_part_seq(p_sum, color, pos_seq, ti.Vector(volume_frac), config)
 
 
 class Part_buffer:

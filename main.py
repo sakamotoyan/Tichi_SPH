@@ -26,14 +26,14 @@ def init_scenario(config):
             for param in scenario_buffer[obj]['objs']:
                 if param['type'] == 'cube':
                     eval(obj).scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
-                                        int(param['color'], 16), param['particle_relaxing_factor'])
+                                        int(param['color'], 16), param['particle_relaxing_factor'], config)
                 elif param['type'] == 'box':
                     eval(obj).scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
-                                        param['vel'], int(param['color'], 16), param['particle_relaxing_factor'])
+                                        param['vel'], int(param['color'], 16), param['particle_relaxing_factor'], config)
                 elif param['type'] == 'ply':
                     verts = read_ply(trim_path_dir(param['file_name']))
-                    eval(obj).push_part_from_ply(len(verts), verts, param['volume_frac'], param['vel'],
-                                            int(param['color'], 16), config)
+                    eval(obj).push_part_seq2(len(verts), int(param['color'], 16), verts, ti.Vector(param['volume_frac']), ti.Vector(param['vel']),
+                                             config)
     # except Exception:
     #     print('Error from main.py: no fluid nor bound object is found in scenario file!')
     #     exit(0)
