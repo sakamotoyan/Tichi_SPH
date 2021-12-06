@@ -34,6 +34,15 @@ def read_array_param(param, default):
         raise Exception('error: wrong array dimension in config file ', param)
     return param
 
+@ti.func
+def rgb2hex(r: float, g: float, b: float):  # r, g, b are normalized
+    return ((int(r * 255)) << 16) + ((int(g * 255)) << 8) + (int(b * 255))
+
+
+@ti.func
+def hex2rgb(hex: ti.template()):  # r, g, b are normalized
+    return float(ti.Vector([(hex & 0xFF0000) >> 16, (hex & 0x00FF00) >> 8, (hex & 0x0000FF)])) / 255
+
 
 '''parse command line'''
 config_file_path = ""
@@ -173,6 +182,11 @@ class Config:
         self.part_size[3] = math.pow(self.part_size[1], 3)
         self.part_size[4] = math.pow(self.part_size[1], 4)
 
+    def assigen_phase_color(self, scenario_buffer: ti.template()):
+        for i in range(self.phase_num[None]):
+            hex = int(scenario_buffer['sim_env']['phase_color_hex'][i], 16)
+            self.phase_rgb[i] = ti.Vector([(hex & 0xFF0000) >> 16, (hex & 0x00FF00) >> 8, (hex & 0x0000FF)]) / 255
+
     def init_solver(self, config_buffer):
         # DFSPH
         self.wc_gamma[None] = read_param(config_buffer.get('solver_wc_gamma'), 'solver_wc_gamma')
@@ -236,6 +250,7 @@ class Config:
 
     def sub_init(self, pre_config, config_buffer, scenario_buffer):
         self.init_sim_env(pre_config, scenario_buffer)
+        self.assigen_phase_color(scenario_buffer)
         self.init_solver(config_buffer)
         self.init_gui(pre_config, config_buffer)
         self.calculate_kernel_param()

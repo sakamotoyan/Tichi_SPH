@@ -7,7 +7,7 @@ from sph_obj import *
 
 
 @ti.kernel
-def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -20,7 +20,7 @@ def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: 
 
 
 @ti.kernel
-def SPH_clean_value(obj: ti.template()):
+def SPH_clean_value(obj: ti.template(), config: ti.template()):
     obj.general_flag[None] = 1
     for i in range(obj.part_num[None]):
         obj.W[i] = 0
@@ -28,18 +28,18 @@ def SPH_clean_value(obj: ti.template()):
         obj.sph_density[i] = 0
         obj.alpha_2[i] = 0
         obj.flag[i] = 0
-        for j in ti.static(range(dim)):
+        for j in ti.static(range(config.dim[None])):
             obj.W_grad[i][j] = 0
             obj.acce[i][j] = 0
             obj.acce_adv[i][j] = 0
             obj.alpha_1[i][j] = 0
             obj.pressure_force[i][j] = 0
-            for k in ti.static(range(phase_num)):
+            for k in ti.static(range(config.phase_num[None])):
                 obj.drift_vel[i, k][j] = 0
 
 
 @ti.kernel
-def cfl_condition(obj: ti.template()):
+def cfl_condition(obj: ti.template(), config: ti.template()):
     config.dt[None] = config.part_size[1] / config.cs[None]
     for i in range(obj.part_num[None]):
         v_norm = obj.vel[i].norm()
@@ -48,7 +48,7 @@ def cfl_condition(obj: ti.template()):
 
 
 @ti.kernel
-def SPH_prepare_attr(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_prepare_attr(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -65,7 +65,7 @@ def SPH_prepare_attr(ngrid: ti.template(), obj: ti.template(), nobj: ti.template
 
 
 @ti.kernel
-def SPH_prepare_alpha_1(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_prepare_alpha_1(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -82,7 +82,7 @@ def SPH_prepare_alpha_1(ngrid: ti.template(), obj: ti.template(), nobj: ti.templ
 
 
 @ti.kernel
-def SPH_prepare_alpha_2(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_prepare_alpha_2(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -106,13 +106,13 @@ def SPH_prepare_alpha(obj: ti.template()):
 
 
 @ti.kernel
-def SPH_advection_gravity_acc(obj: ti.template()):
+def SPH_advection_gravity_acc(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.acce_adv[i] += config.gravity[None]
 
 
 @ti.kernel
-def SPH_advection_viscosity_acc(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_advection_viscosity_acc(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -130,9 +130,9 @@ def SPH_advection_viscosity_acc(ngrid: ti.template(), obj: ti.template(), nobj: 
 
 
 @ti.kernel
-def SPH_advection_surface_tension_acc(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_advection_surface_tension_acc(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in ti.static(range(dim)):
+        for j in ti.static(range(config.dim[None])):
             obj.normal[i][j] = 0
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(
@@ -167,7 +167,7 @@ def SPH_advection_surface_tension_acc(ngrid: ti.template(), obj: ti.template(), 
 
 
 @ti.kernel
-def WC_pressure_val(obj: ti.template()):
+def WC_pressure_val(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.pressure[i] = (obj.rest_density[i] * config.cs[None] ** 2 / config.wc_gamma[None]) * (
                     (obj.sph_density[i] / obj.rest_density[i]) ** 7 - 1)
@@ -176,7 +176,7 @@ def WC_pressure_val(obj: ti.template()):
 
 
 @ti.kernel
-def WC_pressure_acce(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def WC_pressure_acce(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -200,7 +200,7 @@ def IPPE_adv_psi_init(obj: ti.template()):
 
 
 @ti.kernel
-def IPPE_adv_psi(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def IPPE_adv_psi(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -227,7 +227,7 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
 
 
 @ti.kernel
-def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t])
@@ -245,7 +245,7 @@ def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.templ
 
 
 @ti.kernel
-def SPH_advection_update_vel_adv(obj: ti.template()):
+def SPH_advection_update_vel_adv(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.vel_adv[i] = obj.vel[i] + obj.acce_adv[i] * config.dt[None]
 
@@ -263,14 +263,14 @@ def SPH_vel_adv_2_vel(obj: ti.template()):
 
 
 @ti.kernel
-def SPH_update_pos(obj: ti.template()):
+def SPH_update_pos(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.vel[i] = obj.vel_adv[i]
         obj.pos[i] += obj.vel[i] * config.dt[None]
 
 
 @ti.kernel
-def SPH_update_energy(obj: ti.template()):
+def SPH_update_energy(obj: ti.template(), config: ti.template()):
     obj.statistics_kinetic_energy[None] = 0
     obj.statistics_gravity_potential_energy[None] = 0
 
@@ -280,17 +280,17 @@ def SPH_update_energy(obj: ti.template()):
 
 
 @ti.kernel
-def SPH_update_mass(obj: ti.template()):
+def SPH_update_mass(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.rest_density[i] = config.phase_rest_density[None].dot(obj.volume_frac[i])
         obj.mass[i] = obj.rest_density[i] * obj.rest_volume[i]
 
 
 @ti.kernel
-def SPH_update_color(obj: ti.template()):
+def SPH_update_color(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         color = ti.Vector([0.0, 0.0, 0.0])
-        for j in ti.static(range(phase_num)):
+        for j in ti.static(range(config.phase_num[None])):
             for k in ti.static(range(3)):
                 color[k] += obj.volume_frac[i][j] * config.phase_rgb[j][k]
         for j in ti.static(range(3)):
@@ -299,14 +299,14 @@ def SPH_update_color(obj: ti.template()):
 
 
 @ti.kernel
-def SPH_FBM_clean_tmp(obj: ti.template()):
+def SPH_FBM_clean_tmp(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
-        for j in ti.static(range(phase_num)):
+        for j in ti.static(range(config.phase_num[None])):
             obj.volume_frac_tmp[i][j] = 0
 
 
 @ti.kernel
-def SPH_FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         if obj.flag[i] == 0:  # flag check
             for t in range(config.neighb_search_template.shape[0]):
@@ -327,14 +327,14 @@ def SPH_FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(
 
 
 @ti.kernel
-def SPH_FBM_convect(ngrid: ti.template(), obj: ti.template(), nobj: ti.template()):
+def SPH_FBM_convect(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.acce_adv[i] = (obj.vel_adv[i] - obj.vel[i]) / config.dt[None]
         obj.fbm_zeta[i] = 0
-        for j in ti.static(range(phase_num)):
+        for j in ti.static(range(config.phase_num[None])):
             obj.fbm_zeta[i] += obj.volume_frac[i][j] * (config.phase_rest_density[None][j] - obj.rest_density[i]) / config.phase_rest_density[None][j]
         obj.fbm_acce[i] = (obj.acce_adv[i] - (obj.fbm_zeta[i] * config.gravity[None])) / (1 - obj.fbm_zeta[i])
-        for j in ti.static(range(phase_num)):
+        for j in ti.static(range(config.phase_num[None])):
             obj.drift_vel[i, j] = obj.volume_frac[i][j] * (config.phase_rest_density[None][j] - obj.rest_density[i]) * (config.gravity[None] - obj.fbm_acce[i])
             density_weight = obj.volume_frac[i][j] * config.phase_rest_density[None][j]
             if density_weight > 1e-6:
@@ -357,7 +357,7 @@ def SPH_FBM_convect(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(
                                 xij = obj.pos[i] - nobj.pos[neighb_pid]
                                 r = xij.norm()
                                 if r > 0:
-                                    for k in ti.static(range(phase_num)):
+                                    for k in ti.static(range(config.phase_num[None])):
                                         tmp = config.fbm_convection_term[None] * config.dt[None] * nobj.rest_volume[neighb_pid] * (
                                                 obj.volume_frac[i][k] * obj.drift_vel[i, k] + nobj.volume_frac[neighb_pid][k] * nobj.drift_vel[neighb_pid, k]).dot(xij / r) * W_grad(r)
                                         obj.volume_frac_tmp[i][k] -= tmp
@@ -380,11 +380,11 @@ def SPH_update_volume_frac(obj: ti.template()):
 
 
 @ti.kernel
-def map_velocity(ngrid: ti.template(), grid: ti.template(), nobj: ti.template()):
+def map_velocity(ngrid: ti.template(), grid: ti.template(), nobj: ti.template(), config: ti.template()):
     for I in ti.grouped(grid.vel):
         grid_pos = grid.pos[I]  # get grid pos
         nnode = node_encode(grid_pos)  # get grid neighb node
-        for j in ti.static(range(dim)):
+        for j in ti.static(range(config.dim[None])):
             grid.vel[I][j] = 0
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(nnode + config.neighb_search_template[t])

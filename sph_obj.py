@@ -125,8 +125,8 @@ class Fluid:
             raise Exception('scenario error: can only add 2D or 3D boxes')
         self.push_matrix(box, start_pos + padding, spacing, volume_frac, vel, color)
 
-    def push_part_from_ply(self, p_sum, pos_seq, volume_frac, vel, color: int):
-        self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color)
+    def push_part_from_ply(self, p_sum, pos_seq, volume_frac, vel, color, config):
+        self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color, config)
 
     # add particles according to true and false in the matrix
     # matrix: np array (dimension: dim, dtype: np.bool)
@@ -135,7 +135,7 @@ class Fluid:
             raise Exception('push_matrix() [scenario error]: wrong object dimension')
         index = np.where(matrix == True)
         pos_seq = np.stack(index, axis=1) * spacing + start_position
-        self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color)
+        self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color, config)
 
     @ti.kernel
     def push_part_seq(self, pushed_part_num: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
@@ -241,7 +241,7 @@ class Fluid:
                     counter += 1
             pos_seq *= config.part_size[1] * relaxing_factor
             pos_seq -= (np.array(center_pos) + np.array(size) / 2)
-            self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color)
+            self.push_part_seq(p_sum, pos_seq, ti.Vector(volume_frac), color, config)
 
 
 class Part_buffer:
