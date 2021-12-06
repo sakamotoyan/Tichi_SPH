@@ -8,10 +8,10 @@ dim = sim_dim
 @ti.data_oriented
 class Fluid:
     def __init__(self, max_part_num):
-        obj_list.append(self)
         self.max_part_num = max_part_num
         self.part_num = ti.field(int, ())
         self.uid = len(obj_list)  # uid of the Fluid object
+        obj_list.append(self)
 
         # utils
         self.ones = ti.field(int)
@@ -320,3 +320,26 @@ class Grid:
         for I in ti.grouped(self.pos):
             self.pos[I] = config.sim_space_lb[None] + I * self.dist
 
+
+class GlobalVariable:
+    def __init__(self):
+        self.is_first_time = True
+        self.time_real = 0
+        self.time_start = 0
+
+        self.time_count = float(0)
+        self.time_counter = int(0)
+        self.step_counter = int(0)
+
+        self.frame_div_iter = 0
+        self.frame_incom_iter = 0
+        self.div_iter_count = 0
+        self.incom_iter_count = 0
+
+        # self.show_window = False
+        self.show_window = True
+        self.show_bound = False
+        self.show_help = True
+        self.show_run_info = True
+        self.op_system_run = False
+        self.op_write_file = False

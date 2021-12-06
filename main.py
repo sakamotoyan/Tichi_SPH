@@ -3,14 +3,15 @@ from sph import *
 import json
 import time
 
+
 """ init data structure """
 ngrid = Ngrid()
 fluid = Fluid(max_part_num=config.fluid_max_part_num[None])
 bound = Fluid(max_part_num=config.bound_max_part_num[None])
 grid = Grid()
+globalvar = GlobalVariable()
 
 
-# config.dt[None] = 0.0005
 def init_scenario():
     # init phase color
     for i in range(config.phase_num[None]):
@@ -27,15 +28,12 @@ def init_scenario():
             if obj is not None:
                 for param in scenario_buffer[part]['objs']:
                     if param['type'] == 'cube':
-                        obj.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
-                                           int(param['color'], 16), param['particle_relaxing_factor'])
+                        obj.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'], int(param['color'], 16), param['particle_relaxing_factor'])
                     elif param['type'] == 'box':
-                        obj.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
-                                          param['vel'], int(param['color'], 16), param['particle_relaxing_factor'])
+                        obj.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'], param['vel'], int(param['color'], 16), param['particle_relaxing_factor'])
                     elif param['type'] == 'ply':
                         verts = read_ply(param['file_name'])
-                        obj.push_part_from_ply(len(verts), verts, param['volume_frac'], param['vel'],
-                                               int(param['color'], 16))
+                        obj.push_part_from_ply(len(verts), verts, param['volume_frac'], param['vel'], int(param['color'], 16))
     except Exception:
         print('no scenario file or scenario file invalid')
         exit(0)
@@ -43,7 +41,7 @@ def init_scenario():
     # for ggui
     set_unused_par(fluid)
     set_unused_par(bound)
-
+    SPH_update_color(fluid)
 
 ##################################### Write Json ############################################
 def write_scene_data():
@@ -61,15 +59,15 @@ def write_scene_data():
 
 def write_json():
     data = {
-        "step": step_counter,
-        "frame": time_counter,
-        "timeInSimulation": time_count,
+        "step": globalvar.step_counter,
+        "frame": globalvar.time_counter,
+        "timeInSimulation": globalvar.time_count,
         "timeStep": config.dt[None],
         "fps": config.gui_fps[None],
         "iteration": {
-            "divergenceFree_iteration": div_iter_count,
-            "incompressible_iteration": incom_iter_count,
-            "sum_iteration": div_iter_count + incom_iter_count
+            "divergenceFree_iteration": globalvar.div_iter_count,
+            "incompressible_iteration": globalvar.incom_iter_count,
+            "sum_iteration": globalvar.div_iter_count + globalvar.incom_iter_count
         },
         "energy": {
             "statistics_kinetic_energy": fluid.statistics_kinetic_energy[None],
@@ -78,22 +76,21 @@ def write_json():
         }
     }
     s = json.dumps(data)
-    with open("json\\" + solver_type + str(step_counter) + ".json", "w") as f:
+    with open("json\\" + solver_type + str(globalvar.step_counter) + ".json", "w") as f:
         f.write(s)
 
 
 def write_full_json(fname):
-    global frame_div_iter, frame_incom_iter
     data = {
-        "step": step_counter,
-        "frame": time_counter,
-        "timeInSimulation": time_count,
+        "step": globalvar.step_counter,
+        "frame": globalvar.time_counter,
+        "timeInSimulation": globalvar.time_count,
         "timeStep": config.dt[None],
         "fps": config.gui_fps[None],
         "iteration": {
-            "divergenceFree_iteration": frame_div_iter,
-            "incompressible_iteration": frame_incom_iter,
-            "sum_iteration": frame_div_iter + frame_incom_iter
+            "divergenceFree_iteration": globalvar.frame_div_iter,
+            "incompressible_iteration": globalvar.frame_incom_iter,
+            "sum_iteration": globalvar.frame_div_iter + globalvar.frame_incom_iter
         },
         "energy": {
             "statistics_kinetic_energy": fluid.statistics_kinetic_energy[None],
@@ -104,13 +101,11 @@ def write_full_json(fname):
     s = json.dumps(data)
     with open(fname, "w") as f:
         f.write(s)
-
-
 ################################## End Write Json ############################################
 
 
 def sph_step():
-    global div_iter_count, incom_iter_count
+    # global div_iter_count, incom_iter_count
     """ neighbour search """
     ngrid.clear_node()
     ngrid.encode(fluid)
@@ -133,9 +128,9 @@ def sph_step():
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
     """ IPPE SPH divergence """
-    div_iter_count = 0
+    globalvar.div_iter_count = 0
     SPH_vel_2_vel_adv(fluid)
-    while div_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.divergence_threshold[None]:
+    while globalvar.div_iter_count<config.iter_threshold_min[None] or fluid.compression[None]>config.divergence_threshold[None]:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid)
@@ -145,8 +140,8 @@ def sph_step():
         # IPPE_psi_adv_non_negative(bound)
         IPPE_update_vel_adv(ngrid, fluid, fluid)
         IPPE_update_vel_adv(ngrid, fluid, bound)
-        div_iter_count += 1
-        if div_iter_count > config.iter_threshold_max[None]:
+        globalvar.div_iter_count+=1
+        if globalvar.div_iter_count>config.iter_threshold_max[None]:
             break
     SPH_vel_adv_2_vel(fluid)
     """ SPH advection """
@@ -155,8 +150,8 @@ def sph_step():
     SPH_advection_surface_tension_acc(ngrid, fluid, fluid)
     SPH_advection_update_vel_adv(fluid)
     """ IPPE SPH pressure """
-    incom_iter_count = 0
-    while incom_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.compression_threshold[None]:
+    globalvar.incom_iter_count = 0
+    while globalvar.incom_iter_count<config.iter_threshold_min[None] or fluid.compression[None]>config.compression_threshold[None]:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid)
@@ -166,12 +161,12 @@ def sph_step():
         # IPPE_psi_adv_non_negative(bound)
         IPPE_update_vel_adv(ngrid, fluid, fluid)
         IPPE_update_vel_adv(ngrid, fluid, bound)
-        incom_iter_count += 1
-        if incom_iter_count > config.iter_threshold_max[None]:
+        globalvar.incom_iter_count+=1
+        if globalvar.incom_iter_count>config.iter_threshold_max[None]:
             break
     """ debug info """
-    # print('iter div: ', div_iter_count)
-    # print('incom div: ', incom_iter_count)
+    # print('iter div: ', globalvar.div_iter_count)
+    # print('incom div: ', globalvar.incom_iter_count)
     """ WC SPH pressure """
     # WC_pressure_val(fluid)
     # WC_pressure_acce(ngrid, fluid, fluid)
@@ -189,50 +184,26 @@ def sph_step():
     SPH_update_pos(fluid)
     SPH_update_energy(fluid)
     # map_velocity(ngrid, grid, fluid)
-    return div_iter_count, incom_iter_count
+    # return globalvar.div_iter_count, globalvar.incom_iter_count
     """ SPH debug """
 
 
 init_scenario()
 # write_scene_data()
 
-# show_window = False
-show_window = True
-show_bound = False
-show_help = True
-show_run_info = True
-op_system_run = False
-op_write_file = False
-
-# for time record
-is_first_time = True
-time_real = 0
-time_start = 0
-
-time_count = float(0)
-time_counter = int(0)
-step_counter = int(0)
-frame_div_iter = 0
-frame_incom_iter = 0
-div_iter_count = 0
-incom_iter_count = 0
-
 
 def show_options():
-    global show_bound, show_help, show_run_info
-    global op_system_run, op_write_file
-
     # run info
-    if show_run_info:
+    if globalvar.show_run_info:
         window.GUI.begin("time info", 0.05, 0.05, 0.2, 0.2)
         window.GUI.text("fluid particle count: " + str(fluid.part_num[None]))
         window.GUI.text("bound particle count: " + str(bound.part_num[None]))
-        window.GUI.text("simulation time: " + str('%.3f' % time_count))
-        window.GUI.text("real time: " + str('%.3f' % time_real))
-        window.GUI.text("time step: " + str('%.3f' % config.dt[None]))
+        window.GUI.text("simulation time: " + str('%.7f' % globalvar.time_count))
+        window.GUI.text("real time: " + str('%.7f' % globalvar.time_real))
+        window.GUI.text("time step: " + str('%.7f' % config.dt[None]))
         window.GUI.end()
 
-    if show_help:
+    if globalvar.show_help:
         window.GUI.begin("options", 0.05, 0.3, 0.2, 0.2)
         window.GUI.text("h: help")
         window.GUI.text("w: front")
@@ -248,24 +219,24 @@ def show_options():
     if window.get_event(ti.ui.PRESS):
         # run
         if window.event.key == 'r':
-            op_system_run = not op_system_run
-            print("start to run:", op_system_run)
+            globalvar.op_system_run = not globalvar.op_system_run
+            print("start to run:", globalvar.op_system_run)
 
         if window.event.key == 'f':
-            op_write_file = not op_write_file
-            print("write file:", op_write_file)
+            globalvar.op_write_file = not globalvar.op_write_file
+            print("write file:", globalvar.op_write_file)
 
         if window.event.key == 'b':
-            show_bound = not show_bound
-            print("show boundary:", show_bound)
+            globalvar.show_bound = not globalvar.show_bound
+            print("show boundary:", globalvar.show_bound)
 
         if window.event.key == 'i':
-            show_run_info = not show_run_info
-            print("show run information:", show_run_info)
+            globalvar.show_run_info = not globalvar.show_run_info
+            print("show run information:", globalvar.show_run_info)
 
         if window.event.key == 'h':
-            show_help = not show_help
-            print("show help:", show_help)
+            globalvar.show_help = not globalvar.show_help
+            print("show help:", globalvar.show_help)
 
 
 def render3d():
@@ -280,7 +251,7 @@ def render3d():
     update_color_vector(fluid)
     update_color_vector(bound)
     scene.particles(fluid.pos, per_vertex_color=fluid.color_vector, radius=dispaly_radius)
-    if show_bound:
+    if globalvar.show_bound:
         scene.particles(bound.pos, per_vertex_color=bound.color_vector, radius=dispaly_radius)
 
     canvas.scene(scene)  # Render the scene
@@ -292,61 +263,54 @@ def render2d():
     update_color_vector(bound)
     to_gui_pos(fluid)
     to_gui_pos(bound)
-    canvas.circles(fluid.gui_2d_pos, per_vertex_color=fluid.color_vector,
-                   radius=to_gui_radii(config.gui_part_zoomer[None]))
-    if show_bound:
-        canvas.circles(bound.gui_2d_pos, per_vertex_color=bound.color_vector,
-                       radius=to_gui_radii(config.gui_part_zoomer[None]))
+    canvas.circles(fluid.gui_2d_pos, per_vertex_color=fluid.color_vector, radius=to_gui_radii(config.gui_part_zoomer[None]))
+    if globalvar.show_bound:
+        canvas.circles(bound.gui_2d_pos, per_vertex_color=bound.color_vector, radius=to_gui_radii(config.gui_part_zoomer[None]))
 
 
 def run_step():
-    global time_counter, time_count, frame_div_iter, frame_incom_iter
-    global time_real, time_start, is_first_time
-    time_counter += 1
+    globalvar.time_counter += 1
 
-    '''according fps to render'''
-    while time_count < time_counter / config.gui_fps[None]:
-        if is_first_time:
-            time_start = time.time()
-            is_first_time = False
+    while globalvar.time_count < globalvar.time_counter / config.gui_fps[None]:
+        if globalvar.is_first_time:
+            globalvar.time_start = time.time()
+            globalvar.is_first_time = False
         """ computation loop """
         cfl_condition(fluid)
-        time_count += config.dt[None]
+        globalvar.time_count += config.dt[None]
         sph_step()
-        frame_div_iter += div_iter_count
-        frame_incom_iter += incom_iter_count
-        print('current time: ', time_count)
-        # print('real time: ', time_real)
-        print('time step: ', config.dt[None])
+        globalvar.frame_div_iter += globalvar.div_iter_count
+        globalvar.frame_incom_iter += globalvar.incom_iter_count
+        # print('current time: ', globalvar.time_count)
+        # # print('real time: ', globalvar.time_real)
+        # print('time step: ', config.dt[None])
 
-    ''''render after one sph step'''
-    # if is_first_time:
-    #     time_start = time.time()
-    #     is_first_time = False
+    # if globalvar.is_first_time:
+    #     globalvar.time_start = time.time()
+    #     globalvar.is_first_time = False
     # """ computation loop """
     # cfl_condition(fluid)
-    # time_count += config.dt[None]
+    # globalvar.time_count += config.dt[None]
     # sph_step()
-    # frame_div_iter += div_iter_count
-    # frame_incom_iter += incom_iter_count
-
-    time_real = time.time() - time_start
-    print('current time: ', time_count)
-    print('---------------------real time------------------------', time_real)
+    globalvar.time_real = time.time() - globalvar.time_start
+    print('current time: ', globalvar.time_count)
+    print('---------------------real time------------------------', globalvar.time_real)
     print('time step: ', config.dt[None])
     SPH_update_color(fluid)
 
 
 def write_files():
-    write_full_json(f"{solver_type}\\json\\" + "frame" + str(time_counter) + ".json")
-    # numpy.save(f"{solver_type}\\grid_data\\vel_{time_counter}", grid.vel.to_numpy())
-    numpy.save(f"{solver_type}\\part_data\\vel_{time_counter}", fluid.vel.to_numpy()[0:fluid.part_num[None], :])
-    numpy.save(f"{solver_type}\\part_data\\pos_{time_counter}", fluid.pos.to_numpy()[0:fluid.part_num[None], :])
+    window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")
+    write_ply(path=f'{solver_type}\\ply\\fluid_pos', frame_num=globalvar.time_counter, dim=dim, num=fluid.part_num[None],pos=fluid.pos.to_numpy())
+    write_full_json(f"{solver_type}\\json\\" + "frame" + str(globalvar.time_counter) + ".json")
+    # numpy.save(f"{solver_type}\\grid_data\\vel_{globalvar.time_counter}", grid.vel.to_numpy())
+    numpy.save(f"{solver_type}\\part_data\\vel_{globalvar.time_counter}", fluid.vel.to_numpy()[0:fluid.part_num[None], :])
+    numpy.save(f"{solver_type}\\part_data\\pos_{globalvar.time_counter}", fluid.pos.to_numpy()[0:fluid.part_num[None], :])
 
 
 print('fluid particle count: ', fluid.part_num[None])
 print('bound particle count: ', bound.part_num[None])
-if show_window:
+if globalvar.show_window:
     """define window, canvas, scene and camera"""
     window = ti.ui.Window("Fluid Simulation", (config.gui_res[None][0], config.gui_res[None][1]), vsync=True)
     canvas = window.get_canvas()
@@ -355,45 +319,39 @@ if show_window:
     camera.position(config.gui_camera_pos[None][0], config.gui_camera_pos[None][1], config.gui_camera_pos[None][2])
     camera.lookat(config.gui_camera_lookat[None][0], config.gui_camera_lookat[None][1], config.gui_camera_lookat[None][2])
     camera.fov(55)
-    background_color = (
-    (config.gui_canvas_bgcolor[None][0], config.gui_canvas_bgcolor[None][1], config.gui_canvas_bgcolor[None][2]))
+    background_color = ((config.gui_canvas_bgcolor[None][0], config.gui_canvas_bgcolor[None][1], config.gui_canvas_bgcolor[None][2]))
     ambient_color = (0.7, 0.7, 0.7)
-    dispaly_radius = config.part_size[1] * 0.5  # render particle size
+    dispaly_radius = config.part_size[1]*0.5  # render particle size
 
     # print('grid count:', grid.size)
     # numpy.save(f"{solver_type}\\grid_data\\pos",grid.pos.to_numpy())
     if dim == 2:
         while window.running:
-            render2d()
-            show_options()
-            if op_system_run:
+            if globalvar.op_system_run:
                 run_step()
-            if op_write_file:
-                print("--------------")
+            if globalvar.op_write_file:
+                # window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")
                 write_files()
-                window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{time_counter}.png")
+            show_options()
+            render2d()
             window.show()
     else:
         while window.running:
-            render3d()
-            show_options()
-            if op_system_run:
+            if globalvar.op_system_run:
                 run_step()
-            if op_write_file:
-                write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, dim=dim, num=fluid.part_num[None], pos=fluid.pos.to_numpy())
-                window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{time_counter}.png")
+            if globalvar.op_write_file:
+                # window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")
                 write_files()
+            show_options()
+            render3d()
             window.show()
 
 else:
-    if dim == 2:
-        while time_count < 60:
-            run_step()
-            if op_write_file:
-                write_files()
-    else:
-        while time_count < 60:
-            run_step()
-            if op_write_file:
-                # write_files()
-                write_ply(path='ply_3d/fluid_pos', frame_num=time_counter, num=fluid.part_num[None], dim=dim, pos=fluid.pos.to_numpy())
+    while globalvar.time_count < 60:
+        run_step()
+        if globalvar.op_write_file:
+            write_files()
+
+
+
+
