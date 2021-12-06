@@ -5,9 +5,22 @@ import sys
 import getopt
 import json
 from plyfile import *
+import os
 
 
 ################################## Tools ##################################################
+def trim_path_dir(original_file_path):
+    if original_file_path.find('\\') > 0 and original_file_path.find('/') > 0:
+        return original_file_path
+    elif original_file_path.find('\\') > 0:
+        file_path_list = original_file_path.split('\\')
+    elif original_file_path.find('/') > 0:
+        file_path_list = original_file_path.split('/')
+    trimmed_file_path = file_path_list[0]
+    for i in range(len(file_path_list)-1):
+        trimmed_file_path = os.path.join(trimmed_file_path, file_path_list[i+1])
+    return trimmed_file_path
+
 def read_param(param, paramname):
     if param is None:
         raise Exception("The parameter " + paramname + " is missing, or invalid parameter")
@@ -46,12 +59,12 @@ scenario_buffer = {}
 try:
     config_buffer = json.load(open(config_file))
 except Exception:
-    print('no config file or config file invalid')
+    print('Error from sph_config.py: no config file or config file invalid')
     exit()
 try:
     scenario_buffer = json.load(open(scenario_file))
 except Exception:
-    print('no scenario file or scenario file invalid')
+    print('Error from sph_config.py: no scenario file or scenario file invalid')
     exit()
 ################################## END Read json files ####################################
 #
@@ -60,10 +73,10 @@ except Exception:
 config_ti_arch = config_buffer.get('arch')
 config_device_mem = config_buffer.get('device_memory_GB')
 if(config_ti_arch == 'cpu'):
-    ti.init(arch=eval('ti.'+config_ti_arch),
+    ti.init(arch=ti.cpu,
             default_fp=ti.f32, default_ip=ti.i32)
 elif(config_ti_arch == 'gpu'):
-    ti.init(arch=eval('ti.'+config_ti_arch),
+    ti.init(arch=ti.gpu,
             device_memory_GB=config_device_mem, default_fp=ti.f32, default_ip=ti.i32)
 else:
     print('invalid taichi init config!')

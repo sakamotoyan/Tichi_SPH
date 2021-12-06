@@ -7,38 +7,31 @@ import time
 ngrid = Ngrid()
 fluid = Fluid(max_part_num=config.fluid_max_part_num[None])
 bound = Fluid(max_part_num=config.bound_max_part_num[None])
-# grid = Grid()
+# grid = Grid() [TODO: a sensing grid]
 
-
-# config.dt[None] = 0.0005
 def init_scenario():
     # init phase color
     for i in range(config.phase_num[None]):
         assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i)
 
     """ setup scene """
-    try:
-        for part in scenario_buffer:
-            obj = None
-            if part == 'fluid':
-                obj = fluid
-            elif part == 'bound':
-                obj = bound
-            if obj is not None:
-                for param in scenario_buffer[part]['objs']:
-                    if param['type'] == 'cube':
-                        obj.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
-                                           int(param['color'], 16), param['particle_relaxing_factor'])
-                    elif param['type'] == 'box':
-                        obj.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
-                                          param['vel'], int(param['color'], 16), param['particle_relaxing_factor'])
-                    elif param['type'] == 'ply':
-                        verts = read_ply(param['file_name'])
-                        obj.push_part_from_ply(len(verts), verts, param['volume_frac'], param['vel'],
-                                               int(param['color'], 16))
-    except Exception:
-        print('no scenario file or scenario file invalid')
-        exit(0)
+    # try:
+    for obj in scenario_buffer:
+        if (obj == 'fluid') or (obj == 'bound'):
+            for param in scenario_buffer[obj]['objs']:
+                if param['type'] == 'cube':
+                    eval(obj).scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
+                                        int(param['color'], 16), param['particle_relaxing_factor'])
+                elif param['type'] == 'box':
+                    eval(obj).scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
+                                        param['vel'], int(param['color'], 16), param['particle_relaxing_factor'])
+                elif param['type'] == 'ply':
+                    verts = read_ply(trim_path_dir(param['file_name']))
+                    eval(obj).push_part_from_ply(len(verts), verts, param['volume_frac'], param['vel'],
+                                            int(param['color'], 16))
+    # except Exception:
+    #     print('Error from main.py: no fluid nor bound object is found in scenario file!')
+    #     exit(0)
 
     # for ggui
     set_unused_par(fluid)

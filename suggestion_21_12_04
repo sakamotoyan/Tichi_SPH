@@ -9,7 +9,9 @@
     AttributeError: 'NoneType' object has no attribute 'Vector'
 
 想法：这个封装需要改进，明明式kernel，却没给并行实现
+
 --
+
 2. scenario_buffer 在 main.py 中出现的问题
 
     感觉有点突兀？我建议 init_scenario() 移动到 sph_config.py 中
