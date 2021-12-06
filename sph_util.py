@@ -2,7 +2,7 @@ from sph_config import *
 
 
 @ti.func
-def C(r):
+def C(r, config):
     q = r / config.kernel_h[1]
     tmp = 0.0
     if q <= 0.5:
@@ -14,7 +14,7 @@ def C(r):
 
 
 @ti.func
-def W(r):
+def W(r, config):
     q = r / config.kernel_h[1]
     tmp = 0.0
     if q <= 0.5:
@@ -26,7 +26,7 @@ def W(r):
 
 
 @ti.func
-def W_grad(r):
+def W_grad(r, config):
     q = r / config.kernel_h[1]
     tmp = 0.0
     if q <= 0.5:
@@ -38,7 +38,7 @@ def W_grad(r):
 
 
 @ti.func
-def W_lap(x_ij: ti.template(), r, V_j, A: ti.template()):
+def W_lap(x_ij: ti.template(), r, V_j, A: ti.template(), config):
     return 2 * (2 + config.dim[None]) * V_j * W_grad(r) * x_ij.normalized() * A.dot(x_ij) / (
                 0.01 * config.kernel_h[2] + r ** 2)
 
@@ -54,7 +54,7 @@ def hex2rgb(hex: ti.template()):  # r, g, b are normalized
 
 
 @ti.kernel
-def assign_phase_color(hex: int, phase_num: int):
+def assign_phase_color(hex: int, phase_num: int, config: ti.template()):
     config.phase_rgb[phase_num] = hex2rgb(hex)
 
 
@@ -68,12 +68,12 @@ def has_negative(vec: ti.template()):
 
 
 @ti.func
-def node_encode(pos: ti.template()):
+def node_encode(pos: ti.template(), config):
     return int((pos - config.sim_space_lb[None]) // config.kernel_h[1])
 
 
 @ti.func
-def dim_encode(dim: ti.template()):
+def dim_encode(dim: ti.template(), config):
     return config.neighb_grid_coder[None].dot(dim)
 
 
@@ -102,12 +102,12 @@ def write_ply(path, frame_num, dim, num, pos):
 
 ############################################### GUI funcs ###############################################
 @ti.kernel
-def to_gui_pos(obj: ti.template()):
+def to_gui_pos(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         obj.gui_2d_pos[i] = (obj.pos[i] - config.sim_space_lb[None]) / (config.sim_space_rt[None] - config.sim_space_lb[None])
 
 
-def to_gui_radii(relaxing_factor: ti.template()):
+def to_gui_radii(relaxing_factor: ti.template(), config):
     return config.part_size[1] / (config.sim_space_rt[None][0] - config.sim_space_lb[None][0]) * config.gui_res[None][0] / 2000 * relaxing_factor
 
 
@@ -120,12 +120,14 @@ def update_color_vector(obj: ti.template()):
         color = hex2rgb(obj.color[i])
         obj.color_vector[i] = color
 
-
-unused_pos = ti.Vector.field(config.dim[None], float, ())
-unused_pos.from_numpy(np.array([533799.0] * config.dim[None], dtype=np.float32))
-@ti.kernel
-def set_unused_par(obj: ti.template()):
+def set_unused_par(obj: ti.template(), config):
     # temporary method: throw the unused particles away so they aren't rendered
+    unused_pos = ti.Vector.field(config.dim[None], float, ())
+    unused_pos.from_numpy(np.array([533799.0] * config.dim[None], dtype=np.float32))
+    sub_set_unused_par(obj, unused_pos)
+
+@ti.kernel
+def sub_set_unused_par(obj: ti.template(), unused_pos: ti.template()):
     for i in range(obj.part_num[None], obj.max_part_num):
         obj.pos[i] = unused_pos[None]
         obj.gui_2d_pos[i] = unused_pos[None]

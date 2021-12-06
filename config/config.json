@@ -1,6 +1,6 @@
 {
 
-    "arch": "cpu",
+    "arch": "gpu",
     "device_memory_GB":3,
 
     "solver_type":"VFSPH",

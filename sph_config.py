@@ -36,8 +36,8 @@ def read_array_param(param, default):
 
 
 '''parse command line'''
-config_file = ""
-scenario_file = ""
+config_file_path = ""
+scenario_file_path = ""
 try:
     opts, args = getopt.getopt(sys.argv[1:], "c:s:", [
                                "configFile=", "scenarioFile="])
@@ -46,66 +46,71 @@ except getopt.GetoptError:
     sys.exit(2)
 for opt, arg in opts:
     if opt in ("-c", "--configFile"):
-        config_file = arg
+        config_file_path = arg
     elif opt in ("-s", "--secnarioFile"):
-        scenario_file = arg
+        scenario_file_path = arg
 ################################## END Tools #############################################
 #
 #
 ################################## Read json files #######################################
 '''read config file'''
-config_buffer = {}
-scenario_buffer = {}
-try:
-    config_buffer = json.load(open(config_file))
-except Exception:
-    print('Error from sph_config.py: no config file or config file invalid')
-    exit()
-try:
-    scenario_buffer = json.load(open(scenario_file))
-except Exception:
-    print('Error from sph_config.py: no scenario file or scenario file invalid')
-    exit()
+def get_config_buffer():
+    try:
+        config_buffer = json.load(open(config_file_path))
+        return config_buffer
+    except Exception:
+        print('Error from sph_config.py: no config file or config file invalid')
+        exit()
+def get_scenario_buffer():
+    try:
+        scenario_buffer = json.load(open(scenario_file_path))
+        return scenario_buffer
+    except Exception:
+        print('Error from sph_config.py: no scenario file or scenario file invalid')
+        exit()
 ################################## END Read json files ####################################
 #
 #
 ################################## Init Taichi ############################################
-config_ti_arch = config_buffer.get('arch')
-config_device_mem = config_buffer.get('device_memory_GB')
-if(config_ti_arch == 'cpu'):
-    ti.init(arch=ti.cpu,
-            default_fp=ti.f32, default_ip=ti.i32)
-elif(config_ti_arch == 'gpu'):
-    ti.init(arch=ti.gpu,
-            device_memory_GB=config_device_mem, default_fp=ti.f32, default_ip=ti.i32)
-else:
-    print('invalid taichi init config!')
-    exit(0)
+def taichi_init(config_buffer):
+    config_ti_arch = config_buffer.get('arch')
+    config_device_mem = config_buffer.get('device_memory_GB')
+    if(config_ti_arch == 'cpu'):
+        ti.init(arch=ti.cpu,
+                default_fp=ti.f32, default_ip=ti.i32)
+    elif(config_ti_arch == 'gpu'):
+        ti.init(arch=ti.gpu,
+                device_memory_GB=config_device_mem, default_fp=ti.f32, default_ip=ti.i32)
+    else:
+        print('invalid taichi init config!')
+        exit(0)
 ################################## END Init Taichis ######################################
 #
 #
-
-sim_dim = read_param(scenario_buffer['sim_env']['sim_dim'], 'sim_dim')  # simulation dimensions
-phase_num = read_param(scenario_buffer['sim_env']['phase_num'], 'phase_num')  # number of phases
-solver_type = read_param(config_buffer.get('solver_type'), 'solver_type')
-neighb_range = read_param(config_buffer.get('solver_neighb_range'), 'solver_neighb_range')
+class Pre_config:
+    def __init__(self, config_buffer, scenario_buffer):
+        self.sim_dim = read_param(scenario_buffer['sim_env']['sim_dim'], 'sim_dim')  # simulation dimensions
+        self.phase_num = read_param(scenario_buffer['sim_env']['phase_num'], 'phase_num')  # number of phases
+        self.solver_type = read_param(config_buffer.get('solver_type'), 'solver_type')
+        self.neighb_range = read_param(config_buffer.get('solver_neighb_range'), 'solver_neighb_range')
 
 
 @ti.data_oriented
 class Config:
-    def __init__(self):
+    def __init__(self, pre_config, config_buffer, scenario_buffer):
         # sim_env
         self.dim = ti.field(int, ())
         self.part_size = ti.field(float, 5)  # particle diameter
         self.fluid_max_part_num = ti.field(int, ())
         self.bound_max_part_num = ti.field(int, ())
-        self.sim_space_lb = ti.Vector.field(sim_dim, float, ())  # min coordination of simulation space
-        self.sim_space_rt = ti.Vector.field(sim_dim, float, ())  # max coordination of simulation space
+        self.max_part_num = ti.field(int, ())
+        self.sim_space_lb = ti.Vector.field(pre_config.sim_dim, float, ())  # min coordination of simulation space
+        self.sim_space_rt = ti.Vector.field(pre_config.sim_dim, float, ())  # max coordination of simulation space
         self.dynamic_viscosity = ti.field(float, ())
-        self.gravity = ti.Vector.field(sim_dim, float, ())
+        self.gravity = ti.Vector.field(pre_config.sim_dim, float, ())
         self.phase_num = ti.field(int, ())
-        self.phase_rest_density = ti.Vector.field(phase_num, float, ())  # rest density of each phase
-        self.phase_rgb = ti.Vector.field(3, float, phase_num)
+        self.phase_rest_density = ti.Vector.field(pre_config.phase_num, float, ())  # rest density of each phase
+        self.phase_rgb = ti.Vector.field(3, float, pre_config.phase_num)
 
         # solver
         self.dt = ti.field(float, ())
@@ -130,10 +135,10 @@ class Config:
         self.neighb_grid_size_TO_global_part_size = ti.field(int, ())
 
         self.node_num = ti.field(int, ())  # number of neighbor nodes
-        self.neighb_grid_size = ti.Vector.field(sim_dim, float, ())
-        self.neighb_grid_coder = ti.Vector.field(sim_dim, int, ())
-        self.neighb_search_template = ti.Vector.field(sim_dim, int, (neighb_range * 2 + 1) ** sim_dim)
-        self.private_neighb_dice = ti.field(int, neighb_range * 2 + 1)
+        self.neighb_grid_size = ti.Vector.field(pre_config.sim_dim, float, ())
+        self.neighb_grid_coder = ti.Vector.field(pre_config.sim_dim, int, ())
+        self.neighb_search_template = ti.Vector.field(pre_config.sim_dim, int, (pre_config.neighb_range * 2 + 1) ** pre_config.sim_dim)
+        self.private_neighb_dice = ti.field(int, pre_config.neighb_range * 2 + 1)
 
         # FBM
         self.fbm_diffusion_term = ti.field(float, ())
@@ -148,26 +153,27 @@ class Config:
         self.gui_camera_lookat = ti.Vector.field(3, float, ())
         self.gui_canvas_bgcolor = ti.Vector.field(3, float, ())
 
-        self.init()
+        self.sub_init(pre_config, config_buffer, scenario_buffer)
 
 
-    def init_sim_env(self):
-        self.dim[None] = sim_dim
+    def init_sim_env(self, pre_config, scenario_buffer):
+        self.dim[None] = pre_config.sim_dim
         self.part_size[1] = read_param(scenario_buffer['sim_env']['global_part_size'], 'global_part_size')
         self.dynamic_viscosity[None] = read_param(scenario_buffer['sim_env']['global_dynamic_viscosity'], 'global_dynamic_viscosity')
         self.sim_space_lb[None] = read_param(scenario_buffer['sim_env']['sim_space_lb'], 'sim_space_lb')
         self.sim_space_rt[None] = read_param(scenario_buffer['sim_env']['sim_space_rt'], 'sim_space_rt')
         self.gravity[None] = read_param(scenario_buffer['sim_env']['gravity'], 'gravity')
-        self.phase_num[None] = phase_num
+        self.phase_num[None] = pre_config.phase_num
         self.phase_rest_density[None] = read_param(scenario_buffer['sim_env']['phase_rest_density'], 'phase_rest_density')
         self.fluid_max_part_num[None] = int(read_param(scenario_buffer['fluid']['max_part_num'], 'fluid_max_part_num'))
         self.bound_max_part_num[None] = int(read_param(scenario_buffer['bound']['max_part_num'], 'bound_max_part_num'))
+        self.max_part_num[None] = self.fluid_max_part_num[None] + self.bound_max_part_num[None]
 
         self.part_size[2] = math.pow(self.part_size[1], 2)
         self.part_size[3] = math.pow(self.part_size[1], 3)
         self.part_size[4] = math.pow(self.part_size[1], 4)
 
-    def init_solver(self):
+    def init_solver(self, config_buffer):
         # DFSPH
         self.wc_gamma[None] = read_param(config_buffer.get('solver_wc_gamma'), 'solver_wc_gamma')
         self.divergence_threshold[None] = read_param(config_buffer.get('solver_divergence_threshold'), 'solver_divergence_threshold')
@@ -189,12 +195,12 @@ class Config:
         self.fbm_convection_term[None] = read_param(config_buffer.get('solver_fbm_convection_term'), 'solver_fbm_convection_term')
         self.surface_tension_gamma[None] = read_param(config_buffer.get('solver_surface_tension_gamma'), 'solver_surface_tension_gamma')
 
-    def init_gui(self):
+    def init_gui(self, pre_config, config_buffer):
         self.gui_res[None] = read_param(config_buffer.get('gui_res'), 'gui_res')
         self.gui_part_zoomer[None] = read_param(config_buffer.get('gui_part_zoomer'), 'gui_part_zoomer')
         self.gui_fps[None] = read_param(config_buffer.get('gui_fps'), 'gui_fps')
         self.gui_canvas_bgcolor[None] = read_param(config_buffer.get('gui_canvas_bgcolor'), 'gui_canvas_bgcolor')
-        if sim_dim == 3:
+        if pre_config.sim_dim == 3:
             self.gui_camera_pos[None] = read_param(config_buffer.get('gui_camera_pos'), 'gui_camera_pos')
             self.gui_camera_lookat[None] = read_param(config_buffer.get('gui_camera_lookat'), 'gui_camera_lookat')
 
@@ -212,35 +218,29 @@ class Config:
         self.neighb_grid_size[None] = ti.ceil(
             (self.sim_space_rt[None] - self.sim_space_lb[None]) / self.kernel_h[1])  # need ti.kernel
 
-    def calculate_neighb_param(self):
+    def calculate_neighb_param(self, pre_config):
         self.neighb_grid_coder.fill(1)
-        for i in range(sim_dim):
+        for i in range(pre_config.sim_dim):
             self.neighb_grid_coder[None][i] = self.node_num[None]
             self.node_num[None] *= int(self.neighb_grid_size[None][i])
 
         for i in range(self.private_neighb_dice.shape[0]):
-            self.private_neighb_dice[i] = - neighb_range + i
+            self.private_neighb_dice[i] = - pre_config.neighb_range + i
 
         for j in range(self.neighb_search_template.shape[0]):
             tmp = j
-            for d in range(sim_dim):
-                digit = tmp // (self.private_neighb_dice.shape[0] ** (sim_dim - d - 1))
-                tmp = tmp % (self.private_neighb_dice.shape[0] ** (sim_dim - d - 1))
-                self.neighb_search_template[j][sim_dim - d - 1] = self.private_neighb_dice[digit]
+            for d in range(pre_config.sim_dim):
+                digit = tmp // (self.private_neighb_dice.shape[0] ** (pre_config.sim_dim - d - 1))
+                tmp = tmp % (self.private_neighb_dice.shape[0] ** (pre_config.sim_dim - d - 1))
+                self.neighb_search_template[j][pre_config.sim_dim - d - 1] = self.private_neighb_dice[digit]
 
-    def init(self):
-        self.init_sim_env()
-        self.init_solver()
-        self.init_gui()
+    def sub_init(self, pre_config, config_buffer, scenario_buffer):
+        self.init_sim_env(pre_config, scenario_buffer)
+        self.init_solver(config_buffer)
+        self.init_gui(pre_config, config_buffer)
         self.calculate_kernel_param()
         self.init_neighb_param()
-        self.calculate_neighb_param()
-
-
-config = Config()
-
-
-
+        self.calculate_neighb_param(pre_config)
 
 
 

@@ -4,15 +4,23 @@ import json
 import time
 
 """ init data structure """
-ngrid = Ngrid()
-fluid = Fluid(max_part_num=config.fluid_max_part_num[None])
-bound = Fluid(max_part_num=config.bound_max_part_num[None])
-# grid = Grid() [TODO: a sensing grid]
+config_buffer = get_config_buffer()
+scenario_buffer = get_scenario_buffer()
 
-def init_scenario():
+taichi_init(config_buffer)
+
+pre_config = Pre_config(config_buffer, scenario_buffer)
+config = Config(pre_config, config_buffer, scenario_buffer)
+
+ngrid = Ngrid(config)
+fluid = Fluid(config.fluid_max_part_num[None], pre_config, config)
+bound = Fluid(config.bound_max_part_num[None], pre_config, config)
+# grid = Grid() # TODO [a sensing grid]
+
+def init_scenario(config):
     # init phase color
     for i in range(config.phase_num[None]):
-        assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i)
+        assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i, config)
 
     """ setup scene """
     # try:
