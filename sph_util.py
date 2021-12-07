@@ -90,7 +90,7 @@ def write_ply(path, frame_num, dim, num, pos):
         return
     np_pos = np.array(list_pos, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
     el_pos = PlyElement.describe(np_pos, 'vertex')
-    PlyData([el_pos]).write(str(path) + '_' + str(frame_num) + '.ply')
+    PlyData([el_pos], text=True).write(str(path) + '_' + str(frame_num) + '.ply')  # text=True ASCII-format PLY file
 
 
 

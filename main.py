@@ -296,8 +296,9 @@ def run_step():
 
 
 def write_files():
-    window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")
+    window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")  # have to call after render2d()/render3d()
     write_ply(path=f'{solver_type}\\ply\\fluid_pos', frame_num=globalvar.time_counter, dim=dim, num=fluid.part_num[None],pos=fluid.pos.to_numpy())
+
     write_full_json(f"{solver_type}\\json\\" + "frame" + str(globalvar.time_counter) + ".json")
     # numpy.save(f"{solver_type}\\grid_data\\vel_{globalvar.time_counter}", grid.vel.to_numpy())
     numpy.save(f"{solver_type}\\part_data\\vel_{globalvar.time_counter}", fluid.vel.to_numpy()[0:fluid.part_num[None], :])
@@ -325,21 +326,19 @@ if globalvar.show_window:
         while window.running:
             if globalvar.op_system_run:
                 run_step()
-            if globalvar.op_write_file:
-                # window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")
-                write_files()
             show_options()
             render2d()
+            if globalvar.op_system_run and globalvar.op_write_file:
+                write_files()
             window.show()
     else:
         while window.running:
             if globalvar.op_system_run:
                 run_step()
-            if globalvar.op_write_file:
-                # window.write_image(f"{solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{globalvar.time_counter}.png")
-                write_files()
             show_options()
             render3d()
+            if globalvar.op_system_run and globalvar.op_write_file:
+                write_files()
             window.show()
 
 else:
