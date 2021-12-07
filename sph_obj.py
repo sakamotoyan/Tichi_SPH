@@ -194,23 +194,24 @@ class Fluid:
         # generate seq (number of particles to push for each dimension)
         self.pushed_part_seq[None] = int(ti.ceil((rt - lb) / config.part_size[1] / relaxing_factor))
         self.pushed_part_seq[None] *= mask
-        for i in ti.static(range(config.dim[None])):
+        dim = config.gravity.n
+        for i in ti.static(range(dim)):
             if self.pushed_part_seq[None][i] == 0:
                 self.pushed_part_seq[None][i] = 1  # at least push one
         # coder for seq
         tmp = 1
-        for i in ti.static(range(config.dim[None])):
+        for i in ti.static(range(dim)):
             self.pushed_part_seq_coder[i] = tmp
             tmp *= self.pushed_part_seq[None][i]
         # new part num
         pushed_part_num = 1
-        for i in ti.static(range(config.dim[None])):
+        for i in ti.static(range(dim)):
             pushed_part_num *= self.pushed_part_seq[None][i]
         new_part_num = current_part_num + pushed_part_num
         # inject pos [1/2]
         for i in range(pushed_part_num):
             tmp = i
-            for j in ti.static(range(config.dim[None] - 1, -1, -1)):
+            for j in ti.static(range(dim - 1, -1, -1)):
                 self.pos[i + current_part_num][j] = tmp // self.pushed_part_seq_coder[j]
                 tmp = tmp % self.pushed_part_seq_coder[j]
         # inject pos [2/2]

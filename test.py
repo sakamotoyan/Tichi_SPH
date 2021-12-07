@@ -3,11 +3,9 @@ import taichi as ti
 
 ti.init()
 
-a = ti.Vector.field(3, ti.f32, ())
-b = ti.Vector.field(3, ti.f32, ())
-a[None] = [3,4,5]
-b = [2,3,4]
-print(a[None])
+a = ti.Vector.field(3, ti.f32, (10,4))
+
+print(a.shape)
 # def trim_path_dir(original_file_path):
 #     if original_file_path.find('\\') > 0 and original_file_path.find('/') > 0:
 #         return original_file_path
