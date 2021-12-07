@@ -137,6 +137,8 @@ class Config:
 
         self.init()
 
+    def assign_phase_color(self, hex, phase):
+        self.phase_rgb[phase] = [float((hex & 0xFF0000) >> 16) / 255.0, float((hex & 0x00FF00) >> 8) / 255.0, float(hex & 0x0000FF) / 255.0]
 
     def init_sim_env(self):
         self.dim[None] = sim_dim
@@ -149,6 +151,10 @@ class Config:
         self.phase_rest_density[None] = read_param(scenario_buffer['sim_env']['phase_rest_density'], 'phase_rest_density')
         self.fluid_max_part_num[None] = int(read_param(scenario_buffer['fluid']['max_part_num'], 'fluid_max_part_num'))
         self.bound_max_part_num[None] = int(read_param(scenario_buffer['bound']['max_part_num'], 'bound_max_part_num'))
+
+        # init phase color
+        for i in range(phase_num):
+            self.assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i)
 
         self.part_size[2] = math.pow(self.part_size[1], 2)
         self.part_size[3] = math.pow(self.part_size[1], 3)

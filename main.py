@@ -13,10 +13,6 @@ globalvar = GlobalVariable()
 
 
 def init_scenario():
-    # init phase color
-    for i in range(config.phase_num[None]):
-        assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i)
-
     """ setup scene """
     try:
         for part in scenario_buffer:

@@ -49,14 +49,8 @@ def rgb2hex(r: float, g: float, b: float):  # r, g, b are normalized
 
 
 @ti.func
-@ti.func
 def hex2rgb(hex: ti.template()):  # r, g, b are normalized
     return float(ti.Vector([(hex & 0xFF0000) >> 16, (hex & 0x00FF00) >> 8, (hex & 0x0000FF)])) / 255
-
-
-@ti.kernel
-def assign_phase_color(hex: int, phase_num: int):
-    config.phase_rgb[phase_num] = hex2rgb(hex)
 
 
 @ti.func
