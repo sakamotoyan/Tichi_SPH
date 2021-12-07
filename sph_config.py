@@ -9,6 +9,14 @@ import os
 
 
 ################################## Tools ##################################################
+@ti.func
+def rgb2hex(r: float, g: float, b: float):  # r, g, b are normalized
+    return ((int(r * 255)) << 16) + ((int(g * 255)) << 8) + (int(b * 255))
+
+@ti.func
+def hex2rgb(hex: ti.template()):  # r, g, b are normalized
+    return float(ti.Vector([(hex & 0xFF0000) >> 16, (hex & 0x00FF00) >> 8, (hex & 0x0000FF)])) / 255
+
 def trim_path_dir(original_file_path):
     if original_file_path.find('\\') > 0 and original_file_path.find('/') > 0:
         return original_file_path
@@ -94,7 +102,6 @@ class Pre_config:
         self.solver_type = read_param(config_buffer.get('solver_type'), 'solver_type')
         self.neighb_range = read_param(config_buffer.get('solver_neighb_range'), 'solver_neighb_range')
 
-
 @ti.data_oriented
 class Config:
     def __init__(self, pre_config, config_buffer, scenario_buffer):
@@ -155,6 +162,8 @@ class Config:
 
         self.sub_init(pre_config, config_buffer, scenario_buffer)
 
+    def assign_phase_color(self, hex, phase):
+        self.phase_rgb[phase] = [float((hex & 0xFF0000) >> 16) / 255.0, float((hex & 0x00FF00) >> 8) / 255.0, float(hex & 0x0000FF) / 255.0]
 
     def init_sim_env(self, pre_config, scenario_buffer):
         self.dim[None] = pre_config.sim_dim
@@ -168,6 +177,10 @@ class Config:
         self.fluid_max_part_num[None] = int(read_param(scenario_buffer['fluid']['max_part_num'], 'fluid_max_part_num'))
         self.bound_max_part_num[None] = int(read_param(scenario_buffer['bound']['max_part_num'], 'bound_max_part_num'))
         self.max_part_num[None] = self.fluid_max_part_num[None] + self.bound_max_part_num[None]
+
+        # init phase color
+        for i in range(self.phase_num[None]):
+            self.assign_phase_color(int(scenario_buffer['sim_env']['phase_color_hex'][i], 16), i)
 
         self.part_size[2] = math.pow(self.part_size[1], 2)
         self.part_size[3] = math.pow(self.part_size[1], 3)

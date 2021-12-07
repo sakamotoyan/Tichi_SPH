@@ -288,9 +288,10 @@ def SPH_update_mass(obj: ti.template(), config: ti.template()):
 
 @ti.kernel
 def SPH_update_color(obj: ti.template(), config: ti.template()):
+    phase_num = config.phase_num[None]
     for i in range(obj.part_num[None]):
         color = ti.Vector([0.0, 0.0, 0.0])
-        for j in ti.static(range(config.phase_num[None])):
+        for j in ti.static(range(phase_num)):
             for k in ti.static(range(3)):
                 color[k] += obj.volume_frac[i][j] * config.phase_rgb[j][k]
         for j in ti.static(range(3)):

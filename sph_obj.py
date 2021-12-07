@@ -6,11 +6,12 @@ obj_list = []
 @ti.data_oriented
 class Fluid:
     def __init__(self, max_part_num, pre_config, config):
+
         obj_list.append(self)
+
         self.max_part_num = max_part_num
         self.part_num = ti.field(int, ())
         self.uid = len(obj_list)  # uid of the Fluid object
-
         # utils
         self.ones = ti.field(int)
         self.flag = ti.field(int)  # ? OBSOLETE
@@ -149,7 +150,7 @@ class Fluid:
         print(self.pos)
 
     @ti.kernel
-    def push_part_seq(self, pushed_part_num: int, color: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
+    def push_part_seq_todo(self, pushed_part_num: int, color: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
                        config: ti.template()):
         current_part_num = self.part_num[None]
         new_part_num = current_part_num + pushed_part_num
@@ -166,6 +167,25 @@ class Fluid:
         for i in range(self.part_num[None]):
             self.rest_density[i] = config.phase_rest_density[None].dot(self.volume_frac[i])  # todo 2
             self.mass[i] = self.rest_density[i] * self.rest_volume[i]
+
+
+    def push_part_seq(self, pushed_part_num, color, pos_seq, volume_frac, vel, config):
+        current_part_num = self.part_num[None]
+        new_part_num = current_part_num + pushed_part_num
+        pos_seq_ti = ti.Vector.field(config.dim[None], float, pushed_part_num)
+        pos_seq_ti.from_numpy(pos_seq)
+        for i in range(pushed_part_num):
+            i_p = i + current_part_num
+            for j in range(config.dim[None]):
+                self.pos[i_p][j] = pos_seq_ti[i][j]
+            self.volume_frac[i_p] = volume_frac
+            self.vel[i_p] = vel
+            self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
+            self.color[i_p] = color
+            self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
+            self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
+        self.part_num[None] = new_part_num
+
 
     @ti.kernel
     def push_cube(self, lb: ti.template(), rt: ti.template(), mask: ti.template(), volume_frac: ti.template(),
@@ -286,8 +306,8 @@ class Ngrid:
     @ti.kernel
     def encode(self, obj: ti.template(), config: ti.template()):
         for i in range(obj.part_num[None]):
-            obj.neighb_cell_structured_seq[i] = node_encode(obj.pos[i])
-            obj.neighb_cell_seq[i] = dim_encode(obj.neighb_cell_structured_seq[i])
+            obj.neighb_cell_structured_seq[i] = node_encode(obj.pos[i], config)
+            obj.neighb_cell_seq[i] = dim_encode(obj.neighb_cell_structured_seq[i], config)
             if 0 < obj.neighb_cell_seq[i] < config.node_num[None]:
                 ti.atomic_add(self.node_part_count[obj.neighb_cell_seq[i]], 1)
 

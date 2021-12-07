@@ -2,7 +2,7 @@ from sph_config import *
 
 
 @ti.func
-def C(r, config):
+def C(r, config: ti.template()):
     q = r / config.kernel_h[1]
     tmp = 0.0
     if q <= 0.5:
@@ -14,7 +14,7 @@ def C(r, config):
 
 
 @ti.func
-def W(r, config):
+def W(r, config: ti.template()):
     q = r / config.kernel_h[1]
     tmp = 0.0
     if q <= 0.5:
@@ -26,7 +26,7 @@ def W(r, config):
 
 
 @ti.func
-def W_grad(r, config):
+def W_grad(r, config: ti.template()):
     q = r / config.kernel_h[1]
     tmp = 0.0
     if q <= 0.5:
@@ -38,7 +38,7 @@ def W_grad(r, config):
 
 
 @ti.func
-def W_lap(x_ij: ti.template(), r, V_j, A: ti.template(), config):
+def W_lap(x_ij: ti.template(), r, V_j, A: ti.template(), config: ti.template()):
     return 2 * (2 + config.dim[None]) * V_j * W_grad(r) * x_ij.normalized() * A.dot(x_ij) / (
                 0.01 * config.kernel_h[2] + r ** 2)
 
@@ -53,12 +53,12 @@ def has_negative(vec: ti.template()):
 
 
 @ti.func
-def node_encode(pos: ti.template(), config):
+def node_encode(pos: ti.template(), config: ti.template()):
     return int((pos - config.sim_space_lb[None]) // config.kernel_h[1])
 
 
 @ti.func
-def dim_encode(dim: ti.template(), config):
+def dim_encode(dim: ti.template(), config: ti.template()):
     return config.neighb_grid_coder[None].dot(dim)
 
 
@@ -92,7 +92,7 @@ def to_gui_pos(obj: ti.template(), config: ti.template()):
         obj.gui_2d_pos[i] = (obj.pos[i] - config.sim_space_lb[None]) / (config.sim_space_rt[None] - config.sim_space_lb[None])
 
 
-def to_gui_radii(relaxing_factor: ti.template(), config):
+def to_gui_radii(relaxing_factor, config):
     return config.part_size[1] / (config.sim_space_rt[None][0] - config.sim_space_lb[None][0]) * config.gui_res[None][0] / 2000 * relaxing_factor
 
 
@@ -105,7 +105,7 @@ def update_color_vector(obj: ti.template()):
         color = hex2rgb(obj.color[i])
         obj.color_vector[i] = color
 
-def set_unused_par(obj: ti.template(), config):
+def set_unused_par(obj, config):
     # temporary method: throw the unused particles away so they aren't rendered
     unused_pos = ti.Vector.field(config.dim[None], float, ())
     unused_pos.from_numpy(np.array([533799.0] * config.dim[None], dtype=np.float32))

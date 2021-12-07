@@ -11,7 +11,7 @@
         "phase_color_hex": ["0x6F7DBC","0xFA8012","0xFA8072"]
     },
     "fluid":{
-        "max_part_num": 3000,
+        "max_part_num": 6000,
         "objs":[
             {
                 "type":"ply",
@@ -25,7 +25,7 @@
     },
 
     "bound":{
-        "max_part_num": 30000,
+        "max_part_num": 40000,
         "objs":  [
             {
                 "type":"box",
