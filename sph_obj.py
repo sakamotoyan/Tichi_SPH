@@ -194,7 +194,7 @@ class Fluid:
         # generate seq (number of particles to push for each dimension)
         self.pushed_part_seq[None] = int(ti.ceil((rt - lb) / config.part_size[1] / relaxing_factor))
         self.pushed_part_seq[None] *= mask
-        dim = config.gravity.n
+        dim = ti.static(config.gravity.n)
         for i in ti.static(range(dim)):
             if self.pushed_part_seq[None][i] == 0:
                 self.pushed_part_seq[None][i] = 1  # at least push one
@@ -277,6 +277,22 @@ class Fluid:
             pos_seq -= (np.array(center_pos) + np.array(size) / 2)
             self.push_part_seq(p_sum, color, pos_seq, ti.Vector(volume_frac), config)
 
+    def push_part_from_ply(self, scenario_buffer, obj_name, config):
+        for obj in scenario_buffer:
+            if (obj == obj_name):
+                for param in scenario_buffer[obj]['objs']:
+                    if param['type'] == 'cube':
+                        self.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
+                                            int(param['color'], 16), param['particle_relaxing_factor'], config)
+                    elif param['type'] == 'box':
+                        self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
+                                            param['vel'], int(param['color'], 16), param['particle_relaxing_factor'], config)
+                    elif param['type'] == 'ply':
+                        verts = read_ply(trim_path_dir(param['file_name']))
+                        self.push_part_seq(len(verts), int(param['color'], 16), verts, ti.Vector(param['volume_frac']), ti.Vector(param['vel']),
+                                                config)
+        
+        set_unused_par(self, config)
 
 class Part_buffer:
     def __init__(self, part_num, config):
@@ -329,6 +345,80 @@ class Ngrid:
                 self.part_pid_in_node[obj.neighb_in_cell_seq[i]] = i
                 self.part_uid_in_node[obj.neighb_in_cell_seq[i]] = obj.uid
 
+class Gui():
+    def __init__(self, config):
+        self.window = ti.ui.Window("Fluid Simulation", (config.gui_res[None][0], config.gui_res[None][1]), vsync=True)
+        self.canvas = self.window.get_canvas()
+        self.scene = ti.ui.Scene()
+        self.camera = ti.ui.make_camera()
+        self.camera.position(config.gui_camera_pos[None][0], config.gui_camera_pos[None][1], config.gui_camera_pos[None][2])
+        self.camera.lookat(config.gui_camera_lookat[None][0], config.gui_camera_lookat[None][1], config.gui_camera_lookat[None][2])
+        self.camera.fov(55)
+        self.background_color = (
+        (config.gui_canvas_bgcolor[None][0], config.gui_canvas_bgcolor[None][1], config.gui_canvas_bgcolor[None][2]))
+        self.ambient_color = (0.7, 0.7, 0.7)
+        self.dispaly_radius = config.part_size[1] * 0.5
+
+        self.show_bound = False
+        self.show_help = True
+        self.show_run_info = True
+        self.op_system_run = False
+        self.op_write_file = False
+
+    def gui_basic(self):
+        # if self.show_run_info:
+        #     self.window.GUI.begin("time info", 0.05, 0.05, 0.2, 0.2)
+        #     self.window.GUI.text("fluid particle count: " + str(fluid.part_num[None]))
+        #     self.window.GUI.text("bound particle count: " + str(bound.part_num[None]))
+        #     self.window.GUI.text("simulation time: " + str('%.3f' % time_count))
+        #     self.window.GUI.text("real time: " + str('%.3f' % time_real))
+        #     self.window.GUI.text("time step: " + str('%.3f' % config.dt[None]))
+        #     self.window.GUI.end()
+
+        if self.show_help:
+            self.window.GUI.begin("options", 0.05, 0.3, 0.2, 0.2)
+            self.window.GUI.text("h: help")
+            self.window.GUI.text("w: front")
+            self.window.GUI.text("s: back")
+            self.window.GUI.text("a: left")
+            self.window.GUI.text("d: right")
+            self.window.GUI.text("RMB: rotate")
+            self.window.GUI.text("b: display boundary")
+            self.window.GUI.text("r: run system")
+            self.window.GUI.text("f: write file")
+            self.window.GUI.end()
+
+        if self.window.get_event(ti.ui.PRESS):
+            # run
+            if self.window.event.key == 'r':
+                self.op_system_run = not self.op_system_run
+                print("start to run:", self.op_system_run)
+
+            if self.window.event.key == 'f':
+                self.op_write_file = not self.op_write_file
+                print("write file:", self.op_write_file)
+
+            if self.window.event.key == 'b':
+                self.show_bound = not self.show_bound
+                print("show boundary:", self.show_bound)
+
+            if self.window.event.key == 'i':
+                self.show_run_info = not self.show_run_info
+                print("show run information:", self.show_run_info)
+
+            if self.window.event.key == 'h':
+                self.show_help = not self.show_help
+                print("show help:", self.show_help)
+            
+        self.canvas.set_background_color(self.background_color)
+        self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
+        self.scene.set_camera(self.camera)
+
+        self.scene.ambient_light(self.ambient_color)
+        # Configuring light sources, must set one plint light, otherwise occurs an error (seem to be a bug)
+        self.scene.point_light(pos=(2, 1.5, -1.5), color=(0.8, 0.8, 0.8))
+
+        self.canvas.scene(self.scene)  # Render the scene
 
 
 # TODO: data structure Grid

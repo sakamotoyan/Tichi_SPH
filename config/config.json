@@ -1,7 +1,7 @@
 {
 
-    "arch": "cpu",
-    "device_memory_GB":3,
+    "arch": "gpu",
+    "device_memory_GB":2,
 
     "solver_type":"VFSPH",
     "solver_wc_gamma":7,

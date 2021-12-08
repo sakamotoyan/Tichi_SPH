@@ -39,7 +39,7 @@ def W_grad(r, config: ti.template()):
 
 @ti.func
 def W_lap(x_ij: ti.template(), r, V_j, A: ti.template(), config: ti.template()):
-    return 2 * (2 + config.dim[None]) * V_j * W_grad(r) * x_ij.normalized() * A.dot(x_ij) / (
+    return 2 * (2 + config.dim[None]) * V_j * W_grad(r, config) * x_ij.normalized() * A.dot(x_ij) / (
                 0.01 * config.kernel_h[2] + r ** 2)
 
 
