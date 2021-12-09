@@ -402,3 +402,90 @@ def map_velocity(ngrid: ti.template(), grid: ti.template(), nobj: ti.template(),
                     if neighb_uid == nobj.uid:
                         neighb_pid = ngrid.part_pid_in_node[shift]
                         grid.vel[I] += nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid] * nobj.vel[neighb_pid] * W((grid_pos - nobj.pos[neighb_pid]).norm(), config)
+
+###################################### SPH SOLVER ############################################
+def sph_step(ngrid, fluid, bound, config):
+    cfl_condition(fluid, config)
+    global div_iter_count, incom_iter_count
+    """ neighbour search """
+    ngrid.clear_node(config)
+    ngrid.encode(fluid, config)
+    ngrid.encode(bound, config)
+    ngrid.mem_shift(config)
+    ngrid.fill_node(fluid, config)
+    ngrid.fill_node(bound, config)
+    """ SPH clean value """
+    SPH_clean_value(fluid, config)
+    SPH_clean_value(bound, config)
+    """ SPH compute W and W_grad """
+    SPH_prepare_attr(ngrid, fluid, fluid, config)
+    SPH_prepare_attr(ngrid, fluid, bound, config)
+    SPH_prepare_attr(ngrid, bound, bound, config)
+    SPH_prepare_attr(ngrid, bound, fluid, config)
+    SPH_prepare_alpha_1(ngrid, fluid, fluid, config)
+    SPH_prepare_alpha_1(ngrid, fluid, bound, config)
+    SPH_prepare_alpha_2(ngrid, fluid, fluid, config)
+    SPH_prepare_alpha_2(ngrid, bound, fluid, config)
+    SPH_prepare_alpha(fluid)
+    SPH_prepare_alpha(bound)
+    """ IPPE SPH divergence """
+    div_iter_count = 0
+    SPH_vel_2_vel_adv(fluid)
+    while div_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.divergence_threshold[None]:
+        IPPE_adv_psi_init(fluid)
+        # IPPE_adv_psi_init(bound)
+        IPPE_adv_psi(ngrid, fluid, fluid, config)
+        IPPE_adv_psi(ngrid, fluid, bound, config)
+        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_psi_adv_non_negative(fluid)
+        # IPPE_psi_adv_non_negative(bound)
+        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
+        IPPE_update_vel_adv(ngrid, fluid, bound, config)
+        div_iter_count += 1
+        if div_iter_count > config.iter_threshold_max[None]:
+            break
+    SPH_vel_adv_2_vel(fluid)
+    """ SPH advection """
+    SPH_advection_gravity_acc(fluid, config)
+    SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
+    SPH_advection_viscosity_acc(ngrid, fluid, bound, config)
+    # SPH_advection_surface_tension_acc(ngrid, fluid, fluid, config)
+    SPH_advection_update_vel_adv(fluid, config)
+    """ IPPE SPH pressure """
+    incom_iter_count = 0
+    while incom_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.compression_threshold[None]:
+        IPPE_adv_psi_init(fluid)
+        # IPPE_adv_psi_init(bound)
+        IPPE_adv_psi(ngrid, fluid, fluid, config)
+        IPPE_adv_psi(ngrid, fluid, bound, config)
+        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_psi_adv_non_negative(fluid)
+        # IPPE_psi_adv_non_negative(bound)
+        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
+        IPPE_update_vel_adv(ngrid, fluid, bound, config)
+        incom_iter_count += 1
+        if incom_iter_count > config.iter_threshold_max[None]:
+            break
+    """ debug info """
+    # print('iter div: ', div_iter_count)
+    # print('incom div: ', incom_iter_count)
+    """ WC SPH pressure """
+    # WC_pressure_val(fluid)
+    # WC_pressure_acce(ngrid, fluid, fluid)
+    # WC_pressure_acce(ngrid, fluid, bound)
+    # SPH_advection_update_vel_adv(fluid)
+    """ FBM procedure """
+    # while fluid.general_flag[None] > 0:
+    #     SPH_FBM_clean_tmp(fluid)
+    #     SPH_FBM_convect(ngrid, fluid, fluid)
+    #     SPH_FBM_diffuse(ngrid, fluid, fluid)
+    #     SPH_FBM_check_tmp(fluid)
+    """ SPH update """
+    # SPH_update_volume_frac(fluid)
+    SPH_update_mass(fluid, config)
+    SPH_update_pos(fluid, config)
+    # SPH_update_energy(fluid, config)
+    # map_velocity(ngrid, grid, fluid)
+    return div_iter_count, incom_iter_count
+    """ SPH debug """
+#################################### END SPH SOLVER ###########################################

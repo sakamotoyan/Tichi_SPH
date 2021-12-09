@@ -110,7 +110,7 @@ class Fluid:
                        relaxing_factor, config):  # add relaxing factor for each cube
         spacing = config.part_size[1] * relaxing_factor
         matrix_shape, padding = self.scene_add_help_centering(start_pos, end_pos, spacing)
-        self.push_matrix(np.ones(matrix_shape, dtype=np.bool_), start_pos + padding, spacing, volume_frac, vel, color)
+        self.push_matrix(np.ones(matrix_shape, dtype=np.bool_), start_pos + padding, spacing, volume_frac, vel, color, config)
 
     # add 3D or 2D hollow box to scene, with several layers
     def scene_add_box(self, start_pos, end_pos, layers, volume_frac, vel, color, relaxing_factor, config):
@@ -170,6 +170,7 @@ class Fluid:
 
 
     def push_part_seq(self, pushed_part_num, color, pos_seq, volume_frac, vel, config):
+        print('push ',pushed_part_num, ' particles')
         current_part_num = self.part_num[None]
         new_part_num = current_part_num + pushed_part_num
         pos_seq_ti = ti.Vector.field(config.dim[None], float, pushed_part_num)
@@ -294,6 +295,12 @@ class Fluid:
         
         set_unused_par(self, config)
 
+    @ti.kernel
+    def update_color_vector_from_color(self):
+        for i in range(self.part_num[None]):
+            color = hex2rgb(self.color[i])
+            self.color_vector[i] = color
+
 class Part_buffer:
     def __init__(self, part_num, config):
         self.rest_volume = np.zeros(shape=part_num, dtype=np.float32)
@@ -359,13 +366,16 @@ class Gui():
         self.ambient_color = (0.7, 0.7, 0.7)
         self.dispaly_radius = config.part_size[1] * 0.5
 
+        # Toggles
         self.show_bound = False
         self.show_help = True
         self.show_run_info = True
         self.op_system_run = False
         self.op_write_file = False
+    
+    def monitor_listen(self):
+        self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
 
-    def gui_basic(self):
         # if self.show_run_info:
         #     self.window.GUI.begin("time info", 0.05, 0.05, 0.2, 0.2)
         #     self.window.GUI.text("fluid particle count: " + str(fluid.part_num[None]))
@@ -409,16 +419,21 @@ class Gui():
             if self.window.event.key == 'h':
                 self.show_help = not self.show_help
                 print("show help:", self.show_help)
-            
-        self.canvas.set_background_color(self.background_color)
-        self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
-        self.scene.set_camera(self.camera)
 
+    def env_set_up(self):
+        self.canvas.set_background_color(self.background_color)
+
+    def scene_setup(self):
+        self.scene.set_camera(self.camera)
         self.scene.ambient_light(self.ambient_color)
-        # Configuring light sources, must set one plint light, otherwise occurs an error (seem to be a bug)
         self.scene.point_light(pos=(2, 1.5, -1.5), color=(0.8, 0.8, 0.8))
 
+    def scene_add_objs(self, obj, radius):
+        self.scene.particles(obj.pos, per_vertex_color=obj.color_vector, radius=radius)
+
+    def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene
+        self.window.show()
 
 
 # TODO: data structure Grid

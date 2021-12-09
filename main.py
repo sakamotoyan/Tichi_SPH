@@ -11,212 +11,133 @@ taichi_init(config_buffer)
 
 pre_config = Pre_config(config_buffer, scenario_buffer)
 config = Config(pre_config, config_buffer, scenario_buffer)
-
+print('Done configurating')
 ngrid = Ngrid(config)
 fluid = Fluid(config.fluid_max_part_num[None], pre_config, config)
 bound = Fluid(config.bound_max_part_num[None], pre_config, config)
-
+print('Done instancing')
 fluid.push_part_from_ply(scenario_buffer, 'fluid', config)
 bound.push_part_from_ply(scenario_buffer, 'bound', config)
-
+print('Done pushing particles')
 gui = Gui(config)
-
+gui.env_set_up()
+print('Done gui setting')
 while gui.window.running:
-    gui.gui_basic()
-    gui.window.show()
+    gui.monitor_listen()
+    gui.scene_setup()
+    if gui.show_run_info == True:
+        sph_step(ngrid, fluid, bound, config)
+    fluid.update_color_vector_from_color()
+    gui.scene_add_objs(obj=fluid, radius=config.part_size[1] * 0.5)
+    gui.scene_render()
 
-###################################### SPH SOLVER ############################################
-def sph_step(fluid, bound, config):
-    cfl_condition(fluid, config)
-    global div_iter_count, incom_iter_count
-    """ neighbour search """
-    ngrid.clear_node(config)
-    ngrid.encode(fluid, config)
-    ngrid.encode(bound, config)
-    ngrid.mem_shift(config)
-    ngrid.fill_node(fluid, config)
-    ngrid.fill_node(bound, config)
-    """ SPH clean value """
-    SPH_clean_value(fluid, config)
-    SPH_clean_value(bound, config)
-    """ SPH compute W and W_grad """
-    SPH_prepare_attr(ngrid, fluid, fluid, config)
-    SPH_prepare_attr(ngrid, fluid, bound, config)
-    SPH_prepare_attr(ngrid, bound, bound, config)
-    SPH_prepare_attr(ngrid, bound, fluid, config)
-    SPH_prepare_alpha_1(ngrid, fluid, fluid, config)
-    SPH_prepare_alpha_1(ngrid, fluid, bound, config)
-    SPH_prepare_alpha_2(ngrid, fluid, fluid, config)
-    SPH_prepare_alpha_2(ngrid, bound, fluid, config)
-    SPH_prepare_alpha(fluid)
-    SPH_prepare_alpha(bound)
-    """ IPPE SPH divergence """
+
+
+def sim_procedure(solver, *solver_params, show_gui, config):  
+    time_count = float(0)
+    time_counter = int(0)
+    frame_div_iter = 0
+    frame_incom_iter = 0
     div_iter_count = 0
-    SPH_vel_2_vel_adv(fluid)
-    while div_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.divergence_threshold[None]:
-        IPPE_adv_psi_init(fluid)
-        # IPPE_adv_psi_init(bound)
-        IPPE_adv_psi(ngrid, fluid, fluid, config)
-        IPPE_adv_psi(ngrid, fluid, bound, config)
-        # IPPE_adv_psi(ngrid, bound, fluid)
-        IPPE_psi_adv_non_negative(fluid)
-        # IPPE_psi_adv_non_negative(bound)
-        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
-        IPPE_update_vel_adv(ngrid, fluid, bound, config)
-        div_iter_count += 1
-        if div_iter_count > config.iter_threshold_max[None]:
-            break
-    SPH_vel_adv_2_vel(fluid)
-    """ SPH advection """
-    SPH_advection_gravity_acc(fluid, config)
-    SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
-    SPH_advection_viscosity_acc(ngrid, fluid, bound, config)
-    # SPH_advection_surface_tension_acc(ngrid, fluid, fluid, config)
-    SPH_advection_update_vel_adv(fluid, config)
-    """ IPPE SPH pressure """
     incom_iter_count = 0
-    while incom_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.compression_threshold[None]:
-        IPPE_adv_psi_init(fluid)
-        # IPPE_adv_psi_init(bound)
-        IPPE_adv_psi(ngrid, fluid, fluid, config)
-        IPPE_adv_psi(ngrid, fluid, bound, config)
-        # IPPE_adv_psi(ngrid, bound, fluid)
-        IPPE_psi_adv_non_negative(fluid)
-        # IPPE_psi_adv_non_negative(bound)
-        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
-        IPPE_update_vel_adv(ngrid, fluid, bound, config)
-        incom_iter_count += 1
-        if incom_iter_count > config.iter_threshold_max[None]:
-            break
-    """ debug info """
-    # print('iter div: ', div_iter_count)
-    # print('incom div: ', incom_iter_count)
-    """ WC SPH pressure """
-    # WC_pressure_val(fluid)
-    # WC_pressure_acce(ngrid, fluid, fluid)
-    # WC_pressure_acce(ngrid, fluid, bound)
-    # SPH_advection_update_vel_adv(fluid)
-    """ FBM procedure """
-    # while fluid.general_flag[None] > 0:
-    #     SPH_FBM_clean_tmp(fluid)
-    #     SPH_FBM_convect(ngrid, fluid, fluid)
-    #     SPH_FBM_diffuse(ngrid, fluid, fluid)
-    #     SPH_FBM_check_tmp(fluid)
-    """ SPH update """
-    # SPH_update_volume_frac(fluid)
-    SPH_update_mass(fluid, config)
-    SPH_update_pos(fluid, config)
-    # SPH_update_energy(fluid, config)
-    # map_velocity(ngrid, grid, fluid)
-    return div_iter_count, incom_iter_count
-    """ SPH debug """
-#################################### END SPH SOLVER ###########################################
 
-# def sim_procedure(solver, *solver_params, show_gui, config):  
-#     time_count = float(0)
-#     time_counter = int(0)
-#     frame_div_iter = 0
-#     frame_incom_iter = 0
-#     div_iter_count = 0
-#     incom_iter_count = 0
+    '''according fps to render'''
+    time_start = time.time()
+    while time_count < time_counter / config.gui_fps[None]:
+        """ computation loop """
+        time_count += config.dt[None]
+        solver(*solver_params)
+        frame_div_iter += div_iter_count
+        frame_incom_iter += incom_iter_count
+        print('current time: ', time_count)
+        # print('real time: ', time_real)
+        print('time step: ', config.dt[None])
 
-#     '''according fps to render'''
-#     time_start = time.time()
-#     while time_count < time_counter / config.gui_fps[None]:
-#         """ computation loop """
-#         time_count += config.dt[None]
-#         solver(*solver_params)
-#         frame_div_iter += div_iter_count
-#         frame_incom_iter += incom_iter_count
-#         print('current time: ', time_count)
-#         # print('real time: ', time_real)
-#         print('time step: ', config.dt[None])
+    ''''render after one sph step'''
+    # if is_first_time:
+    #     time_start = time.time()
+    #     is_first_time = False
+    # """ computation loop """
+    # cfl_condition(fluid)
+    # time_count += config.dt[None]
+    # sph_step()
+    # frame_div_iter += div_iter_count
+    # frame_incom_iter += incom_iter_count
 
-#     ''''render after one sph step'''
-#     # if is_first_time:
-#     #     time_start = time.time()
-#     #     is_first_time = False
-#     # """ computation loop """
-#     # cfl_condition(fluid)
-#     # time_count += config.dt[None]
-#     # sph_step()
-#     # frame_div_iter += div_iter_count
-#     # frame_incom_iter += incom_iter_count
-
-#     time_real = time.time() - time_start
-#     print('current time: ', time_count)
-#     print('---------------------real time------------------------', time_real)
-#     print('time step: ', config.dt[None])
-#     SPH_update_color(fluid, config)
+    time_real = time.time() - time_start
+    print('current time: ', time_count)
+    print('---------------------real time------------------------', time_real)
+    print('time step: ', config.dt[None])
+    SPH_update_color(fluid, config)
 
 
 
-# ##################################### Write Json ############################################
-# # def write_scene_data():
-# #     data = {
-# #         'grid_count': int(grid.size),
-# #         'grid_lb': [float(grid.lb[i]) for i in range(len(grid.lb))],
-# #         'init_part_size': config.part_size[1],
-# #         'fluid_part_count': fluid.part_num[None],
-# #         'bound_part_count': bound.part_num[None],
-# #         'dt': config.dt[None],
-# #         'frame_rate': config.gui_fps[None]
-# #     }
-# #     json.dump(data, open(f"{solver_type}\\data.json", "w"))
+##################################### Write Json ############################################
+# def write_scene_data():
+#     data = {
+#         'grid_count': int(grid.size),
+#         'grid_lb': [float(grid.lb[i]) for i in range(len(grid.lb))],
+#         'init_part_size': config.part_size[1],
+#         'fluid_part_count': fluid.part_num[None],
+#         'bound_part_count': bound.part_num[None],
+#         'dt': config.dt[None],
+#         'frame_rate': config.gui_fps[None]
+#     }
+#     json.dump(data, open(f"{solver_type}\\data.json", "w"))
 
 
-# # def write_json():
-# #     data = {
-# #         "step": step_counter,
-# #         "frame": time_counter,
-# #         "timeInSimulation": time_count,
-# #         "timeStep": config.dt[None],
-# #         "fps": config.gui_fps[None],
-# #         "iteration": {
-# #             "divergenceFree_iteration": div_iter_count,
-# #             "incompressible_iteration": incom_iter_count,
-# #             "sum_iteration": div_iter_count + incom_iter_count
-# #         },
-# #         "energy": {
-# #             "statistics_kinetic_energy": fluid.statistics_kinetic_energy[None],
-# #             "statistics_gravity_potential_energy": fluid.statistics_gravity_potential_energy[None],
-# #             "sum_energy": fluid.statistics_kinetic_energy[None] + fluid.statistics_gravity_potential_energy[None]
-# #         }
-# #     }
-# #     s = json.dumps(data)
-# #     with open("json\\" + solver_type + str(step_counter) + ".json", "w") as f:
-# #         f.write(s)
+# def write_json():
+#     data = {
+#         "step": step_counter,
+#         "frame": time_counter,
+#         "timeInSimulation": time_count,
+#         "timeStep": config.dt[None],
+#         "fps": config.gui_fps[None],
+#         "iteration": {
+#             "divergenceFree_iteration": div_iter_count,
+#             "incompressible_iteration": incom_iter_count,
+#             "sum_iteration": div_iter_count + incom_iter_count
+#         },
+#         "energy": {
+#             "statistics_kinetic_energy": fluid.statistics_kinetic_energy[None],
+#             "statistics_gravity_potential_energy": fluid.statistics_gravity_potential_energy[None],
+#             "sum_energy": fluid.statistics_kinetic_energy[None] + fluid.statistics_gravity_potential_energy[None]
+#         }
+#     }
+#     s = json.dumps(data)
+#     with open("json\\" + solver_type + str(step_counter) + ".json", "w") as f:
+#         f.write(s)
 
 
-# # def write_full_json(fname):
-# #     global frame_div_iter, frame_incom_iter
-# #     data = {
-# #         "step": step_counter,
-# #         "frame": time_counter,
-# #         "timeInSimulation": time_count,
-# #         "timeStep": config.dt[None],
-# #         "fps": config.gui_fps[None],
-# #         "iteration": {
-# #             "divergenceFree_iteration": frame_div_iter,
-# #             "incompressible_iteration": frame_incom_iter,
-# #             "sum_iteration": frame_div_iter + frame_incom_iter
-# #         },
-# #         "energy": {
-# #             "statistics_kinetic_energy": fluid.statistics_kinetic_energy[None],
-# #             "statistics_gravity_potential_energy": fluid.statistics_gravity_potential_energy[None],
-# #             "sum_energy": fluid.statistics_kinetic_energy[None] + fluid.statistics_gravity_potential_energy[None]
-# #         }
-# #     }
-# #     s = json.dumps(data)
-# #     with open(fname, "w") as f:
-# #         f.write(s)
-# ################################## End Write Json ############################################
+# def write_full_json(fname):
+#     global frame_div_iter, frame_incom_iter
+#     data = {
+#         "step": step_counter,
+#         "frame": time_counter,
+#         "timeInSimulation": time_count,
+#         "timeStep": config.dt[None],
+#         "fps": config.gui_fps[None],
+#         "iteration": {
+#             "divergenceFree_iteration": frame_div_iter,
+#             "incompressible_iteration": frame_incom_iter,
+#             "sum_iteration": frame_div_iter + frame_incom_iter
+#         },
+#         "energy": {
+#             "statistics_kinetic_energy": fluid.statistics_kinetic_energy[None],
+#             "statistics_gravity_potential_energy": fluid.statistics_gravity_potential_energy[None],
+#             "sum_energy": fluid.statistics_kinetic_energy[None] + fluid.statistics_gravity_potential_energy[None]
+#         }
+#     }
+#     s = json.dumps(data)
+#     with open(fname, "w") as f:
+#         f.write(s)
+################################## End Write Json ############################################
 
-# # init_scenario(config)
-# # write_scene_data()
+# init_scenario(config)
+# write_scene_data()
 
 
-# # show_window = False
+# show_window = False
 # show_window = True
 # show_bound = False
 # show_help = True
