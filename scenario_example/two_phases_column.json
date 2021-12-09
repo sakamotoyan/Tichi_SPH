@@ -1,0 +1,28 @@
+{
+    "fluid":[
+        {
+            "type":"cube",
+            "start_pos":[-0.7,-1.7,-0.7],
+            "end_pos":[-0.1,0.2,-0.1],
+            "volume_frac":[1,0],
+            "color":"0xFF0000"
+        },
+        {
+            "type":"cube",
+            "start_pos":[0.1,-1.7,0.1],
+            "end_pos":[0.7,0.2,0.7],
+            "volume_frac":[0,1],
+            "color":"0x0000FF"
+        }
+    ],
+    "bound":[
+        {
+            "type":"box",
+            "start_pos":[-1,-2,-1],
+            "end_pos":[1,2,1],
+            "layers":2,
+            "volume_frac":[1,0],
+            "color":"0xAAAAAA"
+        }
+    ]
+}
