@@ -168,6 +168,23 @@ class Fluid:
             self.rest_density[i] = config.phase_rest_density[None].dot(self.volume_frac[i])  # todo 2
             self.mass[i] = self.rest_density[i] * self.rest_volume[i]
 
+    @ti.kernel
+    def push_pos_seq(self, pos_seq: ti.template(),pushed_part_num: int, current_part_num: int, config: ti.template()):
+        dim = ti.static(config.gravity.n)
+        for i in range(pushed_part_num):
+            i_p = i + current_part_num
+            for j in ti.static(range(dim)):
+                self.pos[i_p][j] = pos_seq[i][j]
+    @ti.kernel
+    def push_attrs_seq(self, color: int, volume_frac: ti.template(), vel: ti.template(), pushed_part_num: int, current_part_num: int, config: ti.template()):
+        for i in range(pushed_part_num):
+            i_p = i + current_part_num
+            self.volume_frac[i_p] = volume_frac
+            self.vel[i_p] = vel
+            self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
+            self.color[i_p] = color
+            self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
+            self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
 
     def push_part_seq(self, pushed_part_num, color, pos_seq, volume_frac, vel, config):
         print('push ',pushed_part_num, ' particles')
@@ -175,16 +192,18 @@ class Fluid:
         new_part_num = current_part_num + pushed_part_num
         pos_seq_ti = ti.Vector.field(config.dim[None], float, pushed_part_num)
         pos_seq_ti.from_numpy(pos_seq)
-        for i in range(pushed_part_num):
-            i_p = i + current_part_num
-            for j in range(config.dim[None]):
-                self.pos[i_p][j] = pos_seq_ti[i][j]
-            self.volume_frac[i_p] = volume_frac
-            self.vel[i_p] = vel
-            self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
-            self.color[i_p] = color
-            self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
-            self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
+        self.push_pos_seq(pos_seq_ti, pushed_part_num, current_part_num, config)
+        self.push_attrs_seq(color, volume_frac, vel, pushed_part_num, current_part_num, config)
+        # for i in range(pushed_part_num):
+        #     i_p = i + current_part_num
+        #     for j in range(config.dim[None]):
+        #         self.pos[i_p][j] = pos_seq_ti[i][j]
+        #     self.volume_frac[i_p] = volume_frac
+        #     self.vel[i_p] = vel
+        #     self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
+        #     self.color[i_p] = color
+        #     self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
+        #     self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
         self.part_num[None] = new_part_num
 
 
@@ -372,6 +391,7 @@ class Gui():
         self.show_run_info = True
         self.op_system_run = False
         self.op_write_file = False
+        self.op_refresh_window = True
     
     def monitor_listen(self):
         self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
@@ -396,6 +416,7 @@ class Gui():
             self.window.GUI.text("b: display boundary")
             self.window.GUI.text("r: run system")
             self.window.GUI.text("f: write file")
+            self.window.GUI.text("c: refresh window")
             self.window.GUI.end()
 
         if self.window.get_event(ti.ui.PRESS):
@@ -419,6 +440,10 @@ class Gui():
             if self.window.event.key == 'h':
                 self.show_help = not self.show_help
                 print("show help:", self.show_help)
+            
+            if self.window.event.key == 'c':
+                self.op_refresh_window = not self.op_refresh_window
+                print("refresh window:", self.op_refresh_window)
 
     def env_set_up(self):
         self.canvas.set_background_color(self.background_color)
