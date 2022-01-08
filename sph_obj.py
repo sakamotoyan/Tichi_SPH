@@ -113,6 +113,29 @@ class Fluid:
         matrix_shape, padding = self.scene_add_help_centering(start_pos, end_pos, spacing)
         self.push_matrix(np.ones(matrix_shape, dtype=np.bool_), start_pos + padding, spacing, volume_frac, vel, color)
 
+    #add particles from inlet
+    def scene_add_from_inlet(self, center, size, norm, speed, volume_frac, color,
+                       relaxing_factor):
+        spacing = config.part_size[1] * relaxing_factor
+        matrix_shape, padding = self.scene_add_help_centering([0]*len(size), size, spacing)
+        seq=[]
+        if len(matrix_shape) == 2:
+            if norm[0]==0:
+                u=np.array([1,0,0])
+            else:
+                u=np_normalize(np.array([-norm[2]/norm[0],0,1]))
+            v=np_normalize(np.cross(u,norm))
+            size=np.array(size)-padding
+            start=np.array(center)-(size[0]*u+size[1]*v)/2
+            for i in range(matrix_shape[0]):
+                for j in range(matrix_shape[1]):
+                    seq.append(start+(float(i)*u+float(j)*v)*spacing)
+        else:
+            raise Exception('scenario ERROR: can only add 3D inlets.')
+        pos_seq=np.array(seq)
+        vel=np.array(norm)*speed
+        self.push_part_seq(len(pos_seq), pos_seq, ti.Vector(volume_frac), ti.Vector(vel), color)
+
     # add 3D or 2D hollow box to scene, with several layers
     def scene_add_box(self, start_pos, end_pos, layers, volume_frac, vel, color, relaxing_factor):
         spacing = config.part_size[1] * relaxing_factor

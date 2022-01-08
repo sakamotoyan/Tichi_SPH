@@ -71,6 +71,13 @@ def node_encode(pos: ti.template()):
 def dim_encode(dim: ti.template()):
     return config.neighb_grid_coder[None].dot(dim)
 
+def np_normalize(v):
+    return v/np.linalg.norm(v)
+
+def warn(*message):
+    warnings.warn("".join(message), RuntimeWarning)
+    if sys.exc_info()[2] is not None:
+        traceback.print_exc()
 
 ############################################### PLY funcs ###############################################
 def read_ply(path):

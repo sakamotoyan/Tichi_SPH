@@ -1,0 +1,66 @@
+{
+    "sim_env":{
+        "global_part_size":0.1,
+        "global_dynamic_viscosity":1e-2,
+        "sim_dim": 3,
+        "sim_space_lb": [-8, -8, -8],
+        "sim_space_rt": [8, 8, 8],
+        "gravity": [0, -9.8, 0],
+        "phase_num": 3,
+        "phase_rest_density": [100,200,300],
+        "phase_color_hex": ["0x6F7DBC","0xFA8012","0xFA8072"]
+    },
+    "fluid":{
+        "max_part_num": 1e5,
+        "objs":[
+            {
+                "type":"inlet",
+                "particle_relaxing_factor":1.001,
+                "center":[0,0,-1],
+                "size":[0.5,0.5],
+                "norm":[0,0,1],
+                "speed":2,
+                "volume_frac":[1,0,0],
+                "color":"0xFF0000"
+            },
+            {
+                "type":"inlet",
+                "time":0.2,
+                "end_time":0.6,
+                "particle_relaxing_factor":1.001,
+                "center":[0,1,0],
+                "size":[0.3,0.6],
+                "norm":[0,-1,-0.5],
+                "speed":3,
+                "volume_frac":[0,0,1],
+                "color":"0x0000FF"
+            },
+            {
+                "type":"cube",
+                "time":0.1,
+                "vel": [0, 0, 0],
+                "particle_relaxing_factor":1.001,
+                "start_pos":[-0.3,-0.3,-0.3],
+                "end_pos":[0.3,0.3,0.3],
+                "volume_frac":[0,1,0],
+                "color":"0x00FF00"
+            }
+        ]
+    },
+
+    "bound":{
+        "max_part_num": 1e5,
+        "objs":  [
+            {
+                "type":"box",
+                "vel": [0, 0, 0],
+                "particle_relaxing_factor":1.001,
+                "start_pos":[-1.5, -1.5, -1.5],
+                "end_pos":[1.5, 1.5, 1.5],
+                "layers":2,
+                "volume_frac":[1,0,0],
+                "color":"0xAAAAAA"
+            }
+        ]
+    }
+}
