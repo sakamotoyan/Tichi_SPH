@@ -156,6 +156,7 @@ class Fluid:
             self.vel[i_p] = vel
             self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
             self.color[i_p] = color
+            self.color_vector[i_p] = hex2rgb(color)
             self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
             self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
 
@@ -168,16 +169,6 @@ class Fluid:
         pos_seq_ti.from_numpy(pos_seq)
         self.push_pos_seq(pos_seq_ti, pushed_part_num, current_part_num, config)
         self.push_attrs_seq(color, volume_frac, vel, pushed_part_num, current_part_num, config)
-        # for i in range(pushed_part_num):
-        #     i_p = i + current_part_num
-        #     for j in range(config.dim[None]):
-        #         self.pos[i_p][j] = pos_seq_ti[i][j]
-        #     self.volume_frac[i_p] = volume_frac
-        #     self.vel[i_p] = vel
-        #     self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
-        #     self.color[i_p] = color
-        #     self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
-        #     self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
         self.part_num[None] = new_part_num
 
 

@@ -32,7 +32,6 @@ while gui.window.running:
     gui.monitor_listen()
     if gui.op_refresh_window:
         gui.scene_setup()
-        fluid.update_color_vector_from_color()
         gui.scene_add_objs(obj=fluid, radius=config.part_size[1] * 0.5)
         if gui.show_bound:
             gui.scene_add_objs(obj=bound, radius=config.part_size[1] * 0.5)
