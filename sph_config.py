@@ -20,34 +20,32 @@ def read_array_param(param, default):
         raise Exception('error: wrong array dimension in config file ', param)
     return param
 
-
-'''parse command line'''
-config_file_path = ""
-scenario_file_path = ""
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "c:s:", [
-                               "configFile=", "scenarioFile="])
-except getopt.GetoptError:
-    print('main.py -c <configfile> -s <scenariofile>')
-    sys.exit(2)
-for opt, arg in opts:
-    if opt in ("-c", "--configFile"):
-        config_file_path = arg
-    elif opt in ("-s", "--secnarioFile"):
-        scenario_file_path = arg
 ################################## END Tools #############################################
 #
 #
 ################################## Read json files #######################################
+
+# try:
+#     opts, args = getopt.getopt(sys.argv[1:], "c:s:", [
+#                                "configFile=", "scenarioFile="])
+# except getopt.GetoptError:
+#     print('main.py -c <configfile> -s <scenariofile>')
+#     sys.exit(2)
+# for opt, arg in opts:
+#     if opt in ("-c", "--configFile"):
+#         config_file_path = arg
+#     elif opt in ("-s", "--secnarioFile"):
+#         scenario_file_path = arg
+
 '''read config file'''
-def get_config_buffer():
+def get_config_buffer(config_file_path):
     try:
         config_buffer = json.load(open(config_file_path))
         return config_buffer
     except Exception:
         print('Error from sph_config.py: no config file or config file invalid')
         exit()
-def get_scenario_buffer():
+def get_scenario_buffer(scenario_file_path):
     try:
         scenario_buffer = json.load(open(scenario_file_path))
         return scenario_buffer

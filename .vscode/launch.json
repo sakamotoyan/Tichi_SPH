@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-c","config/config.json","-s","scenario/3d_dambreak.json"],
+            // "args": ["-c","config/config.json","-s","scenario/3d_dambreak.json"],
             // "args": ["-c","config/config.json","-s","scenario/3d_bunny.json"],
         }
     ]
