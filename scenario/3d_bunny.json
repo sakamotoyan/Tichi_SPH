@@ -8,7 +8,7 @@
         "gravity": [0, -9.8, 0],
         "phase_num": 3,
         "phase_rest_density": [100,200,300],
-        "phase_color_hex": ["0x6F7DBC","0xFA8012","0xFA8072"]
+        "phase_color_hex": ["0xFF0000","0x0000FF","0xFA8072"]
     },
     "fluid":{
         "max_part_num": 6000,

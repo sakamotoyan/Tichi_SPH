@@ -138,35 +138,6 @@ class Fluid:
         pos_seq = np.stack(index, axis=1) * spacing + start_position
         self.push_part_seq(len(pos_seq), color, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), config)
 
-    @ti.kernel
-    def push_part_seq2(self, pushed_part_num: int, color: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
-                       config: ti.template()):
-        print(pushed_part_num)
-        print(color)
-        print(pos_seq[0,0])
-        print(volume_frac)
-        print(vel)
-        print(config.part_size[config.dim[None]])
-        print(self.pos)
-
-    @ti.kernel
-    def push_part_seq_todo(self, pushed_part_num: int, color: int, pos_seq: ti.ext_arr(), volume_frac: ti.template(), vel: ti.template(),
-                       config: ti.template()):
-        current_part_num = self.part_num[None]
-        new_part_num = current_part_num + pushed_part_num
-        pos_seq_ti = ti.Vector.field(config.dim[None], float, pushed_part_num)
-        pos_seq_ti.from_numpy(pos_seq)
-        for i in range(pushed_part_num):
-            for j in ti.static(range(config.dim[None])):
-                self.pos[i + current_part_num][j] = pos_seq_ti[i][j]
-            self.volume_frac[i + current_part_num] = volume_frac
-            self.vel[i + current_part_num] = vel
-            self.rest_volume[i + current_part_num] = config.part_size[config.dim[None]]  # todo 1
-            self.color[i + current_part_num] = color
-        self.part_num[None] = new_part_num
-        for i in range(self.part_num[None]):
-            self.rest_density[i] = config.phase_rest_density[None].dot(self.volume_frac[i])  # todo 2
-            self.mass[i] = self.rest_density[i] * self.rest_volume[i]
 
     @ti.kernel
     def push_pos_seq(self, pos_seq: ti.template(),pushed_part_num: int, current_part_num: int, config: ti.template()):
@@ -175,6 +146,8 @@ class Fluid:
             i_p = i + current_part_num
             for j in ti.static(range(dim)):
                 self.pos[i_p][j] = pos_seq[i][j]
+
+
     @ti.kernel
     def push_attrs_seq(self, color: int, volume_frac: ti.template(), vel: ti.template(), pushed_part_num: int, current_part_num: int, config: ti.template()):
         for i in range(pushed_part_num):
@@ -185,6 +158,7 @@ class Fluid:
             self.color[i_p] = color
             self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
             self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
+
 
     def push_part_seq(self, pushed_part_num, color, pos_seq, volume_frac, vel, config):
         print('push ',pushed_part_num, ' particles')
@@ -396,15 +370,6 @@ class Gui():
     def monitor_listen(self):
         self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
 
-        # if self.show_run_info:
-        #     self.window.GUI.begin("time info", 0.05, 0.05, 0.2, 0.2)
-        #     self.window.GUI.text("fluid particle count: " + str(fluid.part_num[None]))
-        #     self.window.GUI.text("bound particle count: " + str(bound.part_num[None]))
-        #     self.window.GUI.text("simulation time: " + str('%.3f' % time_count))
-        #     self.window.GUI.text("real time: " + str('%.3f' % time_real))
-        #     self.window.GUI.text("time step: " + str('%.3f' % config.dt[None]))
-        #     self.window.GUI.end()
-
         if self.show_help:
             self.window.GUI.begin("options", 0.05, 0.3, 0.2, 0.2)
             self.window.GUI.text("h: help")
@@ -459,25 +424,3 @@ class Gui():
     def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene
         self.window.show()
-
-
-# TODO: data structure Grid
-# shape = tuple((config.sim_space_rt[None].to_numpy() - config.sim_space_lb[None].to_numpy() / config.part_size[1] * config.neighb_grid_size_TO_global_part_size[None]).astype(np.int32))
-# # for particle-grid mapping
-# @ti.data_oriented
-# class Grid:
-#     def __init__(self, config):
-#         self.shape = shape  # number of grids on each dimension
-#         self.lb = config.sim_space_lb[None].to_numpy()  # smallest coordination of the grid
-#         self.dist = config.part_size[1] * config.neighb_grid_size_TO_global_part_size[None]  # distance between each grid cell
-#         self.size = 1
-#         for i in range(len(shape)):
-#             self.size *= shape[i]
-#         self.vel = ti.Vector.field(config.dim[None], float, shape=self.shape)
-#         self.pos = ti.Vector.field(config.dim[None], float, shape=self.shape)
-#         self.init_pos()
-
-#     @ti.kernel
-#     def init_pos(self, config: ti.template()):
-#         for I in ti.grouped(self.pos):
-#             self.pos[I] = config.sim_space_lb[None] + I * self.dist

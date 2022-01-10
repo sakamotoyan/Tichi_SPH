@@ -1,6 +1,6 @@
 from sph_config import *
 
-
+######################################## SPH Kernel functions ########################################
 @ti.func
 def C(r, config: ti.template()):
     q = r / config.kernel_h[1]
@@ -43,6 +43,38 @@ def W_lap(x_ij: ti.template(), r, V_j, A: ti.template(), config: ti.template()):
                 0.01 * config.kernel_h[2] + r ** 2)
 
 
+######################################## Neighb search ########################################
+
+# Input:  pos->ti.Vector([{dim,float}])
+# Output: Integer
+@ti.func
+def node_encode(pos: ti.template(), config: ti.template()):
+    return int((pos - config.sim_space_lb[None]) // config.kernel_h[1])
+
+# Input:  dim->ti.Vector([{dim,float}])
+# Output: Integer
+@ti.func
+def dim_encode(dim: ti.template(), config: ti.template()):
+    return config.neighb_grid_coder[None].dot(dim)
+
+######################################## Tool functions ########################################
+
+# Input:  original_file_path->string
+# Output: trimmed_file_path->string
+def trim_path_dir(original_file_path):
+    if original_file_path.find('\\') > 0 and original_file_path.find('/') > 0:
+        return original_file_path
+    elif original_file_path.find('\\') > 0:
+        file_path_list = original_file_path.split('\\')
+    elif original_file_path.find('/') > 0:
+        file_path_list = original_file_path.split('/')
+    trimmed_file_path = file_path_list[0]
+    for i in range(len(file_path_list)-1):
+        trimmed_file_path = os.path.join(trimmed_file_path, file_path_list[i+1])
+    return trimmed_file_path
+
+# Input:  vec->ti.Vector([{n,float}])
+# Output: Bool
 @ti.func
 def has_negative(vec: ti.template()):
     is_n = False
@@ -51,24 +83,25 @@ def has_negative(vec: ti.template()):
             is_n = True
     return is_n
 
-
+# Input:  rgb-> vec->ti.Vector([{3,float}])
+# Output: hex-> integer looks like 0xFFFFFF
 @ti.func
-def node_encode(pos: ti.template(), config: ti.template()):
-    return int((pos - config.sim_space_lb[None]) // config.kernel_h[1])
+def rgb2hex(rgb: ti.template()):  # r, g, b are normalized
+    return ((int(rgb[0] * 255)) << 16) + ((int(rgb[1] * 255)) << 8) + (int(rgb[2] * 255))
 
-
+# Input:  hex-> integer looks like 0xFFFFFF
+# Output: rgb-> vec->ti.Vector([{3,float}])
 @ti.func
-def dim_encode(dim: ti.template(), config: ti.template()):
-    return config.neighb_grid_coder[None].dot(dim)
+def hex2rgb(hex: int):  # r, g, b are normalized
+    return float(ti.Vector([(hex & 0xFF0000) >> 16, (hex & 0x00FF00) >> 8, (hex & 0x0000FF)])) / 255
 
-
-############################################### PLY funcs ###############################################
+# Input:  path-> String
+# Output: verts_array-> numpy array (num*dim) dtype=float32  
 def read_ply(path):
     obj_ply = PlyData.read(path)
     obj_verts = obj_ply['vertex'].data
     verts_array = np.array([[x, y, z] for x, y, z in obj_verts])
     return verts_array
-
 
 def write_ply(path, frame_num, dim, num, pos):
     if dim == 3:
@@ -81,8 +114,6 @@ def write_ply(path, frame_num, dim, num, pos):
     np_pos = np.array(list_pos, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
     el_pos = PlyElement.describe(np_pos, 'vertex')
     PlyData([el_pos]).write(str(path) + '_' + str(frame_num) + '.ply')
-
-
 
 
 ############################################### GUI funcs ###############################################
@@ -99,11 +130,6 @@ def to_gui_radii(relaxing_factor, config):
 def to_gui_color(obj):
     return obj.color.to_numpy()[:obj.part_num[None]]
 
-@ti.kernel
-def update_color_vector(obj: ti.template()):
-    for i in range(obj.part_num[None]):
-        color = hex2rgb(obj.color[i])
-        obj.color_vector[i] = color
 
 def set_unused_par(obj, config):
     # temporary method: throw the unused particles away so they aren't rendered

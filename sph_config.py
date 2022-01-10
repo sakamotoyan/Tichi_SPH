@@ -7,28 +7,6 @@ import json
 from plyfile import *
 import os
 
-
-################################## Tools ##################################################
-@ti.func
-def rgb2hex(r: float, g: float, b: float):  # r, g, b are normalized
-    return ((int(r * 255)) << 16) + ((int(g * 255)) << 8) + (int(b * 255))
-
-@ti.func
-def hex2rgb(hex: ti.template()):  # r, g, b are normalized
-    return float(ti.Vector([(hex & 0xFF0000) >> 16, (hex & 0x00FF00) >> 8, (hex & 0x0000FF)])) / 255
-
-def trim_path_dir(original_file_path):
-    if original_file_path.find('\\') > 0 and original_file_path.find('/') > 0:
-        return original_file_path
-    elif original_file_path.find('\\') > 0:
-        file_path_list = original_file_path.split('\\')
-    elif original_file_path.find('/') > 0:
-        file_path_list = original_file_path.split('/')
-    trimmed_file_path = file_path_list[0]
-    for i in range(len(file_path_list)-1):
-        trimmed_file_path = os.path.join(trimmed_file_path, file_path_list[i+1])
-    return trimmed_file_path
-
 def read_param(param, paramname):
     if param is None:
         raise Exception("The parameter " + paramname + " is missing, or invalid parameter")

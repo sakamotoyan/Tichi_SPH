@@ -43,10 +43,10 @@ def SPH_clean_value(obj: ti.template(), config: ti.template()):
 @ti.kernel
 def cfl_condition(obj: ti.template(), config: ti.template()):
     config.dt[None] = config.part_size[1] / config.cs[None]
-    for i in range(obj.part_num[None]):
-        v_norm = obj.vel[i].norm()
-        if v_norm > 1e-4:
-            atomic_min(config.dt[None], config.part_size[1] / v_norm * config.cfl_factor[None])
+    # for i in range(obj.part_num[None]):
+    #     v_norm = obj.vel[i].norm()
+    #     if v_norm > 1e-4:
+    #         atomic_min(config.dt[None], config.part_size[1] / v_norm * config.cfl_factor[None])
 
 
 @ti.kernel
@@ -228,6 +228,12 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
         obj.compression[None] += (obj.psi_adv[i] / obj.rest_psi[i])
     obj.compression[None] /= obj.part_num[None]
 
+@ti.kernel
+def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()) -> ti.i32:
+    for i in range(obj.part_num[None]):
+        if obj.psi_adv[i] / obj.rest_psi[i] > config.divergence_threshold[None]:
+            return 1
+    return 0
 
 @ti.kernel
 def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -299,8 +305,15 @@ def SPH_update_color(obj: ti.template(), config: ti.template()):
                 color[k] += obj.volume_frac[i][j] * config.phase_rgb[j][k]
         for j in ti.static(range(3)):
             color[j] = min(1, color[j])
-        obj.color[i] = rgb2hex(color[0], color[1], color[2])
+        obj.color_vector[i] = color
+        obj.color[i] = rgb2hex(color)
 
+
+@ti.kernel
+def SPH_update_color_vector(obj: ti.template()):
+    for i in range(obj.part_num[None]):
+        color = hex2rgb(obj.color[i])
+        obj.color_vector[i] = color
 
 @ti.kernel
 def SPH_FBM_clean_tmp(obj: ti.template(), config: ti.template()):
@@ -431,7 +444,8 @@ def sph_step(ngrid, fluid, bound, config):
     """ IPPE SPH divergence """
     div_iter_count = 0
     SPH_vel_2_vel_adv(fluid)
-    while div_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.divergence_threshold[None]:
+    is_compressible = 1
+    while div_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -439,6 +453,7 @@ def sph_step(ngrid, fluid, bound, config):
         # IPPE_adv_psi(ngrid, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
+        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
         div_iter_count += 1
@@ -453,7 +468,7 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_advection_update_vel_adv(fluid, config)
     """ IPPE SPH pressure """
     incom_iter_count = 0
-    while incom_iter_count < config.iter_threshold_min[None] or fluid.compression[None] > config.compression_threshold[None]:
+    while incom_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -461,6 +476,7 @@ def sph_step(ngrid, fluid, bound, config):
         # IPPE_adv_psi(ngrid, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
+        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
         incom_iter_count += 1
@@ -475,15 +491,16 @@ def sph_step(ngrid, fluid, bound, config):
     # WC_pressure_acce(ngrid, fluid, bound)
     # SPH_advection_update_vel_adv(fluid)
     """ FBM procedure """
-    # while fluid.general_flag[None] > 0:
-    #     SPH_FBM_clean_tmp(fluid)
-    #     SPH_FBM_convect(ngrid, fluid, fluid)
-    #     SPH_FBM_diffuse(ngrid, fluid, fluid)
-    #     SPH_FBM_check_tmp(fluid)
+    while fluid.general_flag[None] > 0:
+        SPH_FBM_clean_tmp(fluid, config)
+        SPH_FBM_convect(ngrid, fluid, fluid, config)
+    #     SPH_FBM_diffuse(ngrid, fluid, fluid, config)
+        SPH_FBM_check_tmp(fluid)
     """ SPH update """
-    # SPH_update_volume_frac(fluid)
+    SPH_update_volume_frac(fluid)
     SPH_update_mass(fluid, config)
     SPH_update_pos(fluid, config)
+    SPH_update_color(fluid, config)
     # SPH_update_energy(fluid, config)
     # map_velocity(ngrid, grid, fluid)
     return div_iter_count, incom_iter_count
