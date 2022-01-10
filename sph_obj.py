@@ -112,6 +112,30 @@ class Fluid:
         matrix_shape, padding = self.scene_add_help_centering(start_pos, end_pos, spacing)
         self.push_matrix(np.ones(matrix_shape, dtype=np.bool_), start_pos + padding, spacing, volume_frac, vel, color, config)
 
+    #add particles from inlet
+    def scene_add_from_inlet(self, center, size, norm, speed, volume_frac, color,
+                       relaxing_factor, config):
+        spacing = config.part_size[1] * relaxing_factor
+        matrix_shape, padding = self.scene_add_help_centering([0]*len(size), size, spacing)
+        seq=[]
+        if len(matrix_shape) == 2:
+            if norm[0]==0:
+                u=np.array([1,0,0])
+            else:
+                u=np_normalize(np.array([-norm[2]/norm[0],0,1]))
+            v=np_normalize(np.cross(u,norm))
+            size=np.array(size)-padding
+            start=np.array(center)-(size[0]*u+size[1]*v)/2
+            for i in range(matrix_shape[0]):
+                for j in range(matrix_shape[1]):
+                    seq.append(start+(float(i)*u+float(j)*v)*spacing)
+        else:
+            raise Exception('scenario ERROR: can only add 3D inlets.')
+        pos_seq=np.array(seq)
+        vel=np.array(norm)*speed
+        self.push_part_seq(len(pos_seq), color, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), config)
+
+
     # add 3D or 2D hollow box to scene, with several layers
     def scene_add_box(self, start_pos, end_pos, layers, volume_frac, vel, color, relaxing_factor, config):
         spacing = config.part_size[1] * relaxing_factor
@@ -126,7 +150,7 @@ class Fluid:
             raise Exception('scenario error: can only add 2D or 3D boxes')
         self.push_matrix(box, start_pos + padding, spacing, volume_frac, vel, color, config)
 
-    def push_part_from_ply(self, p_sum, pos_seq, volume_frac, vel, color, config):
+    def scene_add_ply(self, p_sum, pos_seq, volume_frac, vel, color, config):
         self.push_part_seq(p_sum, color, pos_seq, ti.Vector(volume_frac), ti.Vector(vel), config)
 
     # add particles according to true and false in the matrix
@@ -262,22 +286,23 @@ class Fluid:
             pos_seq -= (np.array(center_pos) + np.array(size) / 2)
             self.push_part_seq(p_sum, color, pos_seq, ti.Vector(volume_frac), config)
 
-    def push_part_from_ply(self, scenario_buffer, obj_name, config):
-        for obj in scenario_buffer:
-            if (obj == obj_name):
-                for param in scenario_buffer[obj]['objs']:
-                    if param['type'] == 'cube':
-                        self.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
-                                            int(param['color'], 16), param['particle_relaxing_factor'], config)
-                    elif param['type'] == 'box':
-                        self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
-                                            param['vel'], int(param['color'], 16), param['particle_relaxing_factor'], config)
-                    elif param['type'] == 'ply':
-                        verts = read_ply(trim_path_dir(param['file_name']))
-                        self.push_part_seq(len(verts), int(param['color'], 16), verts, ti.Vector(param['volume_frac']), ti.Vector(param['vel']),
-                                                config)
+    # no longer used
+    # def push_part_from_ply(self, scenario_buffer, obj_name, config):
+    #     for obj in scenario_buffer:
+    #         if (obj == obj_name):
+    #             for param in scenario_buffer[obj]['objs']:
+    #                 if param['type'] == 'cube':
+    #                     self.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
+    #                                         int(param['color'], 16), param['particle_relaxing_factor'], config)
+    #                 elif param['type'] == 'box':
+    #                     self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
+    #                                         param['vel'], int(param['color'], 16), param['particle_relaxing_factor'], config)
+    #                 elif param['type'] == 'ply':
+    #                     verts = read_ply(trim_path_dir(param['file_name']))
+    #                     self.push_part_seq(len(verts), int(param['color'], 16), verts, ti.Vector(param['volume_frac']), ti.Vector(param['vel']),
+    #                                             config)
         
-        set_unused_par(self, config)
+    #     set_unused_par(self, config)
 
     @ti.kernel
     def update_color_vector_from_color(self):

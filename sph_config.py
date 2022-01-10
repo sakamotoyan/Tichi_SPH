@@ -6,6 +6,8 @@ import getopt
 import json
 from plyfile import *
 import os
+import traceback
+import warnings
 
 def read_param(param, paramname):
     if param is None:

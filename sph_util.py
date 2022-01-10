@@ -59,6 +59,14 @@ def dim_encode(dim: ti.template(), config: ti.template()):
 
 ######################################## Tool functions ########################################
 
+def np_normalize(v):
+    return v/np.linalg.norm(v)
+
+def warn(*message):
+    warnings.warn("".join(message), RuntimeWarning)
+    if sys.exc_info()[2] is not None:
+        traceback.print_exc()
+
 # Input:  original_file_path->string
 # Output: trimmed_file_path->string
 def trim_path_dir(original_file_path):
