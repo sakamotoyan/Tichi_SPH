@@ -25,7 +25,7 @@
             },
             {
                 "type":"inlet",
-                "time":0.2,
+                "start_time":0.2,
                 "end_time":0.6,
                 "particle_relaxing_factor":1.001,
                 "center":[0,1,0],
@@ -37,7 +37,7 @@
             },
             {
                 "type":"cube",
-                "time":0.1,
+                "start_time":0.1,
                 "vel": [0, 0, 0],
                 "particle_relaxing_factor":1.001,
                 "start_pos":[-0.3,-0.3,-0.3],

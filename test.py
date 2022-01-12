@@ -47,3 +47,12 @@ a = read_ply('ply_models\\bunny_0.05.ply')
 # str2 = trim_path_dir(str)
 
 # print(str2)
+
+# # unit test for 3d_transform
+# def apply_bound_transform(bound, config):
+#     ang=math.pi/4
+#     bound.move_scene_obj('0',rotation_matrix(config,0,ang,0))
+#     bound.move_scene_obj('1',rotation_matrix(config,0,0,ang))
+#     bound.move_scene_obj('2',rotation_matrix(config,ang,0,0))
+#     bound.move_scene_obj('3',translation_matrix(config,0.5,1,1.5))
+#     bound.move_scene_obj('4',scale_matrix(config,0.5,1,2))

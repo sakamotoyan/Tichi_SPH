@@ -1,6 +1,7 @@
 import taichi as ti
 import numpy as np
 import math
+from math import cos, sin
 import sys
 import getopt
 import json
@@ -96,6 +97,7 @@ class Config:
         self.phase_num = ti.field(int, ())
         self.phase_rest_density = ti.Vector.field(pre_config.phase_num, float, ())  # rest density of each phase
         self.phase_rgb = ti.Vector.field(3, float, pre_config.phase_num)
+        self.time_count = ti.field(float,())
 
         # solver
         self.dt = ti.field(float, ())
@@ -155,6 +157,7 @@ class Config:
         self.fluid_max_part_num[None] = int(read_param(scenario_buffer['fluid']['max_part_num'], 'fluid_max_part_num'))
         self.bound_max_part_num[None] = int(read_param(scenario_buffer['bound']['max_part_num'], 'bound_max_part_num'))
         self.max_part_num[None] = self.fluid_max_part_num[None] + self.bound_max_part_num[None]
+        self.time_count[None] = 0
 
         # init phase color
         for i in range(self.phase_num[None]):

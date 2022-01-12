@@ -124,6 +124,77 @@ def write_ply(path, frame_num, dim, num, pos):
     PlyData([el_pos]).write(str(path) + '_' + str(frame_num) + '.ply')
 
 
+########################################## transformation funcs #########################################
+#helper func
+def wrap_np_matrix_to_field(matrix):
+    f = ti.Matrix.field(matrix.shape[0],matrix.shape[1],float,())
+    f.from_numpy(matrix)
+    return f
+
+def rotation_matrix(config, *args):
+    m = None
+    if len(args) == 1 and config.dim[None] == 2: #2d
+        a = args[0]
+        m = np.array([
+            [cos(a), -sin(a), 0],
+            [sin(a),  cos(a), 0],
+            [0,       0,      1]
+        ])
+    elif len(args) == 3 and config.dim[None] == 3: #3d
+        x, y, z = args
+        rx = np.array([
+            [1, 0,       0,      0],
+            [0, cos(x), -sin(x), 0],
+            [0, sin(x),  cos(x), 0],
+            [0, 0,       0,      1]
+        ])
+        ry = np.array([
+            [ cos(y), 0, sin(y), 0],
+            [ 0,      1, 0,      0],
+            [-sin(y), 0, cos(y), 0],
+            [ 0,      0, 0,      1]
+        ])
+        rz = np.array([
+            [cos(z), -sin(z), 0, 0],
+            [sin(z),  cos(z), 0, 0],
+            [0,       0,      1, 0],
+            [0,       0,      0, 1]
+        ])
+        m = np.matmul(rz,np.matmul(ry,rx))
+    else:
+        raise Exception('transformation ERROR: dimension mismatch')
+    return wrap_np_matrix_to_field(m)
+
+def translation_matrix(config, *args):
+    dim = config.dim[None]
+    if dim != 2 and dim != 3 or dim != len(args):
+        raise Exception('transformation ERROR: dimension mismatch')
+    m = np.eye(dim + 1)
+    for i in range(dim):
+        m[i,dim] = args[i]
+    return wrap_np_matrix_to_field(m)
+
+def scale_matrix(config, *args):
+    dim = config.dim[None]
+    if dim != 2 and dim != 3 or dim != len(args):
+        raise Exception('transformation ERROR: dimension mismatch')
+    m = np.eye(dim + 1)
+    for i in range(dim):
+        m[i,i] = args[i]
+    return wrap_np_matrix_to_field(m)
+
+@ti.func
+def transform(pos, transform_matrix):
+    n = ti.static(transform_matrix.n)
+    tmp = ti.Vector([0.0] * n)
+    for j in ti.static(range(n-1)):
+        tmp[j] = pos[j]
+    tmp[n-1] = 1
+    res = transform_matrix @ tmp
+    for j in ti.static(range(n-1)):
+        pos[j] = res[j]
+    return pos
+
 ############################################### GUI funcs ###############################################
 @ti.kernel
 def to_gui_pos(obj: ti.template(), config: ti.template()):
@@ -149,4 +220,5 @@ def set_unused_par(obj, config):
 def sub_set_unused_par(obj: ti.template(), unused_pos: ti.template()):
     for i in range(obj.part_num[None], obj.max_part_num):
         obj.pos[i] = unused_pos[None]
+        obj.pos_disp[i] = unused_pos[None]
         obj.gui_2d_pos[i] = unused_pos[None]

@@ -71,11 +71,14 @@ class Fluid:
             self.sph_psi = ti.static(self.sph_density)
             self.rest_psi = ti.static(self.rest_density)
 
+        # display
+        self.pos_disp = ti.Vector.field(config.dim[None], float)
+
         # put for-each-particle attributes in this list to register them!
         self.attr_list = [self.color, self.color_vector, self.mass, self.rest_density, self.rest_volume, self.pressure,self.pressure_force,
                           self.volume_frac, self.volume_frac_tmp, self.pos, self.gui_2d_pos, self.vel, self.vel_adv,self.acce, self.acce_adv,
                           self.W, self.W_grad, self.sph_density, self.sph_compression, self.psi_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta, self.normal,
-                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag]
+                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp]
 
         # allocate memory for attributes (1-D fields)
         for attr in self.attr_list:
@@ -83,6 +86,11 @@ class Fluid:
         # allocate memory for drift velocity (2-D field)
         ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.drift_vel)
         self.attr_list.append(self.drift_vel)  # add drift velocity to attr_list
+
+        self.obj_part_range_from_name={}
+
+        self.unused_pos = ti.Vector.field(config.dim[None], float, ())
+        self.unused_pos.from_numpy(np.array([533799.0] * config.dim[None], dtype=np.float32))
 
         self.init()
 
@@ -110,6 +118,7 @@ class Fluid:
                        relaxing_factor, config):  # add relaxing factor for each cube
         spacing = config.part_size[1] * relaxing_factor
         matrix_shape, padding = self.scene_add_help_centering(start_pos, end_pos, spacing)
+
         self.push_matrix(np.ones(matrix_shape, dtype=np.bool_), start_pos + padding, spacing, volume_frac, vel, color, config)
 
     #add particles from inlet
@@ -286,29 +295,72 @@ class Fluid:
             pos_seq -= (np.array(center_pos) + np.array(size) / 2)
             self.push_part_seq(p_sum, color, pos_seq, ti.Vector(volume_frac), config)
 
-    # no longer used
-    # def push_part_from_ply(self, scenario_buffer, obj_name, config):
-    #     for obj in scenario_buffer:
-    #         if (obj == obj_name):
-    #             for param in scenario_buffer[obj]['objs']:
-    #                 if param['type'] == 'cube':
-    #                     self.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
-    #                                         int(param['color'], 16), param['particle_relaxing_factor'], config)
-    #                 elif param['type'] == 'box':
-    #                     self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
-    #                                         param['vel'], int(param['color'], 16), param['particle_relaxing_factor'], config)
-    #                 elif param['type'] == 'ply':
-    #                     verts = read_ply(trim_path_dir(param['file_name']))
-    #                     self.push_part_seq(len(verts), int(param['color'], 16), verts, ti.Vector(param['volume_frac']), ti.Vector(param['vel']),
-    #                                             config)
-        
-    #     set_unused_par(self, config)
+    def push_scene_obj(self, param, config):
+        pre_part_cnt=self.part_num[None]
+        if param['type'] == 'cube':
+            self.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'], int(param['color'], 16), param['particle_relaxing_factor'],config)
+        elif param['type'] == 'box':
+            self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'], param['vel'], int(param['color'], 16), param['particle_relaxing_factor'],config)
+        elif param['type'] == 'ply':
+            verts = read_ply(param['file_name'])
+            self.scene_add_ply(len(verts), verts, param['volume_frac'], param['vel'], int(param['color'], 16),config)
+        else:
+            raise Exception('scenario ERROR: object type unsupported:',
+                param['type'] if 'type' in param else 'None')
+        part_range=(pre_part_cnt,self.part_num[None])
+        if 'name' in param:
+            self.obj_part_range_from_name[param['name']] = part_range
 
     @ti.kernel
     def update_color_vector_from_color(self):
         for i in range(self.part_num[None]):
             color = hex2rgb(self.color[i])
             self.color_vector[i] = color
+
+    @ti.kernel
+    def display_all(self):
+        for i in range(self.part_num[None]):
+            self.pos_disp[i] = self.pos[i]
+    
+    @ti.kernel
+    def display_part_range(self, start_id: int, end_id: int):
+        for i in range(self.part_num[None]):
+            if i >= start_id and i < end_id:
+                self.pos_disp[i] = self.pos[i]
+            else:
+                self.pos_disp[i] = self.unused_pos[None]
+
+    def get_part_range_from_name(self, name):
+        return self.obj_part_range_from_name[name]
+
+    @ti.kernel
+    def set_vel_part_range(self, start_id: int, end_id: int, vel:ti.template()):
+        for i in range(start_id,end_id):
+            self.vel[i] = vel[None]
+    
+    @ti.kernel
+    def update_pos_part_range(self, start_id: int, end_id: int, config:ti.template()):
+        for i in range(start_id,end_id):
+            self.pos[i] += self.vel[i] * config.dt[None]
+
+    ######################### transform functions (too slow to be used every timestep) ##########################
+    @ti.kernel
+    def transform_part_range(self, start_id: int, end_id: int, transform_matrix:ti.template()):
+        for i in range(start_id,end_id):
+            self.pos[i] = transform(self.pos[i],transform_matrix[None])
+
+    # transform with velocity update
+    @ti.kernel
+    def move_part_range(self, start_id: int, end_id: int, transform_matrix:ti.template(), config:ti.template()):
+        for i in range(start_id,end_id):
+            pre_pos = self.pos[i]
+            self.pos[i] = transform(self.pos[i],transform_matrix[None])
+            self.vel[i] = (self.pos[i] - pre_pos) / config.dt[None]
+
+    def move_scene_obj(self, name, transform_matrix, config):
+        a,b = self.get_part_range_from_name(name)
+        self.move_part_range(a,b,transform_matrix,config)
+    
 
 class Part_buffer:
     def __init__(self, part_num, config):
@@ -382,6 +434,7 @@ class Gui():
         self.op_system_run = False
         self.op_write_file = False
         self.op_refresh_window = True
+        self.show_rod = True
     
     def monitor_listen(self):
         self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
@@ -426,6 +479,10 @@ class Gui():
                 self.op_refresh_window = not self.op_refresh_window
                 print("refresh window:", self.op_refresh_window)
 
+            if self.window.event.key == 'n':
+                self.show_rod = not self.show_rod
+                print("show rod:", self.show_rod)
+
     def env_set_up(self):
         self.canvas.set_background_color(self.background_color)
 
@@ -435,7 +492,7 @@ class Gui():
         self.scene.point_light(pos=(2, 1.5, -1.5), color=(0.8, 0.8, 0.8))
 
     def scene_add_objs(self, obj, radius):
-        self.scene.particles(obj.pos, per_vertex_color=obj.color_vector, radius=radius)
+        self.scene.particles(obj.pos_disp, per_vertex_color=obj.color_vector, radius=radius)
 
     def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene
