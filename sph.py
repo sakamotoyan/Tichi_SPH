@@ -229,11 +229,11 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
     obj.compression[None] /= obj.part_num[None]
 
 @ti.kernel
-def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()) -> ti.i32:
+def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         if obj.psi_adv[i] / obj.rest_psi[i] > config.divergence_threshold[None]:
-            return 1
-    return 0
+            config.is_compressible[None] = 1
+    config.is_compressible[None] = 0
 
 @ti.kernel
 def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -444,8 +444,8 @@ def sph_step(ngrid, fluid, bound, config):
     """ IPPE SPH divergence """
     div_iter_count = 0
     SPH_vel_2_vel_adv(fluid)
-    is_compressible = 1
-    while div_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
+    config.is_compressible[None] = 1
+    while div_iter_count < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -453,7 +453,7 @@ def sph_step(ngrid, fluid, bound, config):
         # IPPE_adv_psi(ngrid, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
-        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
+        IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
         div_iter_count += 1
@@ -468,7 +468,7 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_advection_update_vel_adv(fluid, config)
     """ IPPE SPH pressure """
     incom_iter_count = 0
-    while incom_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
+    while incom_iter_count < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -476,7 +476,7 @@ def sph_step(ngrid, fluid, bound, config):
         # IPPE_adv_psi(ngrid, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
-        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
+        IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
         incom_iter_count += 1

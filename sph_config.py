@@ -111,6 +111,7 @@ class Config:
         self.compression_threshold = ti.field(float, ())  # error threshold for divergence free solver
         self.iter_threshold_min = ti.field(int, ())  # min iterations for solvers
         self.iter_threshold_max = ti.field(int, ())  # max iterations for solvers
+        self.is_compressible = ti.field(int, ())  # is_conpressible
 
         # CFL
         self.if_cfl = ti.field(int, ())  # 1: use cfl, 0: do not use cfl
