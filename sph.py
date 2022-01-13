@@ -419,7 +419,7 @@ def map_velocity(ngrid: ti.template(), grid: ti.template(), nobj: ti.template(),
 ###################################### SPH SOLVER ############################################
 def sph_step(ngrid, fluid, bound, config):
     cfl_condition(fluid, config)
-    global div_iter_count, incom_iter_count
+    # global div_iter_count, incom_iter_count
     """ neighbour search """
     ngrid.clear_node(config)
     ngrid.encode(fluid, config)
@@ -442,10 +442,10 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
     """ IPPE SPH divergence """
-    div_iter_count = 0
+    config.div_iter_count[None] = 0
     SPH_vel_2_vel_adv(fluid)
     config.is_compressible[None] = 1
-    while div_iter_count < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
+    while config.div_iter_count[None] < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -456,19 +456,19 @@ def sph_step(ngrid, fluid, bound, config):
         IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
-        div_iter_count += 1
-        if div_iter_count > config.iter_threshold_max[None]:
+        config.div_iter_count[None] += 1
+        if config.div_iter_count[None] > config.iter_threshold_max[None]:
             break
     SPH_vel_adv_2_vel(fluid)
     """ SPH advection """
     SPH_advection_gravity_acc(fluid, config)
     SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
-    SPH_advection_viscosity_acc(ngrid, fluid, bound, config)
+    # SPH_advection_viscosity_acc(ngrid, fluid, bound, config)
     # SPH_advection_surface_tension_acc(ngrid, fluid, fluid, config)
     SPH_advection_update_vel_adv(fluid, config)
     """ IPPE SPH pressure """
-    incom_iter_count = 0
-    while incom_iter_count < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
+    config.incom_iter_count[None] = 0
+    while config.incom_iter_count[None] < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -479,8 +479,8 @@ def sph_step(ngrid, fluid, bound, config):
         IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
-        incom_iter_count += 1
-        if incom_iter_count > config.iter_threshold_max[None]:
+        config.incom_iter_count[None] += 1
+        if config.incom_iter_count[None] > config.iter_threshold_max[None]:
             break
     """ debug info """
     # print('iter div: ', div_iter_count)
@@ -503,6 +503,29 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_update_color(fluid, config)
     # SPH_update_energy(fluid, config)
     # map_velocity(ngrid, grid, fluid)
-    return div_iter_count, incom_iter_count
+    return config.div_iter_count[None], config.incom_iter_count[None]
     """ SPH debug """
+
+def apply_bound_transform(bound, config):
+    bound.update_pos_part_range(config.start_id[None], config.end_id[None], config)
+    if 30 < config.time_count[None] and config.time_count[None] < config.time_down[None]:
+        config.rod_vel.from_numpy(config.vel_down_np)
+    elif config.time_count[None]>33.5 and config.time_count[None]<38.5:
+        ang = config.ang_spd[None] * (config.time_count[None] - config.time_down[None])
+        config.vel_rot_np[0] = config.ang_spd[None] * config.rot_r[None] * cos(ang)
+        config.vel_rot_np[2] = config.ang_spd[None] * config.rot_r[None] * sin(ang)
+        config.rod_vel.from_numpy(config.vel_rot_np)
+    bound.set_vel_part_range(config.start_id[None], config.end_id[None], config.rod_vel)
+
+def run_step(ngrid, fluid, bound, config):
+    config.time_counter[None] += 1
+
+    while config.time_count[None] < config.time_counter[None] / config.gui_fps[None]:
+        """ computation loop """
+        config.time_count[None] += config.dt[None]
+        sph_step(ngrid, fluid, bound, config)
+        apply_bound_transform(bound, config)
+        config.frame_div_iter[None] += config.div_iter_count[None]
+        config.frame_incom_iter[None] += config.incom_iter_count[None]
+
 #################################### END SPH SOLVER ###########################################

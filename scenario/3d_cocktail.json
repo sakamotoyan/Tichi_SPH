@@ -1,0 +1,87 @@
+{
+    "sim_env":{
+        "global_part_size":0.08,
+        "global_dynamic_viscosity":1e-2,
+        "sim_dim": 3,
+        "sim_space_lb": [-8, -8, -8],
+        "sim_space_rt": [8, 14, 8],
+        "gravity": [0, -9.8, 0],
+        "phase_num": 5,
+        "phase_rest_density": [100,200,500,1000,2000],
+        "phase_color_hex": ["0xFF0000","0xFFFF00","0x00FF00","0x00FFFF","0x0000FF"]
+    },
+
+    "fluid":{
+        "max_part_num": 1e6,
+        "objs":[
+            {
+                "type":"ply",
+                "particle_relaxing_factor":1.001,
+                "vel": [0, 0, 0],
+                "file_name":"ply_models\\red_0.08.ply",
+                "volume_frac":[1,0,0,0,0],
+                "color":"0xFF0000"
+            },
+            {
+                "type":"ply",
+                "start_time":3.0,
+                "particle_relaxing_factor":1.001,
+                "vel": [0, 0, 0],
+                "file_name":"ply_models\\yellow_0.08.ply",
+                "volume_frac":[0,1,0,0,0],
+                "color":"0xFFFF00"
+            },
+            {
+                "type":"ply",
+                "start_time":8.0,
+                "particle_relaxing_factor":1.001,
+                "vel": [0, 0, 0],
+                "file_name":"ply_models\\green_0.08.ply",
+                "volume_frac":[0,0,1,0,0],
+                "color":"0x00FF00"
+            },
+            {
+                "type":"ply",
+                "start_time":14.0,
+                "particle_relaxing_factor":1.001,
+                "vel": [0, 0, 0],
+                "file_name":"ply_models\\cyan_0.08.ply",
+                "volume_frac":[0,0,0,1,0],
+                "color":"0x00FFFF"
+            },
+            {
+                "type":"ply",
+                "start_time":20.0,
+                "particle_relaxing_factor":1.001,
+                "vel": [0, 0, 0],
+                "file_name":"ply_models\\blue_0.08.ply",
+                "volume_frac":[0,0,0,0,1],
+                "color":"0x0000FF"
+            }
+        ]
+    },
+
+    "bound":{
+        "max_part_num": 1e6,
+        "objs":  [
+            {
+                "type":"ply",
+                "vel": [0, 0, 0],
+                "particle_relaxing_factor":1.001,
+                "file_name":"ply_models\\cocktail_0.08.ply",
+                "volume_frac":[0,0,1,0,0],
+                "color":"0xAAAAAA"
+            },
+            {
+                "type":"ply",
+                "vel": [0, 0, 0],
+                "particle_relaxing_factor":1.001,
+                "file_name":"ply_models\\rod_0.08.ply",
+                "volume_frac":[0,0,1,0,0],
+                "color":"0xAAAA00",
+                "name":"rod",
+                "start_pos": [-1.2,10,-1.6]
+            }
+        ]
+    }
+}

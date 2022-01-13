@@ -303,6 +303,8 @@ class Fluid:
             self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'], param['vel'], int(param['color'], 16), param['particle_relaxing_factor'],config)
         elif param['type'] == 'ply':
             verts = read_ply(param['file_name'])
+            if 'start_pos' in param:
+                verts += param['start_pos']
             self.scene_add_ply(len(verts), verts, param['volume_frac'], param['vel'], int(param['color'], 16),config)
         else:
             raise Exception('scenario ERROR: object type unsupported:',
@@ -496,4 +498,6 @@ class Gui():
 
     def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene
+
+    def window_show(self):
         self.window.show()

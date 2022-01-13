@@ -123,6 +123,34 @@ def write_ply(path, frame_num, dim, num, pos):
     el_pos = PlyElement.describe(np_pos, 'vertex')
     PlyData([el_pos]).write(str(path) + '_' + str(frame_num) + '.ply')
 
+def write_full_json(fname, config, obj):
+    data = {
+        "timeCounter": config.time_counter[None],
+        "timeInSimulation": config.time_count[None],
+        "timeStep": config.dt[None],
+        "fps": config.gui_fps[None],
+        "iteration": {
+            "divergenceFree_iteration": config.frame_div_iter[None],
+            "incompressible_iteration": config.frame_incom_iter[None],
+            "sum_iteration": config.frame_div_iter[None] + config.frame_incom_iter[None]
+        },
+        "energy": {
+            "statistics_kinetic_energy": obj.statistics_kinetic_energy[None],
+            "statistics_gravity_potential_energy": obj.statistics_gravity_potential_energy[None],
+            "sum_energy": obj.statistics_kinetic_energy[None] + obj.statistics_gravity_potential_energy[None]
+        }
+    }
+    s = json.dumps(data)
+    with open(fname, "w") as f:
+        f.write(s)
+
+def write_files(gui, config, pre_config, obj):
+    gui.window.write_image(f"{pre_config.solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{config.time_counter[None]}.png")
+    write_ply(path=f'{pre_config.solver_type}\\ply\\fluid_pos', frame_num=config.time_counter[None], dim=config.dim[None], num=obj.part_num[None],pos=obj.pos.to_numpy())
+    write_full_json(f"{pre_config.solver_type}\\json\\" + "frame" + str(config.time_counter[None]) + ".json", config, obj)
+    # numpy.save(f"{solver_type}\\grid_data\\vel_{globalvar.time_counter}", grid.vel.to_numpy())
+    np.save(f"{pre_config.solver_type}\\part_data\\vel_{config.time_counter[None]}", obj.vel.to_numpy()[0:obj.part_num[None], :])
+    np.save(f"{pre_config.solver_type}\\part_data\\pos_{config.time_counter[None]}", obj.pos.to_numpy()[0:obj.part_num[None], :])
 
 ########################################## transformation funcs #########################################
 #helper func

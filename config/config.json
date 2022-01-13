@@ -1,7 +1,7 @@
 {
 
     "arch": "gpu",
-    "device_memory_GB":2,
+    "device_memory_GB":6,
 
     "solver_type":"VFSPH",
     "solver_wc_gamma":7,
@@ -23,9 +23,9 @@
 
     "gui_res":[1080,1080],
     "gui_part_zoomer": 1.0,
-    "gui_fps":240,
+    "gui_fps":30,
     "gui_canvas_bgcolor": [0.2, 0.2, 0.6],
-    "gui_camera_pos": [6.0, 1.0, 0.0],
+    "gui_camera_pos": [20.0, 1.0, 0.0],
     "gui_camera_lookat": [0.0, 0.0, 0.0]
 
 

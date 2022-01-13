@@ -98,6 +98,7 @@ class Config:
         self.phase_rest_density = ti.Vector.field(pre_config.phase_num, float, ())  # rest density of each phase
         self.phase_rgb = ti.Vector.field(3, float, pre_config.phase_num)
         self.time_count = ti.field(float,())
+        self.time_counter = ti.field(int,())
 
         # solver
         self.dt = ti.field(float, ())
@@ -112,6 +113,10 @@ class Config:
         self.iter_threshold_min = ti.field(int, ())  # min iterations for solvers
         self.iter_threshold_max = ti.field(int, ())  # max iterations for solvers
         self.is_compressible = ti.field(int, ())  # is_conpressible
+        self.div_iter_count = ti.field(int, ())  # divergence iterations per step
+        self.incom_iter_count = ti.field(int, ())  # incompressible iterations per step
+        self.frame_div_iter = ti.field(int, ()) # divergence iterations per frame
+        self.frame_incom_iter = ti.field(int, ()) # incompressible iterations per frame
 
         # CFL
         self.if_cfl = ti.field(int, ())  # 1: use cfl, 0: do not use cfl
@@ -141,6 +146,16 @@ class Config:
         self.gui_camera_lookat = ti.Vector.field(3, float, ())
         self.gui_canvas_bgcolor = ti.Vector.field(3, float, ())
 
+        # rotate
+        self.start_id = ti.field(int, ())
+        self.end_id = ti.field(int, ())
+        self.vel_down_np = np.array([0.0, -3.0, 0.0])
+        self.vel_rot_np = np.zeros(3)
+        self.ang_spd = ti.field(float, ())
+        self.rot_r = ti.field(float, ())
+        self.time_down = ti.field(float, ())
+        self.rod_vel = ti.Vector.field(3, float, ())
+
         self.sub_init(pre_config, config_buffer, scenario_buffer)
 
     def assign_phase_color(self, hex, phase):
@@ -159,6 +174,12 @@ class Config:
         self.bound_max_part_num[None] = int(read_param(scenario_buffer['bound']['max_part_num'], 'bound_max_part_num'))
         self.max_part_num[None] = self.fluid_max_part_num[None] + self.bound_max_part_num[None]
         self.time_count[None] = 0
+        self.time_counter[None] = 0
+        self.frame_div_iter[None] = 0
+        self.frame_incom_iter[None] = 0
+        self.ang_spd[None] = math.pi
+        self.rot_r[None] = 1.6
+        self.time_down[None] = 33.3
 
         # init phase color
         for i in range(self.phase_num[None]):
