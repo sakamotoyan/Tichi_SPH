@@ -3,7 +3,7 @@
     "arch": "gpu",
     "device_memory_GB":2,
 
-    "solver_type":"VFSPH",
+    "solver_type":"DFSPH",
     "solver_wc_gamma":7,
     "solver_divergence_threshold":1e-3,
     "solver_compression_threshold":1e-4,
@@ -17,8 +17,8 @@
     "solver_neighb_range":1,
     "solver_neighb_grid_size_TO_global_part_size":2,
 
-    "solver_fbm_diffusion_term":0.50,
-    "solver_fbm_convection_term":50,
+    "solver_fbm_diffusion_term":0.005,
+    "solver_fbm_convection_term":10,
     "solver_surface_tension_gamma":0,
 
     "gui_res":[1080,1080],

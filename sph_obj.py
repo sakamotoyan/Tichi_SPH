@@ -74,11 +74,19 @@ class Fluid:
         # display
         self.pos_disp = ti.Vector.field(config.dim[None], float)
 
+        # wcsph_21
+        self.F_mid = ti.Vector.field(config.dim[None], float)
+        self.vel_mid_phase = ti.Vector.field(config.dim[None], float)
+        self.vel_mid = ti.Vector.field(config.dim[None], float)
+        self.vel_phase = ti.Vector.field(config.dim[None], float)
+        self.lamb = ti.field(float)
+
         # put for-each-particle attributes in this list to register them!
         self.attr_list = [self.color, self.color_vector, self.mass, self.rest_density, self.rest_volume, self.pressure,self.pressure_force,
                           self.volume_frac, self.volume_frac_tmp, self.pos, self.gui_2d_pos, self.vel, self.vel_adv,self.acce, self.acce_adv,
                           self.W, self.W_grad, self.sph_density, self.sph_compression, self.psi_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta, self.normal,
-                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp]
+                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp,
+                          self.F_mid, self.vel_mid, self.lamb]
 
         # allocate memory for attributes (1-D fields)
         for attr in self.attr_list:
@@ -86,6 +94,10 @@ class Fluid:
         # allocate memory for drift velocity (2-D field)
         ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.drift_vel)
         self.attr_list.append(self.drift_vel)  # add drift velocity to attr_list
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.vel_mid_phase)
+        self.attr_list.append(self.vel_mid_phase)  # add drift velocity to attr_list
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.vel_phase)
+        self.attr_list.append(self.vel_phase)  # add drift velocity to attr_list
 
         self.obj_part_range_from_name={}
 
@@ -183,6 +195,7 @@ class Fluid:
 
     @ti.kernel
     def push_attrs_seq(self, color: int, volume_frac: ti.template(), vel: ti.template(), pushed_part_num: int, current_part_num: int, config: ti.template()):
+        phase_num = ti.static(config.phase_rest_density.n)
         for i in range(pushed_part_num):
             i_p = i + current_part_num
             self.volume_frac[i_p] = volume_frac
@@ -192,6 +205,8 @@ class Fluid:
             self.color_vector[i_p] = hex2rgb(color)
             self.rest_density[i_p] = config.phase_rest_density[None].dot(self.volume_frac[i_p])
             self.mass[i_p] = self.rest_density[i_p] * self.rest_volume[i_p]
+            for k in ti.static(range(phase_num)):
+                self.vel_phase[i_p, k] = vel
 
 
     def push_part_seq(self, pushed_part_num, color, pos_seq, volume_frac, vel, config):
@@ -434,6 +449,7 @@ class Gui():
         self.op_system_run = False
         self.op_write_file = False
         self.op_refresh_window = True
+        self.show_stat = True
         self.show_rod = True
     
     def monitor_listen(self):
@@ -482,6 +498,10 @@ class Gui():
             if self.window.event.key == 'n':
                 self.show_rod = not self.show_rod
                 print("show rod:", self.show_rod)
+
+            if self.window.event.key == 'x':
+                self.show_stat = not self.show_stat
+                print("show stat:", self.show_stat)
 
     def env_set_up(self):
         self.canvas.set_background_color(self.background_color)

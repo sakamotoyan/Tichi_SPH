@@ -1,4 +1,4 @@
-from sph import *
+from wcsph_21 import *
 
 class Scenario:
     scenario_buffer = None
