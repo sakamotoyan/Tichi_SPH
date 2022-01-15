@@ -5,7 +5,7 @@ import time
 
 '''parse command line'''
 config_file_path = 'config/config.json'
-scenario_file_path = 'scenario/3d_cocktail.json'
+scenario_file_path = 'scenario/3d_rotate_rod.json'
 
 """ init data structure """
 config_buffer = get_config_buffer(trim_path_dir(config_file_path))
