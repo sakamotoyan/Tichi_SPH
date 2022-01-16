@@ -111,15 +111,18 @@ def read_ply(path):
     verts_array = np.array([[x, y, z] for x, y, z in obj_verts])
     return verts_array
 
-def write_ply(path, frame_num, dim, num, pos):
+def write_ply(path, frame_num, dim, num, pos, phase_num, volume_frac):
     if dim == 3:
-        list_pos = [(pos[i, 0], pos[i, 1], pos[i, 2]) for i in range(num)]
+        list_pos = [(pos[i, 0], pos[i, 1], pos[i, 2], volume_frac[i,0], volume_frac[i,1]) for i in range(num)]
     elif dim == 2:
         list_pos = [(pos[i, 0], pos[i, 1], 0) for i in range(num)]
     else:
         print('write_ply(): dim exceeds default values')
         return
-    np_pos = np.array(list_pos, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
+    data_type = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+    for k in range(phase_num):
+        data_type.append(('f'+str(k+1),'f4'))
+    np_pos = np.array(list_pos, dtype=data_type)
     el_pos = PlyElement.describe(np_pos, 'vertex')
     PlyData([el_pos]).write(str(path) + '_' + str(frame_num) + '.ply')
 
@@ -146,7 +149,7 @@ def write_full_json(fname, config, obj):
 
 def write_files(gui, config, pre_config, obj):
     gui.window.write_image(f"{pre_config.solver_type}\\img\\rf{int(config.gui_fps[None] + 1e-5)}_{config.time_counter[None]}.png")
-    write_ply(path=f'{pre_config.solver_type}\\ply\\fluid_pos', frame_num=config.time_counter[None], dim=config.dim[None], num=obj.part_num[None],pos=obj.pos.to_numpy())
+    write_ply(path=f'{pre_config.solver_type}\\ply\\fluid_pos', frame_num=config.time_counter[None], dim=config.dim[None], num=obj.part_num[None], pos=obj.pos.to_numpy(), phase_num=config.phase_num[None], volume_frac=obj.volume_frac.to_numpy())
     write_full_json(f"{pre_config.solver_type}\\json\\" + "frame" + str(config.time_counter[None]) + ".json", config, obj)
     # numpy.save(f"{solver_type}\\grid_data\\vel_{globalvar.time_counter}", grid.vel.to_numpy())
     np.save(f"{pre_config.solver_type}\\part_data\\vel_{config.time_counter[None]}", obj.vel.to_numpy()[0:obj.part_num[None], :])

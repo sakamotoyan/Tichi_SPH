@@ -179,7 +179,7 @@ class Config:
         self.frame_incom_iter[None] = 0
         self.ang_spd[None] = math.pi
         self.rot_r[None] = 1.6
-        self.time_down[None] = 33.3
+        self.time_down[None] = 35.3
 
         # init phase color
         for i in range(self.phase_num[None]):

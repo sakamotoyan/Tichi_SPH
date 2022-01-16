@@ -494,7 +494,7 @@ def sph_step(ngrid, fluid, bound, config):
     while fluid.general_flag[None] > 0:
         SPH_FBM_clean_tmp(fluid, config)
         SPH_FBM_convect(ngrid, fluid, fluid, config)
-    #     SPH_FBM_diffuse(ngrid, fluid, fluid, config)
+        SPH_FBM_diffuse(ngrid, fluid, fluid, config)
         SPH_FBM_check_tmp(fluid)
     """ SPH update """
     SPH_update_volume_frac(fluid)
@@ -508,9 +508,9 @@ def sph_step(ngrid, fluid, bound, config):
 
 def apply_bound_transform(bound, config):
     bound.update_pos_part_range(config.start_id[None], config.end_id[None], config)
-    if 30 < config.time_count[None] and config.time_count[None] < config.time_down[None]:
+    if 32 < config.time_count[None] and config.time_count[None] < config.time_down[None]:
         config.rod_vel.from_numpy(config.vel_down_np)
-    elif config.time_count[None]>33.5 and config.time_count[None]<38.5:
+    elif config.time_count[None]>35.5 and config.time_count[None]<40.5:
         ang = config.ang_spd[None] * (config.time_count[None] - config.time_down[None])
         config.vel_rot_np[0] = config.ang_spd[None] * config.rot_r[None] * cos(ang)
         config.vel_rot_np[2] = config.ang_spd[None] * config.rot_r[None] * sin(ang)
@@ -524,7 +524,7 @@ def run_step(ngrid, fluid, bound, config):
         """ computation loop """
         config.time_count[None] += config.dt[None]
         sph_step(ngrid, fluid, bound, config)
-        apply_bound_transform(bound, config)
+        # apply_bound_transform(bound, config)
         config.frame_div_iter[None] += config.div_iter_count[None]
         config.frame_incom_iter[None] += config.incom_iter_count[None]
 

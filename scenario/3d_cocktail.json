@@ -24,7 +24,7 @@
             },
             {
                 "type":"ply",
-                "start_time":3.0,
+                "start_time":5.0,
                 "particle_relaxing_factor":1.001,
                 "vel": [0, 0, 0],
                 "file_name":"ply_models\\yellow_0.08.ply",
@@ -33,7 +33,7 @@
             },
             {
                 "type":"ply",
-                "start_time":8.0,
+                "start_time":12.0,
                 "particle_relaxing_factor":1.001,
                 "vel": [0, 0, 0],
                 "file_name":"ply_models\\green_0.08.ply",
@@ -42,7 +42,7 @@
             },
             {
                 "type":"ply",
-                "start_time":14.0,
+                "start_time":20.0,
                 "particle_relaxing_factor":1.001,
                 "vel": [0, 0, 0],
                 "file_name":"ply_models\\cyan_0.08.ply",
@@ -51,7 +51,7 @@
             },
             {
                 "type":"ply",
-                "start_time":20.0,
+                "start_time":28.0,
                 "particle_relaxing_factor":1.001,
                 "vel": [0, 0, 0],
                 "file_name":"ply_models\\blue_0.08.ply",
