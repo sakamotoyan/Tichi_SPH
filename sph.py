@@ -5,6 +5,8 @@ import time
 from taichi.lang.ops import atomic_min
 from sph_obj import *
 
+from sph_jl21 import *
+
 
 @ti.kernel
 def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -540,7 +542,12 @@ def run_step(ngrid, fluid, bound, config):
     while config.time_count[None] < config.time_counter[None] / config.gui_fps[None]:
         """ computation loop """
         config.time_count[None] += config.dt[None]
-        sph_step(ngrid, fluid, bound, config)
+        if config.solver_type == "DFSPH" or config.solver_type == "VFSPH":
+            sph_step(ngrid, fluid, bound, config)
+        elif config.solver_type == "JL21":
+            sph_step_jl21(ngrid, fluid, bound, config)
+        else:
+            raise Exception('sph ERROR: no solver type', config.solver_type)
         apply_bound_transform(bound, config)
         config.frame_div_iter[None] += config.div_iter_count[None]
         config.frame_incom_iter[None] += config.incom_iter_count[None]

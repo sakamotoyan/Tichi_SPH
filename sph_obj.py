@@ -77,11 +77,19 @@ class Fluid:
         # transform help
         self.transform_tmp_pos = ti.Vector.field(config.dim[None] + 1, float)
 
+        # JL21
+        self.F_mid = ti.Vector.field(config.dim[None], float)
+        self.vel_mid_phase = ti.Vector.field(config.dim[None], float)
+        self.vel_mid = ti.Vector.field(config.dim[None], float)
+        self.vel_phase = ti.Vector.field(config.dim[None], float)
+        self.lamb = ti.field(float)
+
         # put for-each-particle attributes in this list to register them!
         self.attr_list = [self.color, self.color_vector, self.mass, self.rest_density, self.rest_volume, self.pressure,self.pressure_force,
                           self.volume_frac, self.volume_frac_tmp, self.pos, self.gui_2d_pos, self.vel, self.vel_adv,self.acce, self.acce_adv,
                           self.W, self.W_grad, self.sph_density, self.sph_compression, self.psi_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta, self.normal,
-                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp, self.transform_tmp_pos]
+                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp, self.transform_tmp_pos,
+                          self.F_mid, self.vel_mid, self.lamb]
 
         # allocate memory for attributes (1-D fields)
         for attr in self.attr_list:
@@ -89,6 +97,10 @@ class Fluid:
         # allocate memory for drift velocity (2-D field)
         ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.drift_vel)
         self.attr_list.append(self.drift_vel)  # add drift velocity to attr_list
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.vel_mid_phase)
+        self.attr_list.append(self.vel_mid_phase)
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.vel_phase)
+        self.attr_list.append(self.vel_phase)
 
         self.obj_part_range_from_name={}
 
