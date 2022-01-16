@@ -74,11 +74,22 @@ class Fluid:
         # display
         self.pos_disp = ti.Vector.field(config.dim[None], float)
 
+        # transform help
+        self.transform_tmp_pos = ti.Vector.field(config.dim[None] + 1, float)
+
+        # JL21
+        self.F_mid = ti.Vector.field(config.dim[None], float)
+        self.vel_mid_phase = ti.Vector.field(config.dim[None], float)
+        self.vel_mid = ti.Vector.field(config.dim[None], float)
+        self.vel_phase = ti.Vector.field(config.dim[None], float)
+        self.lamb = ti.field(float)
+
         # put for-each-particle attributes in this list to register them!
         self.attr_list = [self.color, self.color_vector, self.mass, self.rest_density, self.rest_volume, self.pressure,self.pressure_force,
                           self.volume_frac, self.volume_frac_tmp, self.pos, self.gui_2d_pos, self.vel, self.vel_adv,self.acce, self.acce_adv,
                           self.W, self.W_grad, self.sph_density, self.sph_compression, self.psi_adv, self.alpha, self.alpha_1, self.alpha_2, self.fbm_zeta, self.normal,
-                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp]
+                          self.neighb_cell_seq, self.neighb_in_cell_seq, self.neighb_cell_structured_seq, self.ones,self.flag, self.pos_disp, self.transform_tmp_pos,
+                          self.F_mid, self.vel_mid, self.lamb]
 
         # allocate memory for attributes (1-D fields)
         for attr in self.attr_list:
@@ -86,6 +97,10 @@ class Fluid:
         # allocate memory for drift velocity (2-D field)
         ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.drift_vel)
         self.attr_list.append(self.drift_vel)  # add drift velocity to attr_list
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.vel_mid_phase)
+        self.attr_list.append(self.vel_mid_phase)
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.vel_phase)
+        self.attr_list.append(self.vel_phase)
 
         self.obj_part_range_from_name={}
 
@@ -333,7 +348,11 @@ class Fluid:
                 self.pos_disp[i] = self.unused_pos[None]
 
     def get_part_range_from_name(self, name):
-        return self.obj_part_range_from_name[name]
+        if name in self.obj_part_range_from_name:
+            return self.obj_part_range_from_name[name]
+        else:
+            warn('get_part_range_from_name WARNING: no object named \'', name, '\'')
+            return (0, 0)
 
     @ti.kernel
     def set_vel_part_range(self, start_id: int, end_id: int, vel:ti.template()):
@@ -346,22 +365,41 @@ class Fluid:
             self.pos[i] += self.vel[i] * config.dt[None]
 
     ######################### transform functions (too slow to be used every timestep) ##########################
+
     @ti.kernel
-    def transform_part_range(self, start_id: int, end_id: int, transform_matrix:ti.template()):
+    def transform_part_range(self, start_id: int, end_id: int, config:ti.template()):
+        dim = ti.static(config.gravity.n)        
         for i in range(start_id,end_id):
-            self.pos[i] = transform(self.pos[i],transform_matrix[None])
+            for j in ti.static(range(dim)):
+                self.transform_tmp_pos[i][j] = self.pos[i][j]
+            self.transform_tmp_pos[i][dim] = 1.0
+            self.transform_tmp_pos[i] = config.transform_matrix[None] @ self.transform_tmp_pos[i]
+            for j in ti.static(range(dim)):
+                self.pos[i][j] = self.transform_tmp_pos[i][j]
 
     # transform with velocity update
     @ti.kernel
-    def move_part_range(self, start_id: int, end_id: int, transform_matrix:ti.template(), config:ti.template()):
+    def move_part_range(self, start_id: int, end_id: int, config:ti.template()):
+        dim = ti.static(config.gravity.n)
         for i in range(start_id,end_id):
             pre_pos = self.pos[i]
-            self.pos[i] = transform(self.pos[i],transform_matrix[None])
+            for j in ti.static(range(dim)):
+                self.transform_tmp_pos[i][j] = self.pos[i][j]
+            self.transform_tmp_pos[i][dim] = 1.0
+            self.transform_tmp_pos[i] = config.transform_matrix[None] @ self.transform_tmp_pos[i]
+            for j in ti.static(range(dim)):
+                self.pos[i][j] = self.transform_tmp_pos[i][j]
             self.vel[i] = (self.pos[i] - pre_pos) / config.dt[None]
 
     def move_scene_obj(self, name, transform_matrix, config):
+        config.transform_matrix.from_numpy(transform_matrix)
         a,b = self.get_part_range_from_name(name)
-        self.move_part_range(a,b,transform_matrix,config)
+        self.move_part_range(a, b, config)
+
+    def transform_scene_obj(self, name, transform_matrix, config):
+        config.transform_matrix.from_numpy(transform_matrix)
+        a,b = self.get_part_range_from_name(name)
+        self.transform_part_range(a, b, config)
     
 
 class Part_buffer:

@@ -5,6 +5,8 @@ import time
 from taichi.lang.ops import atomic_min
 from sph_obj import *
 
+from sph_jl21 import *
+
 
 @ti.kernel
 def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -507,15 +509,32 @@ def sph_step(ngrid, fluid, bound, config):
     """ SPH debug """
 
 def apply_bound_transform(bound, config):
-    bound.update_pos_part_range(config.start_id[None], config.end_id[None], config)
-    if 32 < config.time_count[None] and config.time_count[None] < config.time_down[None]:
-        config.rod_vel.from_numpy(config.vel_down_np)
-    elif config.time_count[None]>35.5 and config.time_count[None]<40.5:
-        ang = config.ang_spd[None] * (config.time_count[None] - config.time_down[None])
-        config.vel_rot_np[0] = config.ang_spd[None] * config.rot_r[None] * cos(ang)
-        config.vel_rot_np[2] = config.ang_spd[None] * config.rot_r[None] * sin(ang)
-        config.rod_vel.from_numpy(config.vel_rot_np)
-    bound.set_vel_part_range(config.start_id[None], config.end_id[None], config.rod_vel)
+    """ old cocktail scene """
+    # bound.update_pos_part_range(config.start_id[None], config.end_id[None], config)
+    # if 30 < config.time_count[None] and config.time_count[None] < config.time_down[None]:
+    #     config.rod_vel.from_numpy(config.vel_down_np)
+    # elif config.time_count[None]>33.5 and config.time_count[None]<38.5:
+    #     ang = config.ang_spd[None] * (config.time_count[None] - config.time_down[None])
+    #     config.vel_rot_np[0] = config.ang_spd[None] * config.rot_r[None] * cos(ang)
+    #     config.vel_rot_np[2] = config.ang_spd[None] * config.rot_r[None] * sin(ang)
+    #     config.rod_vel.from_numpy(config.vel_rot_np)
+    # bound.set_vel_part_range(config.start_id[None], config.end_id[None], config.rod_vel)
+    """ rewrite cocktail scene """
+    # if 30 < config.time_count[None] and config.time_count[None] < config.time_down[None]:
+    #     translate = config.vel_down_np * config.dt[None]
+    #     bound.move_scene_obj('rod',translation_matrix(config, translate[0], translate[1], translate[2]), config)
+    # elif config.time_count[None]>33.5 and config.time_count[None]<38.5:
+    #     ang = config.ang_spd[None] * (config.time_count[None] - config.time_down[None])
+    #     bound.move_scene_obj('rod',rotation_matrix(config, 0, ang, 0), config)
+    """ 3d_rotate_rod scene """
+    if config.time_count[None] < 0.5:
+        dy = -2.4 * config.dt[None]
+        bound.move_scene_obj('rod',translation_matrix(config,0,dy,0), config)
+    else:
+        ang = math.pi * config.dt[None]
+        bound.move_scene_obj('rod',rotation_matrix(config,0,0,ang), config) # rotate around z-axis
+
+
 
 def run_step(ngrid, fluid, bound, config):
     config.time_counter[None] += 1
@@ -523,8 +542,13 @@ def run_step(ngrid, fluid, bound, config):
     while config.time_count[None] < config.time_counter[None] / config.gui_fps[None]:
         """ computation loop """
         config.time_count[None] += config.dt[None]
-        sph_step(ngrid, fluid, bound, config)
-        # apply_bound_transform(bound, config)
+        if config.solver_type == "DFSPH" or config.solver_type == "VFSPH":
+            sph_step(ngrid, fluid, bound, config)
+        elif config.solver_type == "JL21":
+            sph_step_jl21(ngrid, fluid, bound, config)
+        else:
+            raise Exception('sph ERROR: no solver type', config.solver_type)
+        apply_bound_transform(bound, config)
         config.frame_div_iter[None] += config.div_iter_count[None]
         config.frame_incom_iter[None] += config.incom_iter_count[None]
 

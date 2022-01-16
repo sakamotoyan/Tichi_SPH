@@ -156,12 +156,8 @@ def write_files(gui, config, pre_config, obj):
     np.save(f"{pre_config.solver_type}\\part_data\\pos_{config.time_counter[None]}", obj.pos.to_numpy()[0:obj.part_num[None], :])
 
 ########################################## transformation funcs #########################################
-#helper func
-def wrap_np_matrix_to_field(matrix):
-    f = ti.Matrix.field(matrix.shape[0],matrix.shape[1],float,())
-    f.from_numpy(matrix)
-    return f
 
+# example: rotation_matrix(config, angle_x, angle_y, angle_z)
 def rotation_matrix(config, *args):
     m = None
     if len(args) == 1 and config.dim[None] == 2: #2d
@@ -194,8 +190,9 @@ def rotation_matrix(config, *args):
         m = np.matmul(rz,np.matmul(ry,rx))
     else:
         raise Exception('transformation ERROR: dimension mismatch')
-    return wrap_np_matrix_to_field(m)
+    return m
 
+#example: translation_matrix(config, x, y, z)
 def translation_matrix(config, *args):
     dim = config.dim[None]
     if dim != 2 and dim != 3 or dim != len(args):
@@ -203,8 +200,9 @@ def translation_matrix(config, *args):
     m = np.eye(dim + 1)
     for i in range(dim):
         m[i,dim] = args[i]
-    return wrap_np_matrix_to_field(m)
+    return m
 
+#example: scale_matrix(config, scale_x, scale_y, scale_z)
 def scale_matrix(config, *args):
     dim = config.dim[None]
     if dim != 2 and dim != 3 or dim != len(args):
@@ -212,19 +210,8 @@ def scale_matrix(config, *args):
     m = np.eye(dim + 1)
     for i in range(dim):
         m[i,i] = args[i]
-    return wrap_np_matrix_to_field(m)
+    return m
 
-@ti.func
-def transform(pos, transform_matrix):
-    n = ti.static(transform_matrix.n)
-    tmp = ti.Vector([0.0] * n)
-    for j in ti.static(range(n-1)):
-        tmp[j] = pos[j]
-    tmp[n-1] = 1
-    res = transform_matrix @ tmp
-    for j in ti.static(range(n-1)):
-        pos[j] = res[j]
-    return pos
 
 ############################################### GUI funcs ###############################################
 @ti.kernel

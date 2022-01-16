@@ -93,6 +93,7 @@ class Config:
         self.sim_space_lb = ti.Vector.field(pre_config.sim_dim, float, ())  # min coordination of simulation space
         self.sim_space_rt = ti.Vector.field(pre_config.sim_dim, float, ())  # max coordination of simulation space
         self.dynamic_viscosity = ti.field(float, ())
+        self.artificial_viscosity = ti.field(float, ())
         self.gravity = ti.Vector.field(pre_config.sim_dim, float, ())
         self.phase_num = ti.field(int, ())
         self.phase_rest_density = ti.Vector.field(pre_config.phase_num, float, ())  # rest density of each phase
@@ -102,6 +103,7 @@ class Config:
 
         # solver
         self.dt = ti.field(float, ())
+        self.solver_type = ""
         # kernel function
         self.kernel_h = ti.field(float, 5)
         self.kernel_sig = ti.field(float, 4)  # normalizer for kernel W for different dimensions
@@ -156,6 +158,9 @@ class Config:
         self.time_down = ti.field(float, ())
         self.rod_vel = ti.Vector.field(3, float, ())
 
+        #transform_help
+        self.transform_matrix = ti.Matrix.field(pre_config.sim_dim + 1,pre_config.sim_dim + 1,float,())
+
         self.sub_init(pre_config, config_buffer, scenario_buffer)
 
     def assign_phase_color(self, hex, phase):
@@ -165,6 +170,7 @@ class Config:
         self.dim[None] = pre_config.sim_dim
         self.part_size[1] = read_param(scenario_buffer['sim_env']['global_part_size'], 'global_part_size')
         self.dynamic_viscosity[None] = read_param(scenario_buffer['sim_env']['global_dynamic_viscosity'], 'global_dynamic_viscosity')
+        self.artificial_viscosity[None] = read_param(scenario_buffer['sim_env']['global_artificial_viscosity'], 'global_artificial_viscosity')
         self.sim_space_lb[None] = read_param(scenario_buffer['sim_env']['sim_space_lb'], 'sim_space_lb')
         self.sim_space_rt[None] = read_param(scenario_buffer['sim_env']['sim_space_rt'], 'sim_space_rt')
         self.gravity[None] = read_param(scenario_buffer['sim_env']['gravity'], 'gravity')
@@ -190,6 +196,7 @@ class Config:
         self.part_size[4] = math.pow(self.part_size[1], 4)
 
     def init_solver(self, config_buffer):
+        self.solver_type = read_param(config_buffer.get('solver_type'), 'solver_type')
         # DFSPH
         self.wc_gamma[None] = read_param(config_buffer.get('solver_wc_gamma'), 'solver_wc_gamma')
         self.divergence_threshold[None] = read_param(config_buffer.get('solver_divergence_threshold'), 'solver_divergence_threshold')

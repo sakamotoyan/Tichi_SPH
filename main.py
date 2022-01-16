@@ -5,7 +5,7 @@ import time
 
 '''parse command line'''
 config_file_path = 'config/config.json'
-scenario_file_path = 'scenario/3d_hourglass.json'
+scenario_file_path = 'scenario/3d_rotate_rod.json'
 
 """ init data structure """
 config_buffer = get_config_buffer(trim_path_dir(config_file_path))
@@ -29,7 +29,7 @@ gui = Gui(config)
 gui.env_set_up()
 print('Done gui setting')
 
-#config.start_id[None], config.end_id[None] = bound.get_part_range_from_name('rod')
+config.start_id[None], config.end_id[None] = bound.get_part_range_from_name('rod')
 config.vel_down_np = np.array([0.0,-3.0,0.0])
 config.vel_rot_np = np.zeros(3)
 
