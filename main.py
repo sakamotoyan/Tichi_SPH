@@ -5,6 +5,7 @@ import time
 
 '''parse command line'''
 config_file_path = 'config/config.json'
+# scenario_file_path = 'scenario/3d_dambreak_2block.json'
 scenario_file_path = 'scenario/3d_dambreak.json'
 
 """ init data structure """

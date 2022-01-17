@@ -51,6 +51,8 @@ class Fluid:
         self.alpha_1 = ti.Vector.field(config.dim[None], float)  # 1st term of alpha
         self.alpha_2 = ti.field(float)  # 2nd term of alpha
         self.drift_vel = ti.Vector.field(config.dim[None], float)
+        self.phase_vel = ti.Vector.field(config.dim[None], float)
+        self.phase_acc = ti.Vector.field(config.dim[None], float)
         # FBM
         self.fbm_zeta = ti.field(float)
         self.fbm_acce = ti.static(self.acce)
@@ -83,6 +85,10 @@ class Fluid:
         # allocate memory for drift velocity (2-D field)
         ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.drift_vel)
         self.attr_list.append(self.drift_vel)  # add drift velocity to attr_list
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.phase_vel)
+        self.attr_list.append(self.phase_vel)  # add drift velocity to attr_list
+        ti.root.dense(ti.i, self.max_part_num).dense(ti.j, config.phase_num[None]).place(self.phase_acc)
+        self.attr_list.append(self.phase_acc)  # add drift velocity to attr_list
 
         self.init()
 
@@ -354,7 +360,7 @@ class Gui():
         self.show_bound = False
         self.show_help = True
         self.show_run_info = True
-        self.op_system_run = False
+        self.op_system_run = True
         self.op_write_file = False
         self.op_refresh_window = True
     
