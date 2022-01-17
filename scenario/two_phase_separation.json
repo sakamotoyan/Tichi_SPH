@@ -1,0 +1,44 @@
+{
+    "sim_env":{
+        "global_part_size":0.05,
+        "global_dynamic_viscosity":1e-2,
+        "global_artificial_viscosity":0.5,
+        "sim_dim": 3,
+        "sim_space_lb": [-8, -8, -8],
+        "sim_space_rt": [8, 8, 8],
+        "gravity": [0, -9.8, 0],
+        "phase_num": 2,
+        "phase_rest_density": [100,200],
+        "phase_color_hex": ["0xFF0000","0x0000FF"]
+    },
+    "fluid":{
+        "max_part_num": 6e5,
+        "objs":[
+            {
+                "type":"ply",
+                "vel": [0, 0, 0],
+                "particle_relaxing_factor":1.001,
+                "file_name":"ply_models\\separation\\stable_cube.ply",
+                "volume_frac":[0.5,0.5],
+                "color":"0x6F7DBC"
+            }
+        ]
+    },
+    "bound":{
+        "max_part_num": 2e5,
+        "objs":  [
+            {
+                "type":"ply",
+                "vel": [0, 0, 0],
+                "particle_relaxing_factor":1.001,
+                "file_name":"ply_models\\separation\\box.ply",
+                "volume_frac":[1,0],
+                "color":"0xFA8072",
+                "name": 1
+            }
+
+        ]
+    }
+
+
+}
