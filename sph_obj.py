@@ -36,9 +36,12 @@ class Fluid:
         self.acce = ti.Vector.field(config.dim[None], float)  # acceleration
         self.acce_adv = ti.Vector.field(config.dim[None], float)
 
-        # energy
+        # statistics
         self.statistics_kinetic_energy = ti.field(float, ())  # total kinetic energy of particles
         self.statistics_gravity_potential_energy = ti.field(float, ())  # total gravitational potential energy of particles
+        self.statistics_volume_compression = ti.field(float, ()) 
+        self.statistics_volume_frac = ti.Vector.field(config.phase_num[None], float, ())
+        self.statistics_phase_kinetic_energy = ti.Vector.field(config.phase_num[None], float, ())
 
         # for slover
         self.W = ti.field(float)

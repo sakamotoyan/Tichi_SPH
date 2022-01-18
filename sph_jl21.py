@@ -202,6 +202,36 @@ def JL21_SPH_update_mass(obj: ti.template(), config: ti.template()):
         obj.rest_density[i] = config.phase_rest_density[None].dot(obj.volume_frac[i])
         obj.mass[i] = obj.rest_density[i] * obj.rest_volume[i]
 
+@ti.kernel
+def JL21_statistics_update_energy(obj: ti.template(), config: ti.template()):
+    phase_num = ti.static(config.phase_rest_density.n)
+    obj.statistics_kinetic_energy[None] = 0
+    obj.statistics_gravity_potential_energy[None] = 0
+    for k in ti.static(range(phase_num)):
+        obj.statistics_phase_kinetic_energy[None][k] = 0
+    for i in range(obj.part_num[None]):
+        obj.statistics_kinetic_energy[None] += 0.5 * obj.mass[i] * obj.vel[i].norm_sqr()
+        obj.statistics_gravity_potential_energy[None] += -obj.mass[i] * config.gravity[None][1] * (obj.pos[i][1] - config.sim_space_lb[None][1])
+        for k in ti.static(range(phase_num)):
+            mass = config.phase_rest_density[None][k] * obj.rest_volume[i] * obj.volume_frac[i][k]
+            obj.statistics_phase_kinetic_energy[None][k] += 0.5 * mass * obj.vel_phase[i, k].norm_sqr()
+
+@ti.kernel
+def JL21_statistics_update_compression(obj: ti.template(), config: ti.template()):#average of V^0_i / V_i
+    obj.statistics_volume_compression[None] = 0
+    for i in range(obj.part_num[None]):
+        obj.statistics_volume_compression[None] += max(obj.sph_density[i] / obj.rest_density[i], 1.0)
+    obj.statistics_volume_compression[None] /= obj.part_num[None]
+
+@ti.kernel
+def JL21_statistics_update_volume_frac(obj: ti.template(), config: ti.template()):
+    phase_num = ti.static(config.phase_rest_density.n)
+    for j in ti.static(range(phase_num)):
+        obj.statistics_volume_frac[None][j] = 0
+    for i in range(obj.part_num[None]):
+        obj.statistics_volume_frac[None] += obj.volume_frac[i]
+    obj.statistics_volume_frac[None] /= obj.part_num[None]
+
 ###################################### SPH SOLVER ############################################
 def sph_step_jl21(ngrid, fluid, bound, config):
     JL21_cfl_condition(fluid, config)
@@ -220,6 +250,7 @@ def sph_step_jl21(ngrid, fluid, bound, config):
     JL21_prepare_density(ngrid, fluid, bound, config)
     JL21_prepare_density(ngrid, bound, fluid, config)
     JL21_prepare_density(ngrid, bound, bound, config)
+    JL21_statistics_update_compression(fluid, config)
     JL21_pressure_val(fluid, config)
     JL21_pressure_val(bound, config)
     JL21_pressure_force(ngrid, fluid, fluid, config)
@@ -238,5 +269,7 @@ def sph_step_jl21(ngrid, fluid, bound, config):
     JL21_normalize_volume_frac(fluid, config)
     JL21_SPH_update_mass(fluid, config)
     JL21_update_color(fluid, config)
+    JL21_statistics_update_energy(fluid, config)
+    JL21_statistics_update_volume_frac(fluid, config)
 
 #################################### END SPH SOLVER ###########################################

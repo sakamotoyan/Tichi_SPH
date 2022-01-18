@@ -100,6 +100,7 @@ class Config:
         self.phase_rgb = ti.Vector.field(3, float, pre_config.phase_num)
         self.time_count = ti.field(float,())
         self.time_counter = ti.field(int,())
+        self.time_consumption = ti.field(float,())
 
         # solver
         self.dt = ti.field(float, ())
@@ -181,6 +182,7 @@ class Config:
         self.max_part_num[None] = self.fluid_max_part_num[None] + self.bound_max_part_num[None]
         self.time_count[None] = 0
         self.time_counter[None] = 0
+        self.time_consumption[None] = 0.0
         self.frame_div_iter[None] = 0
         self.frame_incom_iter[None] = 0
         self.ang_spd[None] = math.pi

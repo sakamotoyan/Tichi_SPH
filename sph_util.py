@@ -113,7 +113,12 @@ def read_ply(path):
 
 def write_ply(path, frame_num, dim, num, pos, phase_num, volume_frac):
     if dim == 3:
-        list_pos = [(pos[i, 0], pos[i, 1], pos[i, 2], volume_frac[i,0], volume_frac[i,1]) for i in range(num)]
+        list_pos = []
+        for i in range(num):
+            pos_tmp = [pos[i, 0], pos[i, 1], pos[i, 2]]
+            for j in range(phase_num):
+                pos_tmp.append(volume_frac[i, j])
+            list_pos.append(tuple(pos_tmp))
     elif dim == 2:
         list_pos = [(pos[i, 0], pos[i, 1], 0) for i in range(num)]
     else:
@@ -140,8 +145,14 @@ def write_full_json(fname, config, obj):
         "energy": {
             "statistics_kinetic_energy": obj.statistics_kinetic_energy[None],
             "statistics_gravity_potential_energy": obj.statistics_gravity_potential_energy[None],
-            "sum_energy": obj.statistics_kinetic_energy[None] + obj.statistics_gravity_potential_energy[None]
-        }
+            "sum_energy": obj.statistics_kinetic_energy[None] + obj.statistics_gravity_potential_energy[None],
+            "phase_kinetic_energy": [obj.statistics_phase_kinetic_energy[None][i] for i in range(config.phase_num[None])]
+        },
+        "statistics": {
+            "volume_compression": obj.statistics_volume_compression[None],
+            "volume_frac": [obj.statistics_volume_frac[None][i] for i in range(config.phase_num[None])]
+        },
+        "time_consumption": config.time_consumption[None]
     }
     s = json.dumps(data)
     with open(fname, "w") as f:

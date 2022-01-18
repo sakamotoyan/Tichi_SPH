@@ -281,14 +281,34 @@ def SPH_update_pos(obj: ti.template(), config: ti.template()):
 
 
 @ti.kernel
-def SPH_update_energy(obj: ti.template(), config: ti.template()):
+def statistics_update_energy(obj: ti.template(), config: ti.template()):
+    phase_num = ti.static(config.phase_rest_density.n)
     obj.statistics_kinetic_energy[None] = 0
     obj.statistics_gravity_potential_energy[None] = 0
-
+    for k in ti.static(range(phase_num)):
+        obj.statistics_phase_kinetic_energy[None][k] = 0
     for i in range(obj.part_num[None]):
         obj.statistics_kinetic_energy[None] += 0.5 * obj.mass[i] * obj.vel[i].norm_sqr()
         obj.statistics_gravity_potential_energy[None] += -obj.mass[i] * config.gravity[None][1] * (obj.pos[i][1] - config.sim_space_lb[None][1])
+        for k in ti.static(range(phase_num)):
+            mass = config.phase_rest_density[None][k] * obj.rest_volume[i] * obj.volume_frac[i][k]
+            obj.statistics_phase_kinetic_energy[None][k] += 0.5 * mass * (obj.vel[i] + obj.drift_vel[i, k]).norm_sqr()
 
+@ti.kernel
+def statistics_update_compression(obj: ti.template(), config: ti.template()):#average of V^0_i / V_i
+    obj.statistics_volume_compression[None] = 0
+    for i in range(obj.part_num[None]):
+        obj.statistics_volume_compression[None] += max(obj.sph_compression[i], 1.0)
+    obj.statistics_volume_compression[None] /= obj.part_num[None]
+
+@ti.kernel
+def statistics_update_volume_frac(obj: ti.template(), config: ti.template()):
+    phase_num = ti.static(config.phase_rest_density.n)
+    for j in ti.static(range(phase_num)):
+        obj.statistics_volume_frac[None][j] = 0
+    for i in range(obj.part_num[None]):
+        obj.statistics_volume_frac[None] += obj.volume_frac[i]
+    obj.statistics_volume_frac[None] /= obj.part_num[None]
 
 @ti.kernel
 def SPH_update_mass(obj: ti.template(), config: ti.template()):
@@ -437,6 +457,7 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_prepare_attr(ngrid, fluid, bound, config)
     SPH_prepare_attr(ngrid, bound, bound, config)
     SPH_prepare_attr(ngrid, bound, fluid, config)
+    statistics_update_compression(fluid, config)
     SPH_prepare_alpha_1(ngrid, fluid, fluid, config)
     SPH_prepare_alpha_1(ngrid, fluid, bound, config)
     SPH_prepare_alpha_2(ngrid, fluid, fluid, config)
@@ -503,7 +524,8 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_update_mass(fluid, config)
     SPH_update_pos(fluid, config)
     SPH_update_color(fluid, config)
-    # SPH_update_energy(fluid, config)
+    statistics_update_energy(fluid, config)
+    statistics_update_volume_frac(fluid, config)
     # map_velocity(ngrid, grid, fluid)
     return config.div_iter_count[None], config.incom_iter_count[None]
     """ SPH debug """
@@ -538,7 +560,7 @@ def apply_bound_transform(bound, config):
 
 def run_step(ngrid, fluid, bound, config):
     config.time_counter[None] += 1
-
+    actual_time_start = time.time()
     while config.time_count[None] < config.time_counter[None] / config.gui_fps[None]:
         """ computation loop """
         config.time_count[None] += config.dt[None]
@@ -551,5 +573,6 @@ def run_step(ngrid, fluid, bound, config):
         apply_bound_transform(bound, config)
         config.frame_div_iter[None] += config.div_iter_count[None]
         config.frame_incom_iter[None] += config.incom_iter_count[None]
+    config.time_consumption[None] = time.time() - actual_time_start
 
 #################################### END SPH SOLVER ###########################################
