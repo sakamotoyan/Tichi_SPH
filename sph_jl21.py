@@ -10,10 +10,10 @@ from sph_obj import *
 @ti.kernel
 def JL21_cfl_condition(obj: ti.template(), config: ti.template()):
     config.dt[None] = config.part_size[1] / config.cs[None]
-    # for i in range(obj.part_num[None]):
-    #     v_norm = obj.vel[i].norm()
-    #     if v_norm > 1e-4:
-    #         atomic_min(config.dt[None], config.part_size[1] / v_norm * config.cfl_factor[None])
+    for i in range(obj.part_num[None]):
+        v_norm = obj.vel[i].norm()
+        if v_norm > 1e-4:
+            atomic_min(config.dt[None], config.part_size[1] / v_norm * config.cfl_factor[None])
 
 @ti.kernel
 def JL21_clean_value(obj: ti.template(), config: ti.template()):

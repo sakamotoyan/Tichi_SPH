@@ -87,6 +87,11 @@ class Fluid:
         self.vel_phase = ti.Vector.field(config.dim[None], float)
         self.lamb = ti.field(float)
 
+        #NEW_FBM
+        if pre_config.solver_type == 'VFSPH' or pre_config.solver_type == 'DFSPH':
+            self.phase_vel = ti.static(self.vel_phase)
+            self.phase_acc = ti.static(self.vel_mid_phase)
+
         # put for-each-particle attributes in this list to register them!
         self.attr_list = [self.color, self.color_vector, self.mass, self.rest_density, self.rest_volume, self.pressure,self.pressure_force,
                           self.volume_frac, self.volume_frac_tmp, self.pos, self.gui_2d_pos, self.vel, self.vel_adv,self.acce, self.acce_adv,

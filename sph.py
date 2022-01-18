@@ -4,7 +4,7 @@ import time
 
 from taichi.lang.ops import atomic_min
 from sph_obj import *
-
+from fbm import *
 from sph_jl21 import *
 
 
@@ -24,7 +24,6 @@ def SPH_neighbour_loop_template(ngrid: ti.template(), obj: ti.template(), nobj: 
 @ti.kernel
 def SPH_clean_value(obj: ti.template(), config: ti.template()):
     obj.general_flag[None] = 1
-    phase_num = ti.static(config.phase_rest_density.n)
     dim = ti.static(config.gravity.n)
     for i in range(obj.part_num[None]):
         obj.W[i] = 0
@@ -38,17 +37,14 @@ def SPH_clean_value(obj: ti.template(), config: ti.template()):
             obj.acce_adv[i][j] = 0
             obj.alpha_1[i][j] = 0
             obj.pressure_force[i][j] = 0
-            for k in ti.static(range(phase_num)):
-                obj.drift_vel[i, k][j] = 0
-
 
 @ti.kernel
 def cfl_condition(obj: ti.template(), config: ti.template()):
-    config.dt[None] = config.part_size[1] / config.cs[None]
-    # for i in range(obj.part_num[None]):
-    #     v_norm = obj.vel[i].norm()
-    #     if v_norm > 1e-4:
-    #         atomic_min(config.dt[None], config.part_size[1] / v_norm * config.cfl_factor[None])
+    config.dt[None] = config.part_size[1] / config.cs[None] * 5
+    for i in range(obj.part_num[None]):
+        v_norm = obj.vel[i].norm()
+        if v_norm > 1e-4:
+            atomic_min(config.dt[None], config.part_size[1] / v_norm * config.cfl_factor[None])
 
 
 @ti.kernel
@@ -131,6 +127,26 @@ def SPH_advection_viscosity_acc(ngrid: ti.template(), obj: ti.template(), nobj: 
                         if r > 0:
                             obj.acce_adv[i] += W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid],
                                                      obj.vel[i] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None] / obj.rest_density[i]
+
+
+# @ti.kernel
+# def FBM_correct_vel_from_phase_vel(obj: ti.template(), config: ti.template()):
+#     phase_num = ti.static(config.phase_rest_density.n)
+#     dim = ti.static(config.gravity.n)
+#     for i in range(obj.part_num[None]):
+#         obj.vel_adv[i] *= 0
+#         for k in ti.static(range(phase_num)):
+#             obj.vel_adv[i] += obj.volume_frac[i][k] * obj.phase_vel[i, k]
+#         for k in ti.static(range(phase_num)):
+#             obj.drift_vel[i, k] = obj.phase_vel[i, k] - obj.vel_adv[i]
+
+@ti.kernel
+def FBM_update_phase_vel_from_drift_vel_and_vel_adv(obj: ti.template(), config: ti.template()):
+    phase_num = ti.static(config.phase_rest_density.n)
+    dim = ti.static(config.gravity.n)
+    for i in range(obj.part_num[None]):
+        for k in ti.static(range(phase_num)):
+            obj.phase_vel[i, k] = obj.vel_adv[i] + obj.drift_vel[i, k]
 
 
 @ti.kernel
@@ -231,11 +247,12 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
     obj.compression[None] /= obj.part_num[None]
 
 @ti.kernel
-def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()):
+def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()) -> ti.i32:
+    a = 0
     for i in range(obj.part_num[None]):
         if obj.psi_adv[i] / obj.rest_psi[i] > config.divergence_threshold[None]:
-            config.is_compressible[None] = 1
-    config.is_compressible[None] = 0
+            a = 1
+    return a
 
 @ti.kernel
 def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -258,7 +275,7 @@ def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.templ
 @ti.kernel
 def SPH_advection_update_vel_adv(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
-        obj.vel_adv[i] = obj.vel[i] + obj.acce_adv[i] * config.dt[None]
+        obj.vel_adv[i] += obj.acce_adv[i] * config.dt[None]
 
 
 @ti.kernel
@@ -276,39 +293,18 @@ def SPH_vel_adv_2_vel(obj: ti.template()):
 @ti.kernel
 def SPH_update_pos(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
-        obj.vel[i] = obj.vel_adv[i]
         obj.pos[i] += obj.vel[i] * config.dt[None]
 
 
 @ti.kernel
-def statistics_update_energy(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
+def SPH_update_energy(obj: ti.template(), config: ti.template()):
     obj.statistics_kinetic_energy[None] = 0
     obj.statistics_gravity_potential_energy[None] = 0
-    for k in ti.static(range(phase_num)):
-        obj.statistics_phase_kinetic_energy[None][k] = 0
+
     for i in range(obj.part_num[None]):
         obj.statistics_kinetic_energy[None] += 0.5 * obj.mass[i] * obj.vel[i].norm_sqr()
         obj.statistics_gravity_potential_energy[None] += -obj.mass[i] * config.gravity[None][1] * (obj.pos[i][1] - config.sim_space_lb[None][1])
-        for k in ti.static(range(phase_num)):
-            mass = config.phase_rest_density[None][k] * obj.rest_volume[i] * obj.volume_frac[i][k]
-            obj.statistics_phase_kinetic_energy[None][k] += 0.5 * mass * (obj.vel[i] + obj.drift_vel[i, k]).norm_sqr()
 
-@ti.kernel
-def statistics_update_compression(obj: ti.template(), config: ti.template()):#average of V^0_i / V_i
-    obj.statistics_volume_compression[None] = 0
-    for i in range(obj.part_num[None]):
-        obj.statistics_volume_compression[None] += max(obj.sph_compression[i], 1.0)
-    obj.statistics_volume_compression[None] /= obj.part_num[None]
-
-@ti.kernel
-def statistics_update_volume_frac(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    for j in ti.static(range(phase_num)):
-        obj.statistics_volume_frac[None][j] = 0
-    for i in range(obj.part_num[None]):
-        obj.statistics_volume_frac[None] += obj.volume_frac[i]
-    obj.statistics_volume_frac[None] /= obj.part_num[None]
 
 @ti.kernel
 def SPH_update_mass(obj: ti.template(), config: ti.template()):
@@ -338,86 +334,39 @@ def SPH_update_color_vector(obj: ti.template()):
         obj.color_vector[i] = color
 
 @ti.kernel
-def SPH_FBM_clean_tmp(obj: ti.template(), config: ti.template()):
+def statistics_update_energy(obj: ti.template(), config: ti.template()):
     phase_num = ti.static(config.phase_rest_density.n)
+    obj.statistics_kinetic_energy[None] = 0
+    obj.statistics_gravity_potential_energy[None] = 0
+    for k in ti.static(range(phase_num)):
+        obj.statistics_phase_kinetic_energy[None][k] = 0
     for i in range(obj.part_num[None]):
-        for j in ti.static(range(phase_num)):
-            obj.volume_frac_tmp[i][j] = 0
-
+        obj.statistics_kinetic_energy[None] += 0.5 * obj.mass[i] * obj.vel[i].norm_sqr()
+        obj.statistics_gravity_potential_energy[None] += -obj.mass[i] * config.gravity[None][1] * (obj.pos[i][1] - config.sim_space_lb[None][1])
+        for k in ti.static(range(phase_num)):
+            mass = config.phase_rest_density[None][k] * obj.rest_volume[i] * obj.volume_frac[i][k]
+            obj.statistics_phase_kinetic_energy[None][k] += 0.5 * mass * (obj.phase_vel[i, k]).norm_sqr()
 
 @ti.kernel
-def SPH_FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
+def statistics_update_compression(obj: ti.template(), config: ti.template()):#average of V^0_i / V_i
+    obj.statistics_volume_compression[None] = 0
     for i in range(obj.part_num[None]):
-        if obj.flag[i] == 0:  # flag check
-            for t in range(config.neighb_search_template.shape[0]):
-                node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
-                if 0 < node_code < config.node_num[None]:
-                    for j in range(ngrid.node_part_count[node_code]):
-                        shift = ngrid.node_part_shift[node_code] + j
-                        neighb_uid = ngrid.part_uid_in_node[shift]
-                        if neighb_uid == nobj.uid:
-                            neighb_pid = ngrid.part_pid_in_node[shift]
-                            if nobj.flag[neighb_pid] == 0:  # flag check
-                                xij = obj.pos[i] - nobj.pos[neighb_pid]
-                                r = xij.norm()
-                                if r > 0:
-                                    tmp = config.dt[None] * config.fbm_diffusion_term[None] * (
-                                            obj.volume_frac[i] - nobj.volume_frac[neighb_pid]) * nobj.rest_volume[neighb_pid] * r * W_grad(r, config) / (r ** 2 + 0.01 * config.kernel_h[2])
-                                    obj.volume_frac_tmp[i] += tmp
-
+        obj.statistics_volume_compression[None] += max(obj.sph_compression[i], 1.0)
+    obj.statistics_volume_compression[None] /= obj.part_num[None]
 
 @ti.kernel
-def SPH_FBM_convect(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
+def statistics_update_volume_frac(obj: ti.template(), config: ti.template()):
     phase_num = ti.static(config.phase_rest_density.n)
+    for j in ti.static(range(phase_num)):
+        obj.statistics_volume_frac[None][j] = 0
     for i in range(obj.part_num[None]):
-        obj.acce_adv[i] = (obj.vel_adv[i] - obj.vel[i]) / config.dt[None]
-        obj.fbm_zeta[i] = 0
-        for j in ti.static(range(phase_num)):
-            obj.fbm_zeta[i] += obj.volume_frac[i][j] * (config.phase_rest_density[None][j] - obj.rest_density[i]) / config.phase_rest_density[None][j]
-        obj.fbm_acce[i] = (obj.acce_adv[i] - (obj.fbm_zeta[i] * config.gravity[None])) / (1 - obj.fbm_zeta[i])
-        for j in ti.static(range(phase_num)):
-            obj.drift_vel[i, j] = obj.volume_frac[i][j] * (config.phase_rest_density[None][j] - obj.rest_density[i]) * (config.gravity[None] - obj.fbm_acce[i])
-            density_weight = obj.volume_frac[i][j] * config.phase_rest_density[None][j]
-            if density_weight > 1e-6:
-                obj.drift_vel[i, j] /= density_weight
-            else:
-                obj.drift_vel[i, j] *= 0
-            obj.drift_vel[i, j] += (obj.fbm_acce[i] - obj.acce_adv[i])
-            obj.drift_vel[i, j] *= config.dt[None]
-    for i in range(obj.part_num[None]):
-        if obj.flag[i] == 0:  # flag check
-            for t in range(config.neighb_search_template.shape[0]):
-                node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
-                if 0 < node_code < config.node_num[None]:
-                    for j in range(ngrid.node_part_count[node_code]):
-                        shift = ngrid.node_part_shift[node_code] + j
-                        neighb_uid = ngrid.part_uid_in_node[shift]
-                        if neighb_uid == nobj.uid:
-                            neighb_pid = ngrid.part_pid_in_node[shift]
-                            if nobj.flag[neighb_pid] == 0:  # flag check
-                                xij = obj.pos[i] - nobj.pos[neighb_pid]
-                                r = xij.norm()
-                                if r > 0:
-                                    for k in ti.static(range(phase_num)):
-                                        tmp = config.fbm_convection_term[None] * config.dt[None] * nobj.rest_volume[neighb_pid] * (
-                                                obj.volume_frac[i][k] * obj.drift_vel[i, k] + nobj.volume_frac[neighb_pid][k] * nobj.drift_vel[neighb_pid, k]).dot(xij / r) * W_grad(r, config)
-                                        obj.volume_frac_tmp[i][k] -= tmp
+        obj.statistics_volume_frac[None] += obj.volume_frac[i]
+    obj.statistics_volume_frac[None] /= obj.part_num[None]
 
 
-@ti.kernel
-def SPH_FBM_check_tmp(obj: ti.template()):
-    obj.general_flag[None] = 0
-    for i in range(obj.part_num[None]):
-        if has_negative(obj.volume_frac[i] + obj.volume_frac_tmp[i]):
-            obj.flag[i] = 1
-            obj.general_flag[None] = 1
 
 
-@ti.kernel
-def SPH_update_volume_frac(obj: ti.template()):
-    for i in range(obj.part_num[None]):
-        if not obj.flag[i] > 0:
-            obj.volume_frac[i] += obj.volume_frac_tmp[i]
+
 
 
 @ti.kernel
@@ -452,6 +401,7 @@ def sph_step(ngrid, fluid, bound, config):
     """ SPH clean value """
     SPH_clean_value(fluid, config)
     SPH_clean_value(bound, config)
+    FBM_clean_value(fluid, config)
     """ SPH compute W and W_grad """
     SPH_prepare_attr(ngrid, fluid, fluid, config)
     SPH_prepare_attr(ngrid, fluid, bound, config)
@@ -464,34 +414,47 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_prepare_alpha_2(ngrid, bound, fluid, config)
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
+    
+    """ synchronize """
+    SPH_vel_2_vel_adv(fluid)
+
     """ IPPE SPH divergence """
     config.div_iter_count[None] = 0
-    SPH_vel_2_vel_adv(fluid)
-    config.is_compressible[None] = 1
-    while config.div_iter_count[None] < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
-        IPPE_adv_psi_init(fluid)
-        # IPPE_adv_psi_init(bound)
-        IPPE_adv_psi(ngrid, fluid, fluid, config)
-        IPPE_adv_psi(ngrid, fluid, bound, config)
-        # IPPE_adv_psi(ngrid, bound, fluid)
-        IPPE_psi_adv_non_negative(fluid)
-        # IPPE_psi_adv_non_negative(bound)
-        IPPE_psi_adv_is_compressible(fluid, config)
-        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
-        IPPE_update_vel_adv(ngrid, fluid, bound, config)
-        config.div_iter_count[None] += 1
-        if config.div_iter_count[None] > config.iter_threshold_max[None]:
-            break
-    SPH_vel_adv_2_vel(fluid)
+    # is_compressible = 1
+    # while config.div_iter_count[None] < config.iter_threshold_min[None] or is_compressible == 1:
+    #     IPPE_adv_psi_init(fluid)
+    #     # IPPE_adv_psi_init(bound)
+    #     IPPE_adv_psi(ngrid, fluid, fluid, config)
+    #     IPPE_adv_psi(ngrid, fluid, bound, config)
+    #     # IPPE_adv_psi(ngrid, bound, fluid)
+    #     IPPE_psi_adv_non_negative(fluid)
+    #     # IPPE_psi_adv_non_negative(bound)
+    #     is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
+    #     IPPE_update_vel_adv(ngrid, fluid, fluid, config)
+    #     IPPE_update_vel_adv(ngrid, fluid, bound, config)
+    #     config.div_iter_count[None] += 1
+    #     if config.div_iter_count[None] > config.iter_threshold_max[None]:
+    #         break
+    # SPH_vel_adv_2_vel(fluid)
+
     """ SPH advection """
+    """ Part 1 NEW FBM procedure """
+    FBM_correct_vel_from_phase_vel(fluid, config)
+    SPH_vel_adv_2_vel(fluid)
+    FBM_advection_M_vis(ngrid, fluid, fluid, config)
+    FBM_acc_2_phase_vel(fluid, config)
+    FBM_correct_vel_from_phase_vel(fluid, config)
+    SPH_vel_adv_2_vel(fluid)
+    """ Part 1 NEW FBM procedure """
+
     SPH_advection_gravity_acc(fluid, config)
-    SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
-    # SPH_advection_viscosity_acc(ngrid, fluid, bound, config)
-    # SPH_advection_surface_tension_acc(ngrid, fluid, fluid, config)
+    # SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
     SPH_advection_update_vel_adv(fluid, config)
+
     """ IPPE SPH pressure """
     config.incom_iter_count[None] = 0
-    while config.incom_iter_count[None] < config.iter_threshold_min[None] or config.is_compressible[None] == 1:
+    is_compressible = 1
+    while config.incom_iter_count[None] < config.iter_threshold_min[None] or is_compressible == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
         IPPE_adv_psi(ngrid, fluid, fluid, config)
@@ -499,36 +462,36 @@ def sph_step(ngrid, fluid, bound, config):
         # IPPE_adv_psi(ngrid, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
-        IPPE_psi_adv_is_compressible(fluid, config)
+        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
         config.incom_iter_count[None] += 1
         if config.incom_iter_count[None] > config.iter_threshold_max[None]:
             break
-    """ debug info """
-    # print('iter div: ', div_iter_count)
-    # print('incom div: ', incom_iter_count)
-    """ WC SPH pressure """
-    # WC_pressure_val(fluid)
-    # WC_pressure_acce(ngrid, fluid, fluid)
-    # WC_pressure_acce(ngrid, fluid, bound)
-    # SPH_advection_update_vel_adv(fluid)
-    """ FBM procedure """
+
+    """ Part 2 NEW FBM procedure """
+    FBM_convect(ngrid, fluid, fluid, config)
     while fluid.general_flag[None] > 0:
-        SPH_FBM_clean_tmp(fluid, config)
-        SPH_FBM_convect(ngrid, fluid, fluid, config)
-        SPH_FBM_diffuse(ngrid, fluid, fluid, config)
-        SPH_FBM_check_tmp(fluid)
+        FBM_clean_tmp(fluid, config)
+        FBM_change_tmp(ngrid, fluid, fluid, config)
+        # FBM_diffuse(ngrid, fluid, fluid, config)
+        FBM_check_tmp(fluid)
+    """ Part 2 NEW FBM procedure """
+
     """ SPH update """
-    SPH_update_volume_frac(fluid)
+    SPH_vel_adv_2_vel(fluid)
+    FBM_update_volume_frac(fluid)
     SPH_update_mass(fluid, config)
     SPH_update_pos(fluid, config)
     SPH_update_color(fluid, config)
     statistics_update_energy(fluid, config)
     statistics_update_volume_frac(fluid, config)
     # map_velocity(ngrid, grid, fluid)
-    return config.div_iter_count[None], config.incom_iter_count[None]
-    """ SPH debug """
+
+    print('phase 1:')
+    print(debug_volume_frac(fluid))
+    print('dt')
+    print(config.dt[None])
 
 def apply_bound_transform(bound, config):
     """ old cocktail scene """
@@ -556,8 +519,6 @@ def apply_bound_transform(bound, config):
         ang = math.pi * config.dt[None]
         bound.move_scene_obj('rod',rotation_matrix(config,0,0,ang), config) # rotate around z-axis
 
-
-
 def run_step(ngrid, fluid, bound, config):
     config.time_counter[None] += 1
     actual_time_start = time.time()
@@ -574,5 +535,4 @@ def run_step(ngrid, fluid, bound, config):
         config.frame_div_iter[None] += config.div_iter_count[None]
         config.frame_incom_iter[None] += config.incom_iter_count[None]
     config.time_consumption[None] = time.time() - actual_time_start
-
 #################################### END SPH SOLVER ###########################################
