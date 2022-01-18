@@ -198,10 +198,13 @@ class Fluid:
 
     @ti.kernel
     def push_attrs_seq(self, color: int, volume_frac: ti.template(), vel: ti.template(), pushed_part_num: int, current_part_num: int, config: ti.template()):
+        phase_num = ti.static(config.phase_rest_density.n)
         for i in range(pushed_part_num):
             i_p = i + current_part_num
             self.volume_frac[i_p] = volume_frac
             self.vel[i_p] = vel
+            for k in ti.static(range(phase_num)):
+                self.vel_phase[i_p, k] = vel
             self.rest_volume[i_p] = config.part_size[config.dim[None]]  # todo 1
             self.color[i_p] = color
             self.color_vector[i_p] = hex2rgb(color)
