@@ -417,7 +417,7 @@ def sph_step(ngrid, fluid, bound, config):
     """ Part 1 NEW FBM procedure """
 
     SPH_advection_gravity_acc(fluid, config)
-    SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
+    # SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
     SPH_advection_update_vel_adv(fluid, config)
 
     """ IPPE SPH pressure """
@@ -449,9 +449,7 @@ def sph_step(ngrid, fluid, bound, config):
 
     """ SPH update """
     SPH_vel_adv_2_vel(fluid)
-    # FBM_momentum_exchange_1(ngrid, fluid, fluid, config)
     FBM_update_volume_frac(fluid)
-    # FBM_momentum_exchange_2(fluid, config)
     SPH_update_mass(fluid, config)
     SPH_update_pos(fluid, config)
     SPH_update_color(fluid, config)
