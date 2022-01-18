@@ -4,6 +4,7 @@ import time
 
 from taichi.lang.ops import atomic_min
 from sph_obj import *
+from fbm import*
 
 
 @ti.kernel
@@ -35,14 +36,6 @@ def SPH_clean_value(obj: ti.template(), config: ti.template()):
             obj.acce_adv[i][j] = 0
             obj.alpha_1[i][j] = 0
             obj.pressure_force[i][j] = 0
-
-@ti.kernel
-def FBM_clean_value(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    dim = ti.static(config.gravity.n)
-    for i in range(obj.part_num[None]):
-        for k in ti.static(range(phase_num)):
-            obj.phase_acc[i, k] = ti.Vector([0,0,0])
 
 @ti.kernel
 def cfl_condition(obj: ti.template(), config: ti.template()):
@@ -134,37 +127,17 @@ def SPH_advection_viscosity_acc(ngrid: ti.template(), obj: ti.template(), nobj: 
                             obj.acce_adv[i] += W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid],
                                                      obj.vel[i] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None] / obj.rest_density[i]
 
-@ti.kernel
-def FBM_correct_vel_from_drift_vel(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    dim = ti.static(config.gravity.n)
-    for i in range(obj.part_num[None]):
-        for k in ti.static(range(phase_num)):
-            if obj.volume_frac[i][k] < 1e-6:
-                obj.drift_vel[i, k] *= 0
-        for k in ti.static(range(phase_num)):
-            obj.phase_vel[i, k] = obj.vel_adv[i] + obj.drift_vel[i, k]
-    for i in range(obj.part_num[None]):
-        obj.vel_adv[i] *= 0
-        for k in ti.static(range(phase_num)):
-            obj.vel_adv[i] += obj.volume_frac[i][k] * obj.phase_vel[i, k]
-        for k in ti.static(range(phase_num)):
-            obj.drift_vel[i, k] = obj.phase_vel[i, k] - obj.vel_adv[i]
 
-@ti.kernel
-def FBM_correct_vel_from_phase_vel(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    dim = ti.static(config.gravity.n)
-    for i in range(obj.part_num[None]):
-        obj.vel_adv[i] *= 0
-        for k in ti.static(range(phase_num)):
-            obj.vel_adv[i] += obj.volume_frac[i][k] * obj.phase_vel[i, k]
-    for i in range(obj.part_num[None]):
-        for k in ti.static(range(phase_num)):
-            if obj.volume_frac[i][k] < 1e-6:
-                obj.drift_vel[i, k] *= 0
-            else:
-                obj.drift_vel[i, k] = obj.phase_vel[i, k] - obj.vel_adv[i]
+# @ti.kernel
+# def FBM_correct_vel_from_phase_vel(obj: ti.template(), config: ti.template()):
+#     phase_num = ti.static(config.phase_rest_density.n)
+#     dim = ti.static(config.gravity.n)
+#     for i in range(obj.part_num[None]):
+#         obj.vel_adv[i] *= 0
+#         for k in ti.static(range(phase_num)):
+#             obj.vel_adv[i] += obj.volume_frac[i][k] * obj.phase_vel[i, k]
+#         for k in ti.static(range(phase_num)):
+#             obj.drift_vel[i, k] = obj.phase_vel[i, k] - obj.vel_adv[i]
 
 @ti.kernel
 def FBM_update_phase_vel_from_drift_vel_and_vel_adv(obj: ti.template(), config: ti.template()):
@@ -174,32 +147,6 @@ def FBM_update_phase_vel_from_drift_vel_and_vel_adv(obj: ti.template(), config: 
         for k in ti.static(range(phase_num)):
             obj.phase_vel[i, k] = obj.vel_adv[i] + obj.drift_vel[i, k]
 
-@ti.kernel       
-def FBM_advection_M_vis(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    for i in range(obj.part_num[None]):
-        for t in range(config.neighb_search_template.shape[0]):
-            node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
-            if 0 < node_code < config.node_num[None]:
-                for j in range(ngrid.node_part_count[node_code]):
-                    shift = ngrid.node_part_shift[node_code] + j
-                    neighb_uid = ngrid.part_uid_in_node[shift]
-                    if neighb_uid == nobj.uid:
-                        neighb_pid = ngrid.part_pid_in_node[shift]
-                        xij = obj.pos[i] - nobj.pos[neighb_pid]
-                        r = xij.norm()
-                        if r > 0:
-                            for k in ti.static(range(phase_num)):
-                                # volume fraction is ommited 
-                                obj.phase_acc[i, k] += W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid],
-                                                        obj.phase_vel[i, k] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None]
-@ti.kernel
-def FBM_acc_2_phase_vel(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    dim = ti.static(config.gravity.n)
-    for i in range(obj.part_num[None]):
-        for k in ti.static(range(phase_num)):
-            obj.phase_vel[i, k] += obj.phase_acc[i, k] / config.phase_rest_density[None][k] * config.dt[None]
 
 @ti.kernel
 def SPH_advection_surface_tension_acc(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -327,7 +274,7 @@ def IPPE_update_vel_adv(ngrid: ti.template(), obj: ti.template(), nobj: ti.templ
 @ti.kernel
 def SPH_advection_update_vel_adv(obj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
-        obj.vel_adv[i] = obj.vel[i] + obj.acce_adv[i] * config.dt[None]
+        obj.vel_adv[i] += obj.acce_adv[i] * config.dt[None]
 
 
 @ti.kernel
@@ -385,94 +332,12 @@ def SPH_update_color_vector(obj: ti.template()):
         color = hex2rgb(obj.color[i])
         obj.color_vector[i] = color
 
-@ti.kernel
-def SPH_FBM_clean_tmp(obj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    for i in range(obj.part_num[None]):
-        for j in ti.static(range(phase_num)):
-            obj.volume_frac_tmp[i][j] = 0
 
 
-@ti.kernel
-def SPH_FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
-    for i in range(obj.part_num[None]):
-        if obj.flag[i] == 0:  # flag check
-            for t in range(config.neighb_search_template.shape[0]):
-                node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
-                if 0 < node_code < config.node_num[None]:
-                    for j in range(ngrid.node_part_count[node_code]):
-                        shift = ngrid.node_part_shift[node_code] + j
-                        neighb_uid = ngrid.part_uid_in_node[shift]
-                        if neighb_uid == nobj.uid:
-                            neighb_pid = ngrid.part_pid_in_node[shift]
-                            if nobj.flag[neighb_pid] == 0:  # flag check
-                                xij = obj.pos[i] - nobj.pos[neighb_pid]
-                                r = xij.norm()
-                                if r > 0:
-                                    tmp = config.dt[None] * config.fbm_diffusion_term[None] * (
-                                            obj.volume_frac[i] - nobj.volume_frac[neighb_pid]) * nobj.rest_volume[neighb_pid] * r * W_grad(r, config) / (r ** 2 + 0.01 * config.kernel_h[2])
-                                    obj.volume_frac_tmp[i] += tmp
 
 
-@ti.kernel
-def SPH_FBM_convect(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
-    phase_num = ti.static(config.phase_rest_density.n)
-    for i in range(obj.part_num[None]):
-        obj.acce_adv[i] = (obj.vel_adv[i] - obj.vel[i]) / config.dt[None]
-        obj.fbm_zeta[i] = 0
-        for j in ti.static(range(phase_num)):
-            obj.fbm_zeta[i] += obj.volume_frac[i][j] * (config.phase_rest_density[None][j] - obj.rest_density[i]) / config.phase_rest_density[None][j]
-        obj.fbm_acce[i] = (obj.acce_adv[i] - (obj.fbm_zeta[i] * config.gravity[None])) / (1 - obj.fbm_zeta[i])
-        for j in ti.static(range(phase_num)):
-            obj.drift_vel[i, j] = obj.volume_frac[i][j] * (config.phase_rest_density[None][j] - obj.rest_density[i]) * (config.gravity[None] - obj.fbm_acce[i])
-            density_weight = obj.volume_frac[i][j] * config.phase_rest_density[None][j]
-            if obj.volume_frac[i][j] > 1e-6:
-                obj.drift_vel[i, j] /= density_weight
-            else:
-                obj.drift_vel[i, j] *= 0
-            obj.drift_vel[i, j] *= config.dt[None]
-            obj.drift_vel[i, j] += (obj.phase_vel[i, j] - obj.vel[i])
-    for i in range(obj.part_num[None]):
-        if obj.flag[i] == 0:  # flag check
-            for t in range(config.neighb_search_template.shape[0]):
-                node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
-                if 0 < node_code < config.node_num[None]:
-                    for j in range(ngrid.node_part_count[node_code]):
-                        shift = ngrid.node_part_shift[node_code] + j
-                        neighb_uid = ngrid.part_uid_in_node[shift]
-                        if neighb_uid == nobj.uid:
-                            neighb_pid = ngrid.part_pid_in_node[shift]
-                            if nobj.flag[neighb_pid] == 0:  # flag check
-                                xij = obj.pos[i] - nobj.pos[neighb_pid]
-                                r = xij.norm()
-                                if r > 0:
-                                    for k in ti.static(range(phase_num)):
-                                        tmp = config.fbm_convection_term[None] * config.dt[None] * nobj.rest_volume[neighb_pid] * (
-                                                obj.volume_frac[i][k] * obj.drift_vel[i, k] + nobj.volume_frac[neighb_pid][k] * nobj.drift_vel[neighb_pid, k]).dot(xij / r) * W_grad(r, config)
-                                        obj.volume_frac_tmp[i][k] -= tmp
 
 
-@ti.kernel
-def SPH_FBM_check_tmp(obj: ti.template()):
-    obj.general_flag[None] = 0
-    for i in range(obj.part_num[None]):
-        if has_negative(obj.volume_frac[i] + obj.volume_frac_tmp[i]):
-            obj.flag[i] = 1
-            obj.general_flag[None] = 1
-
-
-@ti.kernel
-def SPH_update_volume_frac(obj: ti.template()):
-    for i in range(obj.part_num[None]):
-        if not obj.flag[i] > 0:
-            obj.volume_frac[i] += obj.volume_frac_tmp[i]
-
-@ti.kernel
-def debug_volume_frac(obj: ti.template()) -> ti.f32:
-    p1 = 0.0
-    for i in range(obj.part_num[None]):
-        p1 += obj.volume_frac[i][0]
-    return p1/obj.part_num[None]
 
 @ti.kernel
 def map_velocity(ngrid: ti.template(), grid: ti.template(), nobj: ti.template(), config: ti.template()):
@@ -518,10 +383,13 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_prepare_alpha_2(ngrid, bound, fluid, config)
     SPH_prepare_alpha(fluid)
     SPH_prepare_alpha(bound)
-    """ IPPE SPH divergence """
-    div_iter_count = 0
+    
+    """ synchronize """
     SPH_vel_2_vel_adv(fluid)
-    is_compressible = 1
+
+    """ IPPE SPH divergence """
+    # div_iter_count = 0
+    # is_compressible = 1
     # while div_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
     #     IPPE_adv_psi_init(fluid)
     #     # IPPE_adv_psi_init(bound)
@@ -537,21 +405,24 @@ def sph_step(ngrid, fluid, bound, config):
     #     if div_iter_count > config.iter_threshold_max[None]:
     #         break
     # SPH_vel_adv_2_vel(fluid)
-    """ SPH advection """
 
+    """ SPH advection """
     """ Part 1 NEW FBM procedure """
-    FBM_correct_vel_from_drift_vel(fluid, config)
+    FBM_correct_vel_from_phase_vel(fluid, config)
     SPH_vel_adv_2_vel(fluid)
     FBM_advection_M_vis(ngrid, fluid, fluid, config)
     FBM_acc_2_phase_vel(fluid, config)
     FBM_correct_vel_from_phase_vel(fluid, config)
+    SPH_vel_adv_2_vel(fluid)
     """ Part 1 NEW FBM procedure """
 
     SPH_advection_gravity_acc(fluid, config)
     SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
     SPH_advection_update_vel_adv(fluid, config)
+
     """ IPPE SPH pressure """
     incom_iter_count = 0
+    is_compressible = 1
     while incom_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
         IPPE_adv_psi_init(fluid)
         # IPPE_adv_psi_init(bound)
@@ -568,17 +439,19 @@ def sph_step(ngrid, fluid, bound, config):
             break
 
     """ Part 2 NEW FBM procedure """
+    FBM_convect(ngrid, fluid, fluid, config)
     while fluid.general_flag[None] > 0:
-        SPH_FBM_clean_tmp(fluid, config)
-        SPH_FBM_convect(ngrid, fluid, fluid, config)
-        # SPH_FBM_diffuse(ngrid, fluid, fluid, config)
-        SPH_FBM_check_tmp(fluid)
-    FBM_update_phase_vel_from_drift_vel_and_vel_adv(fluid, config)
+        FBM_clean_tmp(fluid, config)
+        FBM_change_tmp(ngrid, fluid, fluid, config)
+        # FBM_diffuse(ngrid, fluid, fluid, config)
+        FBM_check_tmp(fluid)
     """ Part 2 NEW FBM procedure """
 
     """ SPH update """
     SPH_vel_adv_2_vel(fluid)
-    SPH_update_volume_frac(fluid)
+    # FBM_momentum_exchange_1(ngrid, fluid, fluid, config)
+    FBM_update_volume_frac(fluid)
+    # FBM_momentum_exchange_2(fluid, config)
     SPH_update_mass(fluid, config)
     SPH_update_pos(fluid, config)
     SPH_update_color(fluid, config)
@@ -589,6 +462,4 @@ def sph_step(ngrid, fluid, bound, config):
     print(debug_volume_frac(fluid))
     print('dt')
     print(config.dt[None])
-
-    return div_iter_count, incom_iter_count
 #################################### END SPH SOLVER ###########################################

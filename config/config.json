@@ -17,8 +17,8 @@
     "solver_neighb_range":1,
     "solver_neighb_grid_size_TO_global_part_size":2,
 
-    "solver_fbm_diffusion_term":0.1,
-    "solver_fbm_convection_term":1,
+    "solver_fbm_diffusion_term":0.05,
+    "solver_fbm_convection_term":0.5,
     "solver_surface_tension_gamma":0,
 
     "gui_res":[1080,1080],
