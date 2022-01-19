@@ -2,7 +2,6 @@
     "sim_env":{
         "global_part_size":0.05,
         "global_dynamic_viscosity":1e-1,
-        "global_artificial_viscosity":0.5,
         "sim_dim": 3,
         "sim_space_lb": [-1.5, -1.5, -1.5],
         "sim_space_rt": [1.5, 1.5, 1.5],
@@ -18,7 +17,7 @@
                 "type":"ply",
                 "vel": [0, 0, 0],
                 "particle_relaxing_factor":1.001,
-                "file_name":"ply_models\\stats_record_wc.ply",
+                "file_name":"ply_models\\stats_record.ply",
                 "volume_frac":[0.5,0.5],
                 "color":"0x6F7DBC"
             }

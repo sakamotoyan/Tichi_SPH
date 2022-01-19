@@ -2,7 +2,6 @@
     "sim_env":{
         "global_part_size":0.05,
         "global_dynamic_viscosity":1e-1,
-        "global_artificial_viscosity":0.5,
         "sim_dim": 3,
         "sim_space_lb": [-8, -8, -8],
         "sim_space_rt": [8, 8, 8],

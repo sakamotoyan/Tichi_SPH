@@ -244,7 +244,8 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
         if obj.psi_adv[i] < 0:
             obj.psi_adv[i] = 0
         obj.compression[None] += (obj.psi_adv[i] / obj.rest_psi[i])
-    obj.compression[None] /= obj.part_num[None]
+    if obj.part_num[None] != 0:
+        obj.compression[None] /= obj.part_num[None]
 
 @ti.kernel
 def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()) -> ti.i32:
@@ -352,7 +353,8 @@ def statistics_update_compression(obj: ti.template(), config: ti.template()):#av
     obj.statistics_volume_compression[None] = 0
     for i in range(obj.part_num[None]):
         obj.statistics_volume_compression[None] += max(obj.sph_compression[i], 1.0)
-    obj.statistics_volume_compression[None] /= obj.part_num[None]
+    if obj.part_num[None] != 0:
+        obj.statistics_volume_compression[None] /= obj.part_num[None]
 
 @ti.kernel
 def statistics_update_volume_frac(obj: ti.template(), config: ti.template()):
@@ -361,7 +363,8 @@ def statistics_update_volume_frac(obj: ti.template(), config: ti.template()):
         obj.statistics_volume_frac[None][j] = 0
     for i in range(obj.part_num[None]):
         obj.statistics_volume_frac[None] += obj.volume_frac[i]
-    obj.statistics_volume_frac[None] /= obj.part_num[None]
+    if obj.part_num[None] != 0:
+        obj.statistics_volume_frac[None] /= obj.part_num[None]
 
 
 
@@ -474,7 +477,9 @@ def sph_step(ngrid, fluid, bound, config):
     while fluid.general_flag[None] > 0:
         FBM_clean_tmp(fluid, config)
         FBM_change_tmp(ngrid, fluid, fluid, config)
-        # FBM_diffuse(ngrid, fluid, fluid, config)
+        FBM_diffuse(ngrid, fluid, fluid, config)
+        if config.tmp_scene_id == "teabag" and config.time_count[None] > config.time_down[None]:
+            FBM_diffuse_teabag(ngrid, fluid, bound, config)
         FBM_check_tmp(fluid)
     """ Part 2 NEW FBM procedure """
 
@@ -518,6 +523,11 @@ def apply_bound_transform(bound, config):
     else:
         ang = math.pi * config.dt[None]
         bound.move_scene_obj('rod',rotation_matrix(config,0,0,ang), config) # rotate around z-axis
+    """ teabag scene """
+    # if config.tmp_scene_id == "teabag":
+    #     if config.time_count[None] < config.time_down[None]:
+    #         translate = config.vel_down_np * config.dt[None]
+    #         bound.move_scene_obj('teabag',translation_matrix(config, translate[0], translate[1], translate[2]), config)
 
 def run_step(ngrid, fluid, bound, config):
     config.time_counter[None] += 1

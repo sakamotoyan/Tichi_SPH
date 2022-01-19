@@ -33,6 +33,12 @@ config.start_id[None], config.end_id[None] = bound.get_part_range_from_name('rod
 config.vel_down_np = np.array([0.0,-3.0,0.0])
 config.vel_rot_np = np.zeros(3)
 
+# config.tmp_scene_id = 'teabag'
+if config.tmp_scene_id == "teabag":
+    config.start_id[None], config.end_id[None] = bound.get_part_range_from_name('teabag')
+    config.vel_down_np = np.array([0.0,-3.0,0.0])
+    config.time_down[None] = 0.5
+
 while gui.window.running:
     if gui.op_system_run == True:
         run_step(ngrid, fluid, bound, config)

@@ -162,6 +162,8 @@ class Config:
         #transform_help
         self.transform_matrix = ti.Matrix.field(pre_config.sim_dim + 1,pre_config.sim_dim + 1,float,())
 
+        self.tmp_scene_id = ""
+
         self.sub_init(pre_config, config_buffer, scenario_buffer)
 
     def assign_phase_color(self, hex, phase):

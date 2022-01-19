@@ -95,7 +95,7 @@ def JL21_update_vel_drag(obj: ti.template(), config: ti.template()):
                 obj.vel[i] += obj.volume_frac[i][k] * obj.vel_phase[i, k]
 
 @ti.kernel
-def JL21_artificial_viscosity(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
+def JL21_viscosity(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
     for i in range(obj.part_num[None]):
         for t in range(config.neighb_search_template.shape[0]):
             node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
@@ -108,12 +108,9 @@ def JL21_artificial_viscosity(ngrid: ti.template(), obj: ti.template(), nobj: ti
                         xij = obj.pos[i] - nobj.pos[neighb_pid]
                         r = xij.norm()
                         if r > 1e-5:
-                            # if abs(obj.sph_density[i] + nobj.sph_density[neighb_pid]) < 1e-3:
-                            #     print('too small sph_density 2')
-                            niu = 2 * config.artificial_viscosity[None] * config.kernel_h[1] / (obj.sph_density[i] + nobj.sph_density[neighb_pid])
                             vij = obj.vel[i] - nobj.vel[neighb_pid]
-                            if vij.dot(xij) < 0:
-                                obj.F_mid[i] += obj.mass[i] * nobj.mass[neighb_pid] * niu * vij.dot(xij) / (r ** 2 + 0.01 * config.kernel_h[2]) * xij / r * W_grad(r, config)
+                            obj.F_mid[i] += obj.mass[i] * W_lap(xij, r, nobj.mass[neighb_pid] / nobj.sph_density[neighb_pid],
+                                                             vij, config) * config.dynamic_viscosity[None] / obj.sph_density[i]
 
 
 @ti.kernel
@@ -161,7 +158,31 @@ def JL21_predict_phase_transport(ngrid: ti.template(), obj: ti.template(), nobj:
                                 T_d = 2 * config.fbm_diffusion_term[None] * (obj.volume_frac[i][k] - nobj.volume_frac[neighb_pid][k]) * rest_vol * (
                                         xij.dot(W_g) / (r ** 2 + 0.01 * config.kernel_h[2])) # + / - ?
                                 obj.volume_frac_tmp[i][k] += config.dt[None] * min(obj.lamb[i], nobj.lamb[neighb_pid]) * (T_m + T_d)
-        
+
+@ti.kernel
+def JL21_predict_phase_transport_teabag(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
+    phase_num = ti.static(config.phase_rest_density.n)
+    for i in range(obj.part_num[None]):
+        for t in range(config.neighb_search_template.shape[0]):
+            node_code = dim_encode(obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
+            if 0 < node_code < config.node_num[None]:
+                for j in range(ngrid.node_part_count[node_code]):
+                    shift = ngrid.node_part_shift[node_code] + j
+                    neighb_uid = ngrid.part_uid_in_node[shift]
+                    if neighb_uid == nobj.uid:
+                        neighb_pid = ngrid.part_pid_in_node[shift]
+                        if neighb_pid >= config.start_id[None] and neighb_pid < config.end_id[None]:
+                            xij = obj.pos[i] - nobj.pos[neighb_pid]
+                            r = xij.norm()
+                            if r > 1e-5:
+                                W_g = xij / r * W_grad(r, config) # + / - ?
+                                for k in ti.static(range(phase_num)):
+                                    rest_vol = obj.mass[i] / obj.rest_density[i]
+                                    T_d = 2 * config.fbm_diffusion_term[None] * (obj.volume_frac[i][k] - nobj.volume_frac[neighb_pid][k]) * rest_vol * (
+                                            xij.dot(W_g) / (r ** 2 + 0.01 * config.kernel_h[2])) # + / - ?
+                                    obj.volume_frac_tmp[i][k] += config.dt[None] * obj.lamb[i] * T_d
+
+
 @ti.kernel
 def JL21_phase_transport_check_neg(obj: ti.template()):
     obj.general_flag[None] = 0
@@ -255,13 +276,15 @@ def sph_step_jl21(ngrid, fluid, bound, config):
     JL21_pressure_val(bound, config)
     JL21_pressure_force(ngrid, fluid, fluid, config)
     JL21_pressure_force(ngrid, fluid, bound, config)
-    JL21_artificial_viscosity(ngrid, fluid, fluid, config)
-    JL21_artificial_viscosity(ngrid, fluid, bound, config)
+    JL21_viscosity(ngrid, fluid, fluid, config)
+    JL21_viscosity(ngrid, fluid, bound, config)
     JL21_update_vel_mid(fluid, config)
     JL21_update_vel_drag(fluid, config)
     JL21_update_pos(fluid, config)
     for l in range(2):
         JL21_predict_phase_transport(ngrid, fluid, fluid, config)
+        if config.tmp_scene_id == "teabag" and config.time_count[None] > config.time_down[None]:
+            JL21_predict_phase_transport_teabag(ngrid, fluid, bound, config)
         JL21_phase_transport_check_neg(fluid)
         if fluid.general_flag[None] == 0:
             break

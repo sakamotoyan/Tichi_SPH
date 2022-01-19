@@ -194,6 +194,27 @@ def FBM_diffuse(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), c
                                         obj.volume_frac[i] - nobj.volume_frac[neighb_pid]) * nobj.rest_volume[neighb_pid] * r * W_grad(r, config) / (r ** 2 + 0.01 * config.kernel_h[2])
                                     obj.volume_frac_tmp[i] += tmp
 
+@ti.kernel
+def FBM_diffuse_teabag(ngrid: ti.template(), obj: ti.template(), nobj: ti.template(), config: ti.template()):
+    for i in range(obj.part_num[None]):
+        if obj.flag[i] == 0:  # flag check
+            for t in range(config.neighb_search_template.shape[0]):
+                node_code = dim_encode(
+                    obj.neighb_cell_structured_seq[i] + config.neighb_search_template[t], config)
+                if 0 < node_code < config.node_num[None]:
+                    for j in range(ngrid.node_part_count[node_code]):
+                        shift = ngrid.node_part_shift[node_code] + j
+                        neighb_uid = ngrid.part_uid_in_node[shift]
+                        if neighb_uid == nobj.uid:
+                            neighb_pid = ngrid.part_pid_in_node[shift]
+                            if neighb_pid >= config.start_id[None] and neighb_pid < config.end_id[None]:
+                                xij = obj.pos[i] - nobj.pos[neighb_pid]
+                                r = xij.norm()
+                                if r > 0:
+                                    tmp = config.dt[None] * config.fbm_diffusion_term[None] * (
+                                        obj.volume_frac[i] - nobj.volume_frac[neighb_pid]) * nobj.rest_volume[neighb_pid] * r * W_grad(r, config) / (r ** 2 + 0.01 * config.kernel_h[2])
+                                    obj.volume_frac_tmp[i] += tmp
+
 
 @ti.kernel
 def debug_volume_frac(obj: ti.template()) -> ti.f32:
