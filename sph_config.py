@@ -93,7 +93,6 @@ class Config:
         self.sim_space_lb = ti.Vector.field(pre_config.sim_dim, float, ())  # min coordination of simulation space
         self.sim_space_rt = ti.Vector.field(pre_config.sim_dim, float, ())  # max coordination of simulation space
         self.dynamic_viscosity = ti.field(float, ())
-        self.artificial_viscosity = ti.field(float, ())
         self.gravity = ti.Vector.field(pre_config.sim_dim, float, ())
         self.phase_num = ti.field(int, ())
         self.phase_rest_density = ti.Vector.field(pre_config.phase_num, float, ())  # rest density of each phase
@@ -173,7 +172,6 @@ class Config:
         self.dim[None] = pre_config.sim_dim
         self.part_size[1] = read_param(scenario_buffer['sim_env']['global_part_size'], 'global_part_size')
         self.dynamic_viscosity[None] = read_param(scenario_buffer['sim_env']['global_dynamic_viscosity'], 'global_dynamic_viscosity')
-        self.artificial_viscosity[None] = read_param(scenario_buffer['sim_env']['global_artificial_viscosity'], 'global_artificial_viscosity')
         self.sim_space_lb[None] = read_param(scenario_buffer['sim_env']['sim_space_lb'], 'sim_space_lb')
         self.sim_space_rt[None] = read_param(scenario_buffer['sim_env']['sim_space_rt'], 'sim_space_rt')
         self.gravity[None] = read_param(scenario_buffer['sim_env']['gravity'], 'gravity')
