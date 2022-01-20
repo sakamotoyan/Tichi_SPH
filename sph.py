@@ -410,15 +410,16 @@ def sph_step(ngrid, fluid, bound, config):
     """ Part 1 NEW FBM procedure """
     FBM_correct_vel_from_phase_vel(fluid, config)
     SPH_vel_adv_2_vel(fluid)
-    FBM_advection_M_vis(ngrid, fluid, fluid, config)
+    FBM_advection_vis(ngrid, fluid, fluid, config)
+    FBM_advection_gravity(fluid, config)
     FBM_acc_2_phase_vel(fluid, config)
     FBM_correct_vel_from_phase_vel(fluid, config)
     SPH_vel_adv_2_vel(fluid)
     """ Part 1 NEW FBM procedure """
 
-    SPH_advection_gravity_acc(fluid, config)
+    # SPH_advection_gravity_acc(fluid, config)
     # SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
-    SPH_advection_update_vel_adv(fluid, config)
+    # SPH_advection_update_vel_adv(fluid, config)
 
     """ IPPE SPH pressure """
     incom_iter_count = 0
@@ -440,6 +441,8 @@ def sph_step(ngrid, fluid, bound, config):
 
     """ Part 2 NEW FBM procedure """
     FBM_convect(ngrid, fluid, fluid, config)
+    FBM_acc_2_phase_vel(fluid, config)
+    FBM_correct_vel_from_phase_vel(fluid, config)
     while fluid.general_flag[None] > 0:
         FBM_clean_tmp(fluid, config)
         FBM_change_tmp(ngrid, fluid, fluid, config)
