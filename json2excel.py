@@ -22,12 +22,16 @@ def read_file(filename):
     data.append(('Eg', energy["statistics_gravity_potential_energy"]))
     data.append(('E', energy["sum_energy"]))
     phase_energy = energy["phase_kinetic_energy"]
-    for i in len(phase_energy):
+    Ek_phase_sum = 0
+    for i in range(len(phase_energy)):
         data.append(('Ek_phase' + str(i), phase_energy[i]))
+        Ek_phase_sum += phase_energy[i]
+    data.append(('Ek_phase_sum', Ek_phase_sum))
+    data.append(('Ek_phase+Eg', Ek_phase_sum + energy["statistics_gravity_potential_energy"]))
     statistics=json_data["statistics"]
     data.append(('comp', statistics["volume_compression"]))
     volume_frac = statistics["volume_frac"]
-    for i in len(volume_frac):
+    for i in range(len(volume_frac)):
         data.append(('vol_frac' + str(i), volume_frac[i]))
     data.append(('t_consume', json_data["time_consumption"]))
     return data
@@ -41,7 +45,6 @@ for i in range(frame_start, frame_end):
 
     for method in methods:
         jsonfile = os.path.join(root, method, 'json', "frame" + str(i) + ".json")
-        print(jsonfile)
         data[method] = read_file(jsonfile)
 
     a_data = data[methods[0]]

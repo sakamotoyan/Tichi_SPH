@@ -6,7 +6,7 @@
     "solver_type":"VFSPH",
     "solver_wc_gamma":7,
     "solver_divergence_threshold":1e-3,
-    "solver_compression_threshold":1e-4,
+    "solver_compression_threshold":1e-3,
     "solver_iter_threshold_min":2,
     "solver_iter_threshold_max":100,
 

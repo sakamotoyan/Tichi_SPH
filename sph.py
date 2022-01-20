@@ -248,10 +248,18 @@ def IPPE_psi_adv_non_negative(obj: ti.template()):
         obj.compression[None] /= obj.part_num[None]
 
 @ti.kernel
-def IPPE_psi_adv_is_compressible(obj: ti.template(), config: ti.template()) -> ti.i32:
+def IPPE_psi_adv_is_compressible_div(obj: ti.template(), config: ti.template()) -> ti.i32:
     a = 0
     for i in range(obj.part_num[None]):
         if obj.psi_adv[i] / obj.rest_psi[i] > config.divergence_threshold[None]:
+            a = 1
+    return a
+
+@ti.kernel
+def IPPE_psi_adv_is_compressible_comp(obj: ti.template(), config: ti.template()) -> ti.i32:
+    a = 0
+    for i in range(obj.part_num[None]):
+        if obj.psi_adv[i] / obj.rest_psi[i] > config.compression_threshold[None]:
             a = 1
     return a
 
@@ -419,40 +427,44 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_prepare_alpha(bound)
     
     """ synchronize """
-    SPH_vel_2_vel_adv(fluid)
+    # SPH_vel_2_vel_adv(fluid)
+    FBM_correct_vel_from_phase_vel(fluid, config)
+    SPH_vel_adv_2_vel(fluid)
 
     """ IPPE SPH divergence """
     config.div_iter_count[None] = 0
-    # is_compressible = 1
-    # while config.div_iter_count[None] < config.iter_threshold_min[None] or is_compressible == 1:
-    #     IPPE_adv_psi_init(fluid)
-    #     # IPPE_adv_psi_init(bound)
-    #     IPPE_adv_psi(ngrid, fluid, fluid, config)
-    #     IPPE_adv_psi(ngrid, fluid, bound, config)
-    #     # IPPE_adv_psi(ngrid, bound, fluid)
-    #     IPPE_psi_adv_non_negative(fluid)
-    #     # IPPE_psi_adv_non_negative(bound)
-    #     is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
-    #     IPPE_update_vel_adv(ngrid, fluid, fluid, config)
-    #     IPPE_update_vel_adv(ngrid, fluid, bound, config)
-    #     config.div_iter_count[None] += 1
-    #     if config.div_iter_count[None] > config.iter_threshold_max[None]:
-    #         break
-    # SPH_vel_adv_2_vel(fluid)
+    is_compressible = 1
+    while config.div_iter_count[None] < config.iter_threshold_min[None] or is_compressible == 1:
+        IPPE_adv_psi_init(fluid)
+        # IPPE_adv_psi_init(bound)
+        IPPE_adv_psi(ngrid, fluid, fluid, config)
+        IPPE_adv_psi(ngrid, fluid, bound, config)
+        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_psi_adv_non_negative(fluid)
+        # IPPE_psi_adv_non_negative(bound)
+        is_compressible = IPPE_psi_adv_is_compressible_div(fluid, config)
+        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
+        IPPE_update_vel_adv(ngrid, fluid, bound, config)
+        config.div_iter_count[None] += 1
+        if config.div_iter_count[None] > config.iter_threshold_max[None]:
+            break
+    FBM_convect(ngrid, fluid, fluid, config)
+    FBM_acc_2_phase_vel(fluid, config)
+    FBM_correct_vel_from_phase_vel(fluid, config)
 
     """ SPH advection """
     """ Part 1 NEW FBM procedure """
-    FBM_correct_vel_from_phase_vel(fluid, config)
     SPH_vel_adv_2_vel(fluid)
-    FBM_advection_M_vis(ngrid, fluid, fluid, config)
+    FBM_advection_vis(ngrid, fluid, fluid, config)
+    FBM_advection_gravity(fluid, config)
     FBM_acc_2_phase_vel(fluid, config)
     FBM_correct_vel_from_phase_vel(fluid, config)
     SPH_vel_adv_2_vel(fluid)
     """ Part 1 NEW FBM procedure """
 
-    SPH_advection_gravity_acc(fluid, config)
+    # SPH_advection_gravity_acc(fluid, config)
     # SPH_advection_viscosity_acc(ngrid, fluid, fluid, config)
-    SPH_advection_update_vel_adv(fluid, config)
+    # SPH_advection_update_vel_adv(fluid, config)
 
     """ IPPE SPH pressure """
     config.incom_iter_count[None] = 0
@@ -465,7 +477,7 @@ def sph_step(ngrid, fluid, bound, config):
         # IPPE_adv_psi(ngrid, bound, fluid)
         IPPE_psi_adv_non_negative(fluid)
         # IPPE_psi_adv_non_negative(bound)
-        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
+        is_compressible = IPPE_psi_adv_is_compressible_comp(fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, fluid, config)
         IPPE_update_vel_adv(ngrid, fluid, bound, config)
         config.incom_iter_count[None] += 1
@@ -474,6 +486,8 @@ def sph_step(ngrid, fluid, bound, config):
 
     """ Part 2 NEW FBM procedure """
     FBM_convect(ngrid, fluid, fluid, config)
+    FBM_acc_2_phase_vel(fluid, config)
+    FBM_correct_vel_from_phase_vel(fluid, config)
     while fluid.general_flag[None] > 0:
         FBM_clean_tmp(fluid, config)
         FBM_change_tmp(ngrid, fluid, fluid, config)
@@ -493,10 +507,10 @@ def sph_step(ngrid, fluid, bound, config):
     statistics_update_volume_frac(fluid, config)
     # map_velocity(ngrid, grid, fluid)
 
-    print('phase 1:')
-    print(debug_volume_frac(fluid))
-    print('dt')
-    print(config.dt[None])
+    # print('phase 1:')
+    # print(debug_volume_frac(fluid))
+    # print('dt')
+    # print(config.dt[None])
 
 def apply_bound_transform(bound, config):
     """ old cocktail scene """
