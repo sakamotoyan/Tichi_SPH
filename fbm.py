@@ -51,9 +51,10 @@ def FBM_advection_M_vis(ngrid: ti.template(), obj: ti.template(), nobj: ti.templ
                         r = xij.norm()
                         if r > 0:
                             for k in ti.static(range(phase_num)):
-                                # volume fraction is ommited
-                                obj.phase_acc[i, k] += W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid],
-                                                             obj.phase_vel[i, k] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None]
+                                obj.phase_acc[i, k] += config.fbm_convection_term[None] * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid], (obj.phase_vel[i, k] - 
+                                    nobj.vel[neighb_pid]), config) * config.dynamic_viscosity[None] / config.phase_rest_density[None][k]
+                                obj.phase_acc[i, k] += (1 - config.fbm_convection_term[None]) * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid],
+                                                     obj.vel[i] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None] / obj.rest_density[i]
 
 
 @ti.kernel
@@ -62,8 +63,7 @@ def FBM_acc_2_phase_vel(obj: ti.template(), config: ti.template()):
     dim = ti.static(config.gravity.n)
     for i in range(obj.part_num[None]):
         for k in ti.static(range(phase_num)):
-            obj.phase_vel[i, k] += obj.phase_acc[i, k] / \
-                config.phase_rest_density[None][k] * config.dt[None]
+            obj.phase_vel[i, k] += obj.phase_acc[i, k] * config.dt[None]
 
 
 @ti.kernel
