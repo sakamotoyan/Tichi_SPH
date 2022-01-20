@@ -51,11 +51,13 @@ def FBM_advection_vis(ngrid: ti.template(), obj: ti.template(), nobj: ti.templat
                         r = xij.norm()
                         if r > 0:
                             for k in ti.static(range(phase_num)):
-                                obj.phase_acc[i, k] += (1 - config.fbm_convection_term[None]) * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid], (obj.vel[i] -  nobj.vel[neighb_pid]), config) * config.dynamic_viscosity[None] / obj.rest_density[i]
-                                obj.phase_acc[i, k] += (config.fbm_convection_term[None]) * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid], obj.phase_vel[i, k] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None] / config.phase_rest_density[None][k]
                                 # obj.phase_acc[i, k] += (config.fbm_convection_term[None]) * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid], obj.volume_frac[i][k]*obj.phase_vel[i, k] - nobj.volume_frac[neighb_pid][k]*nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None] / config.phase_rest_density[None][k] / obj.volume_frac[i][k]
-                                # if obj.volume_frac[i][k]<1e-6:
-                                #     obj.phase_acc[i, k] *=0
+                                if obj.volume_frac[i][k]<1e-6:
+                                    obj.phase_acc[i, k] *=0
+                                else:
+                                    obj.phase_acc[i, k] += (1 - config.fbm_convection_term[None]) * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid], (obj.vel[i] -  nobj.vel[neighb_pid]), config) * config.dynamic_viscosity[None] / obj.rest_density[i]
+                                    obj.phase_acc[i, k] += (config.fbm_convection_term[None]) * W_lap(xij, r, nobj.X[neighb_pid] / nobj.sph_psi[neighb_pid], obj.phase_vel[i, k] - nobj.vel[neighb_pid], config) * config.dynamic_viscosity[None] / config.phase_rest_density[None][k]
+                                    
 
 @ti.kernel
 def FBM_advection_gravity(obj: ti.template(), config: ti.template()):

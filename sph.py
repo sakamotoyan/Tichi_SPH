@@ -385,30 +385,32 @@ def sph_step(ngrid, fluid, bound, config):
     SPH_prepare_alpha(bound)
     
     """ synchronize """
-    SPH_vel_2_vel_adv(fluid)
-
+    # SPH_vel_2_vel_adv(fluid)
+    FBM_correct_vel_from_phase_vel(fluid, config)
+    SPH_vel_adv_2_vel(fluid)
     """ IPPE SPH divergence """
-    # div_iter_count = 0
-    # is_compressible = 1
-    # while div_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
-    #     IPPE_adv_psi_init(fluid)
-    #     # IPPE_adv_psi_init(bound)
-    #     IPPE_adv_psi(ngrid, fluid, fluid, config)
-    #     IPPE_adv_psi(ngrid, fluid, bound, config)
-    #     # IPPE_adv_psi(ngrid, bound, fluid)
-    #     IPPE_psi_adv_non_negative(fluid)
-    #     # IPPE_psi_adv_non_negative(bound)
-    #     is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
-    #     IPPE_update_vel_adv(ngrid, fluid, fluid, config)
-    #     IPPE_update_vel_adv(ngrid, fluid, bound, config)
-    #     div_iter_count += 1
-    #     if div_iter_count > config.iter_threshold_max[None]:
-    #         break
-    # SPH_vel_adv_2_vel(fluid)
+    div_iter_count = 0
+    is_compressible = 1
+    while div_iter_count < config.iter_threshold_min[None] or is_compressible == 1:
+        IPPE_adv_psi_init(fluid)
+        # IPPE_adv_psi_init(bound)
+        IPPE_adv_psi(ngrid, fluid, fluid, config)
+        IPPE_adv_psi(ngrid, fluid, bound, config)
+        # IPPE_adv_psi(ngrid, bound, fluid)
+        IPPE_psi_adv_non_negative(fluid)
+        # IPPE_psi_adv_non_negative(bound)
+        is_compressible = IPPE_psi_adv_is_compressible(fluid, config)
+        IPPE_update_vel_adv(ngrid, fluid, fluid, config)
+        IPPE_update_vel_adv(ngrid, fluid, bound, config)
+        div_iter_count += 1
+        if div_iter_count > config.iter_threshold_max[None]:
+            break
+    FBM_convect(ngrid, fluid, fluid, config)
+    FBM_acc_2_phase_vel(fluid, config)
+    FBM_correct_vel_from_phase_vel(fluid, config)
 
     """ SPH advection """
     """ Part 1 NEW FBM procedure """
-    FBM_correct_vel_from_phase_vel(fluid, config)
     SPH_vel_adv_2_vel(fluid)
     FBM_advection_vis(ngrid, fluid, fluid, config)
     FBM_advection_gravity(fluid, config)

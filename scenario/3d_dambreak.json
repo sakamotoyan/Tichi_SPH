@@ -18,7 +18,7 @@
                 "vel": [0, 0, 0],
                 "particle_relaxing_factor":1.001,
                 "start_pos":[-0.7, -0.7, -0.7],
-                "end_pos":[0.5, 0.0, 0.5],
+                "end_pos":[0.5, 0.5, 0.5],
                 "volume_frac":[0.5,0.5,0],
                 "color":"0x6F7DBC"
             }
