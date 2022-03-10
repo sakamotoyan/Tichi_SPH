@@ -1,49 +1,42 @@
-import os
-import numpy as np
 import taichi as ti
-from plyfile import *
+import ti_sph as tsph
+from ti_sph.gui import pos_normalizer, ti2numpy_color
+
+
 ti.init()
 
-# a = ti.Vector.field(3, ti.f32, (10,4))
+a = ti.field(ti.f32, ())
+b = ti.field(ti.f32, ())
 
-class TestClass():
-    def __init__(self, val):
-        self.a = val
+a[None] = 1.5
+b[None] = 2
 
-def pf1(obj, attr):
-    print(attr)
+print(tsph.tmp_func(a[None], b[None]))
 
-a = ti.Vector([1.1,2.2,3.3])
-b=ti.Vector.field(3,ti.f32,())
-b[None]=a
-print(a[None][0])
+num = ti.field(ti.i32, ())
+num[None] = 24
 
-# Input:  path-> String
-# Output: verts_array-> num*dim size numpy float Array 
-def read_ply(path):
-    obj_ply = PlyData.read(path)
-    obj_verts = obj_ply['vertex'].data
-    verts_array = np.array([[x, y, z] for x, y, z in obj_verts])
-    return verts_array
+particle_field = ti.Struct.field({
+    "pos": ti.types.vector(3, ti.f32),
+    "color": ti.f32,
+    "pos_normalized": ti.types.vector(3, ti.f32),
+    "vel": ti.types.vector(3, ti.f32),
+    "acc": ti.types.vector(3, ti.f32),
+    "mass": ti.f32,
+}, shape=(num[None],))
 
-a = read_ply('ply_models\\bunny_0.05.ply')
+space_lb = ti.Vector.field(3, ti.f32, shape=())
+space_rt = ti.Vector.field(3, ti.f32, shape=())
+space_lb_tmp = ti.Vector([-1.0,-1.0,-1.0])
+space_rt_tmp = ti.Vector([1.0,1.0,1.0])
 
-# phase_num = ti.static(config.phase_rest_density.n)
-# dim = ti.static(config.gravity.n)
+space_lb[None] = space_lb_tmp
+space_rt[None] = space_rt_tmp
 
-# def trim_path_dir(original_file_path):
-#     if original_file_path.find('\\') > 0 and original_file_path.find('/') > 0:
-#         return original_file_path
-#     elif original_file_path.find('\\') > 0:
-#         file_path_list = original_file_path.split('\\')
-#     elif original_file_path.find('/') > 0:
-#         file_path_list = original_file_path.split('/')
-#     trimmed_file_path = file_path_list[0]
-#     for i in range(len(file_path_list)-1):
-#         trimmed_file_path = os.path.join(trimmed_file_path, file_path_list[i+1])
-#     return trimmed_file_path
+# pos_normalizer(num, particle_field.pos, space_lb, space_rt, particle_field.pos_normalized)
+color_numpy = ti2numpy_color(num[None], particle_field.color)
 
-# str='a/b/c/d'
-# str2 = trim_path_dir(str)
 
-# print(str2)
+# print(particle_field.pos_normalized)
+print(color_numpy)
+

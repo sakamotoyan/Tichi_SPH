@@ -408,10 +408,10 @@ def sph_step(ngrid, fluid, bound, config):
     FBM_convect(ngrid, fluid, fluid, config)
     FBM_acc_2_phase_vel(fluid, config)
     FBM_correct_vel_from_phase_vel(fluid, config)
+    SPH_vel_adv_2_vel(fluid)
 
     """ SPH advection """
     """ Part 1 NEW FBM procedure """
-    SPH_vel_adv_2_vel(fluid)
     FBM_advection_vis(ngrid, fluid, fluid, config)
     FBM_advection_gravity(fluid, config)
     FBM_acc_2_phase_vel(fluid, config)

@@ -2,6 +2,7 @@ import numpy
 from sph import *
 import json
 import time
+import ti_sph as tsph
 
 '''parse command line'''
 config_file_path = 'config/config.json'
@@ -27,7 +28,7 @@ fluid.push_part_from_ply(scenario_buffer, 'fluid', config)
 bound.push_part_from_ply(scenario_buffer, 'bound', config)
 print('Done pushing particles')
 
-gui = Gui(config)
+gui = tsph.Gui(config)
 gui.env_set_up()
 print('Done gui setting')
 
