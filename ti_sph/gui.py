@@ -2,15 +2,15 @@ import taichi as ti
 import numpy as np
 
 @ti.kernel
-def pos_normalizer(num: ti.template(), global_pos: ti.template(), pos_lb: ti.template(), pos_rt: ti.template(), input_normalized_pos: ti.template()):
+def pos_normalizer(num: ti.template(), global_pos: ti.template(), pos_lb: ti.template(), pos_rt: ti.template(), output_normalized_pos: ti.template()):
     for i in range(num[None]):
-        input_normalized_pos[i] = (
+        output_normalized_pos[i] = (
             global_pos[i] - pos_lb[None]) / (pos_rt[None] - pos_lb[None])
 
 # UNDONE AND USELESS
 # @ti.kernel
-# def part_size_normalizer(part_size: ti.template(), pos_lb: ti.template(), pos_rt: ti.template(), gui_res: ti.template(),  relaxing_factor: ti.template(), input_normalized_part_size: ti.template()):
-#     input_normalized_part_size = part_size[None] / (pos_lb[None] - pos_rt[None]) * gui_res[None] * relaxing_factor[None]
+# def part_size_normalizer(part_size: ti.template(), pos_lb: ti.template(), pos_rt: ti.template(), gui_res: ti.template(),  relaxing_factor: ti.template(), output_normalized_part_size: ti.template()):
+#     output_normalized_part_size = part_size[None] / (pos_lb[None] - pos_rt[None]) * gui_res[None] * relaxing_factor[None]
 
 
 class Gui():

@@ -4,3 +4,4 @@ from .spline_kernel_funcs import *
 from .color_funcs import *
 from .fileIO import *
 from .gui import *
+from .sph_tools import *
