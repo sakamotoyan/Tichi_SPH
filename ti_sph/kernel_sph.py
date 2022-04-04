@@ -35,3 +35,5 @@ def cfl_condition_dt(num: ti.i32, vel: ti.template(), discretization_size: ti.f3
         if vel_norm > min_divisor:
             atomic_min(output_dt, discretization_size / vel_norm * cfl_factor)
     return output_dt
+
+
