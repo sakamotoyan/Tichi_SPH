@@ -38,3 +38,34 @@ def write_ply(path, frame_num, dim, num, pos):
     np_pos = np.array(list_pos, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
     el_pos = PlyElement.describe(np_pos, 'vertex')
     PlyData([el_pos]).write(str(path) + '_' + str(frame_num) + '.ply')
+
+def get_scenario_buffer(scenario_file_path):
+    try:
+        scenario_buffer = json.load(open(scenario_file_path))
+        return scenario_buffer
+    except Exception:
+        print('Error from sph_config.py: no scenario file or scenario file invalid')
+        exit()
+
+def push_part_from_ply(self, scenario_buffer, obj_name, config):
+        for obj in scenario_buffer:
+            if (obj == obj_name):
+                for param in scenario_buffer[obj]['objs']:
+                    if param['type'] == 'cube':
+                        self.scene_add_cube(param['start_pos'], param['end_pos'], param['volume_frac'], param['vel'],
+                                            int(param['color'], 16), param['particle_relaxing_factor'], config)
+                    elif param['type'] == 'box':
+                        self.scene_add_box(param['start_pos'], param['end_pos'], param['layers'], param['volume_frac'],
+                                            param['vel'], int(param['color'], 16), param['particle_relaxing_factor'], config)
+                    elif param['type'] == 'ply':
+                        verts = read_ply(trim_path_dir(param['file_name']))
+                        self.push_part_seq(len(verts), int(param['color'], 16), verts, ti.Vector(param['volume_frac']), ti.Vector(param['vel']),
+                                                config)
+
+def get_config_buffer(config_file_path):
+    try:
+        config_buffer = json.load(open(config_file_path))
+        return config_buffer
+    except Exception:
+        print('Error from sph_config.py: no config file or config file invalid')
+        exit()

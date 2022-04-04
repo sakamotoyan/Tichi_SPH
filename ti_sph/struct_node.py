@@ -43,10 +43,10 @@ def struct_node_color(node_num):
 
 
 @ti.kernel
-def push_cube(obj: ti.template(), lb: ti.template(), rt: ti.template(), part_size:ti.template(), relaxing_factor:ti.template(), mask: ti.template()):
+def push_cube(obj: ti.template(), lb: ti.template(), rt: ti.template(), part_size: ti.template(), relaxing_factor: ti.template(), mask: ti.template()) -> ti.i32:
     current_part_num = obj.stack_top
     # generate seq (number of particles to push for each dimension)
-    pushed_part_seq_coder = ti.Vector([0,0,0])
+    pushed_part_seq_coder = ti.Vector([0, 0, 0])
     pushed_part_seq = int(ti.ceil((rt - lb) / part_size / relaxing_factor))
     pushed_part_seq *= mask
     dim = ti.static(obj.basic.pos.n)
@@ -69,7 +69,8 @@ def push_cube(obj: ti.template(), lb: ti.template(), rt: ti.template(), part_siz
     for i in range(pushed_part_num):
         tmp = i
         for j in ti.static(range(dim - 1, -1, -1)):
-            obj.basic.pos[i + current_part_num][j] = tmp // pushed_part_seq_coder[j]
+            obj.basic.pos[i +
+                          current_part_num][j] = tmp // pushed_part_seq_coder[j]
             tmp = tmp % pushed_part_seq_coder[j]
     # inject pos [2/2]
     # pos seq times part size minus lb
@@ -81,9 +82,26 @@ def push_cube(obj: ti.template(), lb: ti.template(), rt: ti.template(), part_siz
         obj.basic.rest_volume[i + current_part_num] = part_size**3
     # update part num
     obj.info.stack_top[None] = new_part_num
-    # update mass and rest_density
-    # for i in range(obj.stack_top):
-    #     obj.basic.rest_density[i] = obj.basic.rest_volume[i]
-    #     config.phase_rest_density[None].dot(
-    #         self.volume_frac[i])
-    #     self.mass[i] = self.rest_density[i] * self.rest_volume[i]
+    return pushed_part_num
+
+
+@ti.kernel
+def push_attr_seq(obj_attr: ti.template(), attr_seq: ti.template(), pushed_part_num: ti.i32, begin_index: ti.i32):
+    dim = ti.static(attr_seq.n)
+    for i in range(pushed_part_num):
+        i_p = i + begin_index
+        for j in ti.static(range(dim)):
+            obj_attr[i_p][j] = attr_seq[i][j]
+
+
+def push_pos_seq(obj, pushed_part_num, pos_seq):
+    print('push ', pushed_part_num, ' particles')
+    dim = pos_seq.shape[0]
+    current_part_num = obj.info.stack_top[None]
+    new_part_num = current_part_num + pushed_part_num
+    pos_seq_ti = ti.Vector.field(dim, float, pushed_part_num)
+    pos_seq_ti.from_numpy(pos_seq)
+    push_attr_seq(obj.basic.pos, pos_seq_ti, pushed_part_num,
+                      current_part_num)
+    obj.info.stack_top[None] = new_part_num
+    return pushed_part_num

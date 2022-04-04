@@ -47,7 +47,6 @@ fluid.stack_top = 0
 push_cube(fluid, ti.Vector([-1, -1, -1]), ti.Vector([1, 1, 1]),
           config.discre.part_size[None], 1, 1)
 
-
 # GUI
 gui = tsph.Gui(config.gui)
 gui.env_set_up()
