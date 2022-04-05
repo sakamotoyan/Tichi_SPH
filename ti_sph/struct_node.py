@@ -36,8 +36,8 @@ def struct_node_implicit_sph(dim, node_num):
 
 def struct_node_color(node_num):
     struct_node_color = ti.types.struct(
-        color_hex=ti.i32,
-        color_vec=ti.types.vector(3, ti.f32),
+        hex=ti.i32,
+        vec=ti.types.vector(3, ti.f32),
     )
     return struct_node_color.field(shape=(node_num,))
 

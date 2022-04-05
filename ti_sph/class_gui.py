@@ -100,7 +100,7 @@ class Gui():
     def scene_add_parts(self, obj, length):
         truncate_pos(obj)
         self.scene.particles(
-            obj.basic.pos, per_vertex_color=obj.color.color_vec, radius=length/2)
+            obj.basic.pos, per_vertex_color=obj.color.vec, radius=length/2)
 
     def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene

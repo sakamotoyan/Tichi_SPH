@@ -7,5 +7,4 @@ from .class_gui import *
 from .class_config import *
 from .class_node import *
 from .kernel_sph import *
-from .kernel_node_neighb_search import *
 from .constructor import *

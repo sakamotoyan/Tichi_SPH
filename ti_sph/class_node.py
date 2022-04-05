@@ -153,14 +153,21 @@ class Node:
             self.cell.part_shift[i] = ti.atomic_add(
                 sum, self.cell.part_count[i])
         for i in range(self.info.stack_top[None]):
-            if self.located_cell.sequence[i] > 0:
-                seq = self.cell.part_shift[self.located_cell.coded[i]
-                                           ]+self.located_cell.sequence[i]
+            if not self.located_cell.sequence[i] < 0:
+                seq = self.cell.part_shift[self.located_cell.coded[i]]+self.located_cell.sequence[i]
                 self.located_cell.part_log[seq] = i
-    
+
 
 @ti.kernel
-def test(obj:ti.template(), seq: ti.i32):
-    cell_vec = obj.located_cell.vec[seq]
-
-        
+def test(obj: ti.template(), nobj: ti.template(), config_neighb: ti.template(), i: ti.i32):
+    cell_vec = ti.static(obj.located_cell.vec)
+    for cell_tpl in range(config_neighb.search_template.shape[0]):
+        cell_coded = (cell_vec[i] + config_neighb.search_template[cell_tpl]).dot(config_neighb.cell_coder[None])
+        if 0 < cell_coded < config_neighb.cell_num[None]:
+            for j in range(nobj.cell.part_count[cell_coded]):
+                shift = nobj.cell.part_shift[cell_coded]+j
+                nid = nobj.located_cell.part_log[shift]
+                nobj.color.vec[nid] = [0, 0, 1]
+                print(nid)
+            print('------------------')
+    obj.color.vec[i] = [1, 0, 0]
