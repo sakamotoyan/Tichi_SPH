@@ -27,6 +27,7 @@ def struct_config_neighb_search(dim):
         cell_num=ti.i32,
         cell_num_vec=ti.types.vector(dim, ti.i32),
         cell_coder=ti.types.vector(dim, ti.i32),
+        search_range = ti.i32,
     )
     return struct_config_neighb_search.field(shape=())
 

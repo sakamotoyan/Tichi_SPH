@@ -1,6 +1,6 @@
 import taichi as ti
 import ti_sph as tsph
-from ti_sph.struct_node import push_cube
+from ti_sph.class_node import test
 ti.init()
 
 # CONFIG
@@ -22,7 +22,7 @@ config_discre.dt[None] = tsph.fixed_dt(
     config_discre.cs[None], config_discre.part_size[None], config_discre.cfl_factor[None])
 # neighbour search
 config_neighb = ti.static(config.neighb)
-config_neighb.cell_size[None] = config.discre.part_size[None] * 2
+config_neighb.cell_size[None] = config_discre.part_size[None] * 2
 tsph.calculate_neighb_cell_param(config_neighb, config_space)
 # gui
 config_gui = ti.static(config.gui)
@@ -40,24 +40,37 @@ config_gui.point_light_color[None] = [0.8, 0.8, 0.8]
 # FLUID
 fluid_capacity = ["node_basic", 'node_color',
                   'node_implicit_sph', 'node_neighb_search']
-fluid = tsph.Node(dim=config.space.dim[None], id=0, part_num=10000,
-                  neighb_cell_num=config.neighb.cell_num[None], capacity_list=fluid_capacity)
+fluid = tsph.Node(dim=config_space.dim[None], id=0, part_num=int(1e5),
+                  neighb_cell_num=config_neighb.cell_num[None], capacity_list=fluid_capacity)
 fluid.color.color_vec.fill(ti.Vector([1, 1, 0]))
-fluid.stack_top = 0
-push_cube(fluid, ti.Vector([-1, -1, -1]), ti.Vector([1, 1, 1]),
-          config.discre.part_size[None], 1, 1)
+fluid.push_cube(ti.Vector([-1, -1, -1]),
+                ti.Vector([1, 1, 1]), config_discre.part_size[None], 1)
+
+# BOUND
+bound_capacity = ["node_basic", 'node_color',
+                  'node_implicit_sph', 'node_neighb_search']
+bound = tsph.Node(dim=config_space.dim[None], id=0, part_num=int(1e5),
+                  neighb_cell_num=config_neighb.cell_num[None], capacity_list=bound_capacity)
+bound.color.color_vec.fill(ti.Vector([0.5, 0.5, 0.5]))
+bound.push_box(ti.Vector([-1.5, -1.5, -1.5]),
+               ti.Vector([1.5, 1, 1.5]), config_discre.part_size[None], 1, 2)
+
+fluid.neighb_search(config_neighb, config_space)
+
+test(fluid, 0)
 
 # GUI
-gui = tsph.Gui(config.gui)
-gui.env_set_up()
-while gui.window.running:
-    if gui.op_system_run == True:
-        a = 1
-    gui.monitor_listen()
-    if gui.op_refresh_window:
-        gui.scene_setup()
-        gui.scene_add_parts(fluid, length=config_discre.part_size[None])
-        gui.scene_render()
+# gui = tsph.Gui(config.gui)
+# gui.env_set_up()
+# while gui.window.running:
+#     if gui.op_system_run == True:
+#         a = 1
+#     gui.monitor_listen()
+#     if gui.op_refresh_window:
+#         gui.scene_setup()
+#         gui.scene_add_parts(fluid, length=config_discre.part_size[None])
+#         gui.scene_add_parts(bound, length=config_discre.part_size[None])
+#         gui.scene_render()
 
 
 # print(config.space)

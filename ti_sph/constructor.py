@@ -1,6 +1,5 @@
 import taichi as ti
 
-from .struct_neighb import *
 from .struct_node import *
 from .struct_config import *
 
