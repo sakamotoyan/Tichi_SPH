@@ -168,6 +168,6 @@ def test(obj: ti.template(), nobj: ti.template(), config_neighb: ti.template(), 
                 shift = nobj.cell.part_shift[cell_coded]+j
                 nid = nobj.located_cell.part_log[shift]
                 nobj.color.vec[nid] = [0, 0, 1]
-                print(nid)
-            print('------------------')
+                # print(nid)
+            # print('------------------')
     obj.color.vec[i] = [1, 0, 0]

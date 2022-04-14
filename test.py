@@ -2,6 +2,8 @@ import taichi as ti
 import ti_sph as tsph
 from ti_sph.class_config import Neighb_cell
 from ti_sph.class_node import test
+import numpy as np
+from plyfile import PlyData, PlyElement
 ti.init()
 
 # CONFIG
@@ -59,18 +61,32 @@ fluid.neighb_search(config_neighb, config_space)
 test(fluid,fluid,config_neighb,0)
 
 # GUI
-gui = tsph.Gui(config.gui)
-gui.env_set_up()
-while gui.window.running:
-    if gui.op_system_run == True:
-        a = 1
-    gui.monitor_listen()
-    if gui.op_refresh_window:
-        gui.scene_setup()
-        gui.scene_add_parts(fluid, length=config_discre.part_size[None])
-        # gui.scene_add_parts(bound, length=config_discre.part_size[None])
-        gui.scene_render()
+# gui = tsph.Gui(config.gui)
+# gui.env_set_up()
+# while gui.window.running:
+#     if gui.op_system_run == True:
+#         a = 1
+#     gui.monitor_listen()
+#     if gui.op_refresh_window:
+#         gui.scene_setup()
+#         gui.scene_add_parts(fluid, length=config_discre.part_size[None])
+#         # gui.scene_add_parts(bound, length=config_discre.part_size[None])
+#         gui.scene_render()
 
+file_seq = 0
+obj_name = 'fluid'
+path = tsph.trim_path_dir(".\\data\\")
+file_name = 'pos'
+
+save_data = fluid.basic.pos.to_numpy()[:fluid.info.stack_top[None]]
+pos_dtype = [('x','f4'),('y','f4'),('z','f4')]
+save_data = np.array([tuple(item) for item in save_data],dtype=pos_dtype)
+el = PlyElement.describe(save_data, 'vertex')
+# save_data.dtype = pos_dtype
+PlyData([el]).write(save_path+'pos_data.ply')
+np.save(save_path+'pos_data', save_data)
+
+print(save_data['x'])
 
 # print(config.space)
 # print(config.discre)

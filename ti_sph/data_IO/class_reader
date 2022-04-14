@@ -1,0 +1,23 @@
+from plyfile import PlyData, PlyElement
+
+class Ply_reader:
+    def __init__(self):
+        pass
+    
+    def set_file_path(self):
+        pass
+    
+    def read(self):
+        pass
+    
+    def get_single_attr_list(self):
+        pass
+    
+    def get_attr_arr_list(self):
+        pass
+    
+    def get_single_attr(self, attr_name):
+        pass
+    
+    def get_attr_arr(self, attr_name):
+        pass
