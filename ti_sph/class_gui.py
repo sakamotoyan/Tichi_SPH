@@ -97,10 +97,10 @@ class Gui():
         self.scene.point_light(
             pos=self.point_light_pos, color=self.point_light_color)
 
-    def scene_add_parts(self, obj, length):
+    def scene_add_parts(self, obj, size):
         truncate_pos(obj)
         self.scene.particles(
-            obj.basic.pos, per_vertex_color=obj.color.vec, radius=length/2)
+            obj.basic.pos, per_vertex_color=obj.color.vec, radius=size/2)
 
     def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene
@@ -108,8 +108,8 @@ class Gui():
 
 @ti.kernel
 def truncate_pos(obj: ti.template()):
-    for i in range(obj.info.part_num[None]-obj.info.stack_top[None]):
-        obj.basic.pos[obj.info.part_num[None]-i-1][0] = 25535
+    for i in range(obj.info.node_num[None]-obj.info.stack_top[None]):
+        obj.basic.pos[obj.info.node_num[None]-i-1][0] = 25535
 
 # def ti2numpy_color(num, obj_color):
 #     return obj_color.to_numpy()[:num]

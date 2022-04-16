@@ -1,1 +1,1 @@
-from class_writer import *
+from .class_writer import *

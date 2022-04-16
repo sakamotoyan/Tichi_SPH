@@ -11,6 +11,7 @@ def struct_config_space(dim):
     return struct_config_space.field(shape=())
 
 
+# discre
 def struct_config_discretization():
     struct_config_discretization = ti.types.struct(
         part_size=ti.f32,
@@ -27,7 +28,7 @@ def struct_config_neighb_search(dim):
         cell_num=ti.i32,
         cell_num_vec=ti.types.vector(dim, ti.i32),
         cell_coder=ti.types.vector(dim, ti.i32),
-        search_range = ti.i32,
+        search_range=ti.i32,
     )
     return struct_config_neighb_search.field(shape=())
 
@@ -44,13 +45,10 @@ def struct_config_gui():
     struct_config_gui = ti.types.struct(
         res=ti.types.vector(2, ti.i32),
         frame_rate=ti.i32,
-        
         cam_fov=ti.f32,
         cam_pos=ti.types.vector(3, ti.f32),
         cam_look=ti.types.vector(3, ti.f32),
-        
         canvas_color=ti.types.vector(3, ti.f32),
-        
         ambient_light_color=ti.types.vector(3, ti.f32),
         point_light_pos=ti.types.vector(3, ti.f32),
         point_light_color=ti.types.vector(3, ti.f32),
