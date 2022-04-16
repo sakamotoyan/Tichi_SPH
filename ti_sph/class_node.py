@@ -16,6 +16,7 @@ class Node:
 
         self.info = self.node()
         self.info.id[None] = id
+        self.info.dim = dim
         self.info.node_num[None] = node_num
         self.info.stack_top[None] = 0
         self.info.neighb_cell_num[None] = neighb_cell_num
@@ -29,6 +30,7 @@ class Node:
             id=ti.i32,
             node_num=ti.i32,
             stack_top=ti.i32,
+            dim=ti.i32,
             neighb_cell_num=ti.i32,
         )
         return struct_node.field(shape=())
@@ -47,15 +49,42 @@ class Node:
             for j in ti.static(range(dim)):
                 obj_attr[i_p][j] = attr_seq[i][j]
 
-    @ti.kernel
     def push_attr(
+        self,
+        obj_attr,
+        attr,
+        begin_index,
+        pushed_node_num,
+    ):
+        self.push_attr_k(obj_attr, attr, begin_index, pushed_node_num)
+
+    def set_attr(
+        self,
+        obj,
+        obj_attr,
+        val,
+    ):
+        self.set_attr_k(self, obj, obj_attr, val)
+
+    @ti.kernel
+    def set_attr_k(
+        self,
+        obj: ti.template(),
+        obj_attr: ti.template(),
+        val: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_attr[i] = val
+
+    @ti.kernel
+    def push_attr_k(
         self,
         obj_attr: ti.template(),
         attr: ti.template(),
         begin_index: ti.i32,
-        pused_node_num: ti.i32,
+        pushed_node_num: ti.i32,
     ):
-        for i in range(begin_index, pused_node_num):
+        for i in range(begin_index, pushed_node_num):
             obj_attr[i] = attr
 
     def push_pos_seq(

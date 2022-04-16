@@ -11,29 +11,49 @@ def struct_node_basic(dim, node_num):
         mass=ti.f32,
         rest_density=ti.f32,
         rest_volume=ti.f32,
-        size=ti.f32
+        size=ti.f32,
     )
     return struct_node_basic.field(shape=(node_num,))
+
+
+# node_construct()
+# "node_sph" -> sph
+def struct_node_sph(dim, node_num):
+    struct_node_sph = ti.types.struct(
+        h=ti.f32,
+        sig=ti.f32,
+        W=ti.f32,
+        W_grad=ti.types.vector(dim, ti.f32),
+        compression=ti.f32,
+    )
+    return struct_node_sph.field(shape=(node_num,))
+
+
+# node_construct()
+# "node_ISPH_Elastic" -> elastic_sph
+def struct_node_elastic_sph(dim, node_num):
+    struct_node_elastic_sph = ti.types.struct(
+        F=ti.types.matrix(dim, dim, ti.f32),
+        L=ti.types.matrix(dim, dim, ti.f32),
+    )
+    return struct_node_elastic_sph.field(shape=(node_num,))
+
 
 # node_construct()
 # "node_implicit_sph" -> implicit_sph
 def struct_node_implicit_sph(dim, node_num):
     struct_node_implicit_sph = ti.types.struct(
-        W=ti.f32,
-        W_grad=ti.types.vector(dim, ti.f32),
-
         alpha_1=ti.types.vector(dim, ti.f32),
         alpha_2=ti.f32,
-
         vel_adv=ti.types.vector(dim, ti.f32),
         acce_adv=ti.types.vector(dim, ti.f32),
-
         approximated_compression_ratio=ti.f32,
         approximated_density=ti.f32,
         approximated_compression_ratio_adv=ti.f32,
         approximated_density_adv=ti.f32,
     )
     return struct_node_implicit_sph.field(shape=(node_num,))
+
 
 # node_construct()
 # "node_color" -> color
@@ -43,6 +63,7 @@ def struct_node_color(node_num):
         vec=ti.types.vector(3, ti.f32),
     )
     return struct_node_color.field(shape=(node_num,))
+
 
 # node_construct()
 # "node_neighb_search" -> located_cell
@@ -55,6 +76,7 @@ def struct_node_neighb_search(dim, node_num):
     )
     return struct_node_neighb_search.field(shape=(node_num,))
 
+
 # node_neighb_cell_construct()
 # "node_neighb_search" -> cell
 def struct_node_neighb_cell(cell_num):
@@ -63,4 +85,3 @@ def struct_node_neighb_cell(cell_num):
         part_shift=ti.i32,
     )
     return struct_node_neighb_cell.field(shape=(cell_num))
-

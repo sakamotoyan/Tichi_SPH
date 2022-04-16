@@ -13,7 +13,7 @@ def if_array_has_negative(vec: ti.template()):
 
 @ti.kernel
 def tmp_func(a: ti.f32, b: ti.f32) -> ti.i32:
-    return int(ti.ceil(a/b))
+    return int(ti.ceil(a / b))
 
 
 @ti.func
@@ -37,3 +37,14 @@ def has_positive(vec) -> bool:
 @ti.func
 def node_encode(node_pos: ti.template(), lb: ti.template(), cell_size: ti.f32):
     return int((node_pos - lb[None]) // cell_size)
+
+
+@ti.func
+def distance_1(x: ti.template(), y: ti.template()) -> ti.f32:
+    vec = x - y
+    return ti.sqrt(vec.dot(vec))
+
+
+@ti.func
+def distance_2(x_ij: ti.template()) -> ti.f32:
+    return ti.sqrt(x_ij.dot(x_ij))
