@@ -35,6 +35,8 @@ def struct_node_elastic_sph(dim, node_num):
     struct_node_elastic_sph = ti.types.struct(
         F=ti.types.matrix(dim, dim, ti.f32),
         L=ti.types.matrix(dim, dim, ti.f32),
+        I=ti.types.matrix(dim, dim, ti.f32),
+        pos_0=ti.types.vector(dim, ti.f32),
     )
     return struct_node_elastic_sph.field(shape=(node_num,))
 

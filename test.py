@@ -4,12 +4,15 @@ from ti_sph.class_config import Neighb_cell
 from ti_sph.class_node import test
 import numpy as np
 from plyfile import PlyData, PlyElement
+from ti_sph.func_util import clean_attr_val, clean_attr_mat
 from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
-
+import math
 from ti_sph.sim.SPH_kernel import SPH_kernel
 
 ti.init(dynamic_index=True)
 
+
+"""""" """ CONFIG """ """"""
 # CONFIG
 config_capacity = ["info_space", "info_discretization", "info_sim", "info_gui"]
 config = tsph.Config(dim=3, capacity_list=config_capacity)
@@ -49,6 +52,7 @@ config_neighb = Neighb_cell(
     search_range=1,
 )
 
+"""""" """ OBJECT """ """"""
 # FLUID
 fluid_capacity = [
     "node_basic",
@@ -128,15 +132,22 @@ bound.push_attr(
     bound_node_num,
 )
 
+
+"""""" """ COMPUTE """ """"""
+fluid.set_attr_arr(obj_attr=fluid.elastic_sph.pos_0, val_arr=fluid.basic.pos)
 fluid.neighb_search(config_neighb, config_space)
 bound.neighb_search(config_neighb, config_space)
-# test(fluid, fluid, config_neighb, 0)
-# test(bound, bound, config_neighb, 1200)
 
 sph_kernel = SPH_kernel()
-sph_elastic = ISPH_Elastic()
 sph_kernel.set_h(fluid, config_discre.part_size[None] * 2)
 sph_kernel.compute_sig(fluid)
+sph_elastic = ISPH_Elastic()
+
+clean_attr_val(fluid, fluid.sph.compression)
+clean_attr_mat(fluid, fluid.elastic_sph.F)
+clean_attr_mat(fluid, fluid.elastic_sph.L)
+clean_attr_mat(fluid, fluid.elastic_sph.I)
+
 sph_kernel.compute_W_const(
     obj=fluid,
     obj_output_attr=fluid.sph.compression,
@@ -153,15 +164,26 @@ sph_kernel.compute_W_const(
     nobj_input_attr=1,
     config_neighb=config_neighb,
 )
-sph_elastic.compute_deformation_gradient(
+sph_elastic.compute_L(
     obj=fluid,
     obj_volume=fluid.basic.rest_volume,
+    obj_output_attr=fluid.elastic_sph.L,
+    config_neighb=config_neighb,
+)
+sph_elastic.compute_F(
+    obj=fluid,
+    obj_volume=fluid.basic.rest_volume,
+    pos_0=fluid.elastic_sph.pos_0,
+    pos_now=fluid.basic.pos,
+    ker_correct_mat=fluid.elastic_sph.L,
     obj_output_attr=fluid.elastic_sph.F,
     config_neighb=config_neighb,
 )
 result = fluid.elastic_sph.F.to_numpy()[: fluid.info.stack_top[None]]
-np.set_printoptions(threshold = 1e6)
+np.set_printoptions(threshold=1e6)
 print(result)
+
+
 # path = tsph.trim_path_dir(".\\data\\result")
 # np.savetxt(path, result)
 
@@ -198,3 +220,20 @@ print(result)
 # print(config.neighb)
 # print(config.sim)
 # print(config.gui)
+
+
+# def inverse_mat(
+#     mat,
+#     inv_mat,
+# ):
+#     mat_np = mat.to_numpy()
+#     mat_inv = np.linalg.pinv(mat_np)
+#     inv_mat.from_numpy(mat_inv)
+
+
+# A = ti.Matrix.field(3, 3, ti.f32, (2,))
+# B = ti.Matrix.field(3, 3, ti.f32, (2,))
+# A[0] = [[1, 0, 0], [0, 3, 0], [0, 0, 2]]
+# A[1] = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+# inverse_mat(A, B)
+# print(B)

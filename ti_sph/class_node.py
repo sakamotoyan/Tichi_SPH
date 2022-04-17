@@ -69,12 +69,27 @@ class Node:
     @ti.kernel
     def set_attr_k(
         self,
-        obj: ti.template(),
         obj_attr: ti.template(),
         val: ti.template(),
     ):
-        for i in range(obj.info.stack_top[None]):
+        for i in range(self.info.stack_top[None]):
             obj_attr[i] = val
+
+    def set_attr_arr(
+        self,
+        obj_attr,
+        val_arr,
+    ):
+        self.set_attr_arr_ker(obj_attr, val_arr)
+
+    @ti.kernel
+    def set_attr_arr_ker(
+        self,
+        obj_attr: ti.template(),
+        val_arr: ti.template(),
+    ):
+        for i in range(self.info.stack_top[None]):
+            obj_attr[i] = val_arr[i]
 
     @ti.kernel
     def push_attr_k(

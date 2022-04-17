@@ -48,3 +48,22 @@ def distance_1(x: ti.template(), y: ti.template()) -> ti.f32:
 @ti.func
 def distance_2(x_ij: ti.template()) -> ti.f32:
     return ti.sqrt(x_ij.dot(x_ij))
+
+
+@ti.kernel
+def clean_attr_val(obj: ti.template(), obj_attr: ti.template()):
+    for i in range(obj.info.stack_top[None]):
+        obj_attr[i] = 0
+
+
+@ti.kernel
+def clean_attr_mat(obj: ti.template(), obj_attr: ti.template()):
+    for i in range(obj.info.stack_top[None]):
+        for n, m in ti.static(range(obj_attr.n, obj_attr.m)):
+            obj_attr[i][n, m] = 0
+
+
+@ti.kernel
+def set_attr(obj: ti.template(), obj_attr: ti.template(), val: ti.template()):
+    for i in range(obj.info.stack_top[None]):
+        obj_attr[i] = val

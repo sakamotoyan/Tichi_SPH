@@ -80,8 +80,6 @@ class SPH_kernel:
             exit(0)
         dim = ti.static(obj.basic.pos[0].n)
         sig = 0
-        print("dim is:")
-        print(dim)
         if dim == 3:
             sig = 8 / math.pi
         elif dim == 2:
