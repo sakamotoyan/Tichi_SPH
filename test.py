@@ -138,16 +138,16 @@ fluid.set_attr_arr(obj_attr=fluid.elastic_sph.pos_0, val_arr=fluid.basic.pos)
 fluid.neighb_search(config_neighb, config_space)
 bound.neighb_search(config_neighb, config_space)
 
-sph_kernel = SPH_kernel()
-sph_kernel.set_h(fluid, config_discre.part_size[None] * 2)
-sph_kernel.compute_sig(fluid)
-sph_elastic = ISPH_Elastic()
 
 clean_attr_val(fluid, fluid.sph.compression)
 clean_attr_mat(fluid, fluid.elastic_sph.F)
 clean_attr_mat(fluid, fluid.elastic_sph.L)
-clean_attr_mat(fluid, fluid.elastic_sph.I)
+clean_attr_mat(fluid, fluid.elastic_sph.R)
 
+
+sph_kernel = SPH_kernel()
+sph_kernel.set_h(fluid, config_discre.part_size[None] * 2)
+sph_kernel.compute_sig(fluid)
 sph_kernel.compute_W_const(
     obj=fluid,
     obj_output_attr=fluid.sph.compression,
@@ -164,21 +164,42 @@ sph_kernel.compute_W_const(
     nobj_input_attr=1,
     config_neighb=config_neighb,
 )
+
+
+sph_elastic = ISPH_Elastic()
 sph_elastic.compute_L(
     obj=fluid,
     obj_volume=fluid.basic.rest_volume,
-    obj_output_attr=fluid.elastic_sph.L,
+    obj_pos_0=fluid.elastic_sph.pos_0,
+    obj_output_L=fluid.elastic_sph.L,
     config_neighb=config_neighb,
 )
 sph_elastic.compute_F(
     obj=fluid,
     obj_volume=fluid.basic.rest_volume,
-    pos_0=fluid.elastic_sph.pos_0,
-    pos_now=fluid.basic.pos,
-    ker_correct_mat=fluid.elastic_sph.L,
-    obj_output_attr=fluid.elastic_sph.F,
+    obj_pos_0=fluid.elastic_sph.pos_0,
+    obj_pos_now=fluid.basic.pos,
+    obj_L=fluid.elastic_sph.L,
+    obj_output_F=fluid.elastic_sph.F,
     config_neighb=config_neighb,
 )
+sph_elastic.compute_R_pd(
+    obj=fluid,
+    obj_F=fluid.elastic_sph.F,
+    obj_output_R=fluid.elastic_sph.R,
+)
+clean_attr_mat(fluid, fluid.elastic_sph.F)
+sph_elastic.compute_F_star(
+    obj=fluid,
+    obj_volume=fluid.basic.rest_volume,
+    obj_pos_0=fluid.elastic_sph.pos_0,
+    obj_pos_now=fluid.basic.pos,
+    obj_R=fluid.elastic_sph.R,
+    obj_L=fluid.elastic_sph.L,
+    obj_output_F_star=fluid.elastic_sph.F,
+    config_neighb=config_neighb,
+)
+
 result = fluid.elastic_sph.F.to_numpy()[: fluid.info.stack_top[None]]
 np.set_printoptions(threshold=1e6)
 print(result)
@@ -237,3 +258,17 @@ print(result)
 # A[1] = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
 # inverse_mat(A, B)
 # print(B)
+
+
+# a = ti.Matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+# b = ti.Matrix.field(3, 3, ti.f32, (2,))
+
+
+# @ti.kernel
+# def pd(mat: ti.template()):
+#     print(ti.Vector.one(dt=ti.f32, n=4)) 
+
+
+# A = ti.Matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+# pd(A)
+# print(A)

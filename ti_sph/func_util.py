@@ -58,9 +58,11 @@ def clean_attr_val(obj: ti.template(), obj_attr: ti.template()):
 
 @ti.kernel
 def clean_attr_mat(obj: ti.template(), obj_attr: ti.template()):
+    # dim=ti.static(obj_attr[0].n)
+    # zero_mat = ti.Matrix.zero(dt=ti.f32,n=dim)
     for i in range(obj.info.stack_top[None]):
-        for n, m in ti.static(range(obj_attr.n, obj_attr.m)):
-            obj_attr[i][n, m] = 0
+        obj_attr[i]*=0
+        
 
 
 @ti.kernel
