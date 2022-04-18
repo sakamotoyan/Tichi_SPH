@@ -56,7 +56,18 @@ class Node:
         begin_index,
         pushed_node_num,
     ):
-        self.push_attr_k(obj_attr, attr, begin_index, pushed_node_num)
+        self.push_attr_ker(obj_attr, attr, begin_index, pushed_node_num)
+
+    @ti.kernel
+    def push_attr_ker(
+        self,
+        obj_attr: ti.template(),
+        attr: ti.template(),
+        begin_index: ti.i32,
+        pushed_node_num: ti.i32,
+    ):
+        for i in range(begin_index, pushed_node_num):
+            obj_attr[i] = attr
 
     def set_attr(
         self,
@@ -64,10 +75,10 @@ class Node:
         obj_attr,
         val,
     ):
-        self.set_attr_k(self, obj, obj_attr, val)
+        self.set_attr_ker(self, obj, obj_attr, val)
 
     @ti.kernel
-    def set_attr_k(
+    def set_attr_ker(
         self,
         obj_attr: ti.template(),
         val: ti.template(),
@@ -91,16 +102,13 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] = val_arr[i]
 
-    @ti.kernel
-    def push_attr_k(
+    def resize(
         self,
         obj_attr: ti.template(),
-        attr: ti.template(),
-        begin_index: ti.i32,
-        pushed_node_num: ti.i32,
+        val: ti.template(),
     ):
-        for i in range(begin_index, pushed_node_num):
-            obj_attr[i] = attr
+        for i in range(self.info.stack_top[None]):
+            obj_attr[i] = obj_attr[i] * val
 
     def push_pos_seq(
         self,
@@ -248,23 +256,86 @@ class Node:
                 )
                 self.located_cell.part_log[seq] = i
 
-
-@ti.kernel
-def test(
-    obj: ti.template(),
-    nobj: ti.template(),
-    config_neighb: ti.template(),
-    i: ti.i32,
-):
-    cell_vec = ti.static(obj.located_cell.vec)
-    for cell_tpl in range(config_neighb.search_template.shape[0]):
-        cell_coded = (cell_vec[i] + config_neighb.search_template[cell_tpl]).dot(
-            config_neighb.cell_coder[None]
+    def update_acc(
+        self,
+        obj_force,
+    ):
+        self.update_acc_ker(
+            self,
+            self.basic.mass,
+            obj_force,
+            self.basic.acc,
         )
-        if 0 < cell_coded < config_neighb.cell_num[None]:
-            for j in range(nobj.cell.part_count[cell_coded]):
-                shift = nobj.cell.part_shift[cell_coded] + j
-                nid = nobj.located_cell.part_log[shift]
-                # ops
-                nobj.color.vec[nid] = [0, 0, 1]
-    obj.color.vec[i] = [1, 0, 0]
+
+    @ti.kernel
+    def update_acc_ker(
+        self,
+        obj: ti.template(),
+        obj_mass: ti.template(),
+        obj_force: ti.template(),
+        obj_output_acc: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_output_acc[i] += obj_force[i] / obj_mass[i]
+
+    def update_vel(
+        self,
+        dt,
+    ):
+        self.update_vel_ker(
+            self,
+            dt,
+            self.basic.acc,
+            self.basic.vel,
+        )
+
+    @ti.kernel
+    def update_vel_ker(
+        self,
+        obj: ti.template(),
+        dt: ti.f32,
+        obj_acc: ti.template(),
+        obj_output_vel: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_output_vel[i] += obj_acc[i] * dt
+
+    def update_pos(self, dt):
+        self.update_pos_ker(
+            self,
+            dt,
+            self.basic.vel,
+            self.basic.pos,
+        )
+
+    @ti.kernel
+    def update_pos_ker(
+        self,
+        obj: ti.template(),
+        dt: ti.f32,
+        obj_vel: ti.template(),
+        obj_output_pos: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_output_pos[i] += obj_vel[i] * dt
+
+
+# @ti.kernel
+# def test(
+#     obj: ti.template(),
+#     nobj: ti.template(),
+#     config_neighb: ti.template(),
+#     i: ti.i32,
+# ):
+#     cell_vec = ti.static(obj.located_cell.vec)
+#     for cell_tpl in range(config_neighb.search_template.shape[0]):
+#         cell_coded = (cell_vec[i] + config_neighb.search_template[cell_tpl]).dot(
+#             config_neighb.cell_coder[None]
+#         )
+#         if 0 < cell_coded < config_neighb.cell_num[None]:
+#             for j in range(nobj.cell.part_count[cell_coded]):
+#                 shift = nobj.cell.part_shift[cell_coded] + j
+#                 nid = nobj.located_cell.part_log[shift]
+#                 # ops
+#                 nobj.color.vec[nid] = [0, 0, 1]
+#     obj.color.vec[i] = [1, 0, 0]
