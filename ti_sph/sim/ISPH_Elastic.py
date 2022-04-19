@@ -26,51 +26,60 @@ class ISPH_Elastic:
     # Eqn.3
     def compute_F(
         self,
+        obj_sph,
         obj_volume,
         obj_pos_0,
         obj_pos_now,
         obj_L,
         obj_output_F,
         config_neighb,
+        neighb_cell,
+        obj_located_cell,
     ):
         self.compute_F_ker(
             self.obj,
+            obj_sph,
             obj_volume,
             obj_pos_0,
             obj_pos_now,
             obj_L,
             obj_output_F,
             config_neighb,
+            neighb_cell,
+            obj_located_cell,
         )
 
     @ti.kernel
     def compute_F_ker(
         self,
         obj: ti.template(),
+        obj_sph: ti.template(),
         obj_volume: ti.template(),
         obj_pos_0: ti.template(),
         obj_pos_now: ti.template(),
         obj_L: ti.template(),
         obj_output_F: ti.template(),
         config_neighb: ti.template(),
+        neighb_cell: ti.template(),
+        obj_located_cell: ti.template(),
     ):
-        cell_vec = ti.static(obj.located_cell.vec)
+        cell_vec = ti.static(obj_located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(obj.cell.part_count[cell_coded]):
-                        shift = obj.cell.part_shift[cell_coded] + j
-                        nid = obj.located_cell.part_log[shift]
+                    for j in range(neighb_cell.part_count[cell_coded]):
+                        shift = neighb_cell.part_shift[cell_coded] + j
+                        nid = obj_located_cell.part_log[shift]
                         if not nid == i:
                             # compute down below
                             x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
                             x_ji_now = obj_pos_now[nid] - obj_pos_now[i]
                             dis_0 = distance_2(x_ji_0)
                             grad_W_vec = obj_L[i] @ (
-                                grad_spline_W(dis_0, obj.sph.h[i], obj.sph.sig[i])
+                                grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
                                 * (-x_ji_0)
                                 / dis_0
                             )
@@ -81,17 +90,23 @@ class ISPH_Elastic:
     # Eqn.1
     def compute_L(
         self,
+        obj_sph,
         obj_volume,
         obj_pos_0,
         obj_output_L,
         config_neighb,
+        neighb_cell,
+        obj_located_cell,
     ):
         self.compute_L_ker(
             self.obj,
+            obj_sph,
             obj_volume,
             obj_pos_0,
             obj_output_L,
             config_neighb,
+            neighb_cell,
+            obj_located_cell,
         )
         L = obj_output_L.to_numpy()
         inv = np.linalg.pinv(L[: self.obj.info.stack_top[None]])
@@ -102,27 +117,30 @@ class ISPH_Elastic:
     def compute_L_ker(
         self,
         obj: ti.template(),
+        obj_sph: ti.template(),
         obj_volume: ti.template(),
         obj_pos_0: ti.template(),
         obj_output_L: ti.template(),
         config_neighb: ti.template(),
+        neighb_cell: ti.template(),
+        obj_located_cell: ti.template(),
     ):
-        cell_vec = ti.static(obj.located_cell.vec)
+        cell_vec = ti.static(obj_located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(obj.cell.part_count[cell_coded]):
-                        shift = obj.cell.part_shift[cell_coded] + j
-                        nid = obj.located_cell.part_log[shift]
+                    for j in range(neighb_cell.part_count[cell_coded]):
+                        shift = neighb_cell.part_shift[cell_coded] + j
+                        nid = obj_located_cell.part_log[shift]
                         if not nid == i:
                             # compute down below
                             x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
                             dis_0 = distance_2(x_ji_0)
                             grad_W_vec = (
-                                grad_spline_W(dis_0, obj.sph.h[i], obj.sph.sig[i])
+                                grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
                                 * (-x_ji_0)
                                 / dis_0
                             )
@@ -150,6 +168,7 @@ class ISPH_Elastic:
     # Eqn.5
     def compute_F_star(
         self,
+        obj_sph,
         obj_volume,
         obj_pos_0,
         obj_pos_now,
@@ -157,9 +176,12 @@ class ISPH_Elastic:
         obj_L,
         obj_output_F_star,
         config_neighb,
+        neighb_cell,
+        obj_located_cell,
     ):
         self.compute_F_star_ker(
             self.obj,
+            obj_sph,
             obj_volume,
             obj_pos_0,
             obj_pos_now,
@@ -167,12 +189,15 @@ class ISPH_Elastic:
             obj_L,
             obj_output_F_star,
             config_neighb,
+            neighb_cell,
+            obj_located_cell,
         )
 
     @ti.kernel
     def compute_F_star_ker(
         self,
         obj: ti.template(),
+        obj_sph: ti.template(),
         obj_volume: ti.template(),
         obj_pos_0: ti.template(),
         obj_pos_now: ti.template(),
@@ -180,19 +205,21 @@ class ISPH_Elastic:
         obj_L: ti.template(),
         obj_output_F_star: ti.template(),
         config_neighb: ti.template(),
+        neighb_cell: ti.template(),
+        obj_located_cell: ti.template(),
     ):
         dim = ti.static(obj.basic.pos[0].n)
         I = ti.Matrix.identity(dt=ti.f32, n=dim)
-        cell_vec = ti.static(obj.located_cell.vec)
+        cell_vec = ti.static(obj_located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(obj.cell.part_count[cell_coded]):
-                        shift = obj.cell.part_shift[cell_coded] + j
-                        nid = obj.located_cell.part_log[shift]
+                    for j in range(neighb_cell.part_count[cell_coded]):
+                        shift = neighb_cell.part_shift[cell_coded] + j
+                        nid = obj_located_cell.part_log[shift]
                         if not nid == i:
                             # compute down below
                             x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
@@ -202,7 +229,7 @@ class ISPH_Elastic:
                                 obj_R[i]
                                 @ obj_L[i]
                                 @ (
-                                    grad_spline_W(dis_0, obj.sph.h[i], obj.sph.sig[i])
+                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
                                     * (-x_ji_0)
                                     / dis_0
                                 )
@@ -260,6 +287,7 @@ class ISPH_Elastic:
 
     def compute_force(
         self,
+        obj_sph,
         obj_volume,
         obj_pos_0,
         obj_R,
@@ -267,9 +295,12 @@ class ISPH_Elastic:
         obj_P,
         obj_output_force,
         config_neighb,
+        neighb_cell,
+        obj_located_cell,
     ):
         self.compute_force_ker(
             self.obj,
+            obj_sph,
             obj_volume,
             obj_pos_0,
             obj_R,
@@ -277,12 +308,15 @@ class ISPH_Elastic:
             obj_P,
             obj_output_force,
             config_neighb,
+            neighb_cell,
+            obj_located_cell,
         )
 
     @ti.kernel
     def compute_force_ker(
         self,
         obj: ti.template(),
+        obj_sph: ti.template(),
         obj_volume: ti.template(),
         obj_pos_0: ti.template(),
         obj_R: ti.template(),
@@ -290,17 +324,19 @@ class ISPH_Elastic:
         obj_P: ti.template(),
         obj_output_force: ti.template(),
         config_neighb: ti.template(),
+        neighb_cell: ti.template(),
+        obj_located_cell: ti.template(),
     ):
-        cell_vec = ti.static(obj.located_cell.vec)
+        cell_vec = ti.static(obj_located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(obj.cell.part_count[cell_coded]):
-                        shift = obj.cell.part_shift[cell_coded] + j
-                        nid = obj.located_cell.part_log[shift]
+                    for j in range(neighb_cell.part_count[cell_coded]):
+                        shift = neighb_cell.part_shift[cell_coded] + j
+                        nid = obj_located_cell.part_log[shift]
                         if not nid == i:
                             # compute down below
                             x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
@@ -309,7 +345,7 @@ class ISPH_Elastic:
                                 obj_R[i]
                                 @ obj_L[i]
                                 @ (
-                                    grad_spline_W(dis_0, obj.sph.h[i], obj.sph.sig[i])
+                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
                                     * (-x_ji_0)
                                     / dis_0
                                 )
@@ -319,7 +355,7 @@ class ISPH_Elastic:
                                 @ obj_L[nid]
                                 @ (
                                     grad_spline_W(
-                                        dis_0, obj.sph.h[nid], obj.sph.sig[nid]
+                                        dis_0, obj_sph.h[nid], obj_sph.sig[nid]
                                     )
                                     * (x_ji_0)
                                     / dis_0

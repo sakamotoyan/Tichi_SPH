@@ -8,7 +8,7 @@ from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
 import math
 from ti_sph.sim.SPH_kernel import SPH_kernel
 
-ti.init(arch=ti.cuda, dynamic_index=True)
+ti.init(arch=ti.gpu, dynamic_index=True)
 
 
 """""" """ CONFIG """ """"""
@@ -179,23 +179,31 @@ sph_kernel.compute_W_const(
 """compute L"""
 clean_attr_mat(fluid, fluid.elastic_sph.L)
 sph_elastic.compute_L(
+    obj_sph=fluid.sph,
     obj_volume=fluid.basic.rest_volume,
     obj_pos_0=fluid.elastic_sph.pos_0,
     obj_output_L=fluid.elastic_sph.L,
     config_neighb=config_neighb,
+    obj_located_cell=fluid.located_cell,
+    neighb_cell=fluid.cell,
 )
+
+
 def loop():
     """compute compression"""
     clean_attr_arr(fluid, fluid.basic.acc)
     """compute F"""
     clean_attr_mat(fluid, fluid.elastic_sph.F)
     sph_elastic.compute_F(
+        obj_sph=fluid.sph,
         obj_volume=fluid.basic.rest_volume,
         obj_pos_0=fluid.elastic_sph.pos_0,
         obj_pos_now=fluid.basic.pos,
         obj_L=fluid.elastic_sph.L,
         obj_output_F=fluid.elastic_sph.F,
         config_neighb=config_neighb,
+        obj_located_cell=fluid.located_cell,
+        neighb_cell=fluid.cell,
     )
     """compute R"""
     sph_elastic.compute_R_pd(
@@ -205,6 +213,7 @@ def loop():
     """compute F_star"""
     clean_attr_mat(fluid, fluid.elastic_sph.F)
     sph_elastic.compute_F_star(
+        obj_sph=fluid.sph,
         obj_volume=fluid.basic.rest_volume,
         obj_pos_0=fluid.elastic_sph.pos_0,
         obj_pos_now=fluid.basic.pos,
@@ -212,6 +221,8 @@ def loop():
         obj_L=fluid.elastic_sph.L,
         obj_output_F_star=fluid.elastic_sph.F,
         config_neighb=config_neighb,
+        obj_located_cell=fluid.located_cell,
+        neighb_cell=fluid.cell,
     )
     """compute epsilon"""
     sph_elastic.compute_eps(
@@ -226,6 +237,7 @@ def loop():
     """compute force"""
     clean_attr_arr(fluid, fluid.elastic_sph.force)
     sph_elastic.compute_force(
+        obj_sph=fluid.sph,
         obj_volume=fluid.basic.rest_volume,
         obj_pos_0=fluid.elastic_sph.pos_0,
         obj_R=fluid.elastic_sph.R,
@@ -233,6 +245,8 @@ def loop():
         obj_P=fluid.elastic_sph.P,
         obj_output_force=fluid.elastic_sph.force,
         config_neighb=config_neighb,
+        obj_located_cell=fluid.located_cell,
+        neighb_cell=fluid.cell,
     )
     """update acc"""
     fluid.update_acc(
@@ -255,13 +269,12 @@ def loop():
 gui = tsph.Gui(config.gui)
 gui.env_set_up()
 while gui.window.running:
-    if gui.op_system_run == True:
-        a = 1
+    # if gui.op_system_run == True:
+    loop()
     gui.monitor_listen()
     if gui.op_refresh_window:
         gui.scene_setup()
         gui.scene_add_parts(fluid, size=config_discre.part_size[None])
-        loop()
         # gui.scene_add_parts(bound, size=config_discre.part_size[None])
         gui.scene_render()
 
