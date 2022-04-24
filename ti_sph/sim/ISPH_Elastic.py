@@ -9,7 +9,7 @@ import numpy as np
 
 
 @ti.data_oriented
-class ISPH_Elastic:
+class ISPH_Elastic(SPH_kernel):
     def __init__(self, obj, K=2e5, G=2e5):
         if not "node_ISPH_Elastic" in obj.capacity_list:
             print("Exception for the construction of ISPH_Elastic():")
@@ -73,13 +73,13 @@ class ISPH_Elastic:
                     for j in range(neighb_cell.part_count[cell_coded]):
                         shift = neighb_cell.part_shift[cell_coded] + j
                         nid = obj_located_cell.part_log[shift]
-                        if not nid == i:
-                            # compute down below
-                            x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
+                        # compute down below
+                        x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
+                        dis_0 = x_ji_0.norm()
+                        if dis_0 > 1e-6:
                             x_ji_now = obj_pos_now[nid] - obj_pos_now[i]
-                            dis_0 = distance_2(x_ji_0)
                             grad_W_vec = obj_L[i] @ (
-                                grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
+                                grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i])
                                 * (-x_ji_0)
                                 / dis_0
                             )
@@ -135,12 +135,12 @@ class ISPH_Elastic:
                     for j in range(neighb_cell.part_count[cell_coded]):
                         shift = neighb_cell.part_shift[cell_coded] + j
                         nid = obj_located_cell.part_log[shift]
-                        if not nid == i:
-                            # compute down below
-                            x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
-                            dis_0 = distance_2(x_ji_0)
+                        # compute down below
+                        x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
+                        dis_0 = x_ji_0.norm()
+                        if dis_0 > 1e-6:
                             grad_W_vec = (
-                                grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
+                                grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i])
                                 * (-x_ji_0)
                                 / dis_0
                             )
@@ -220,16 +220,16 @@ class ISPH_Elastic:
                     for j in range(neighb_cell.part_count[cell_coded]):
                         shift = neighb_cell.part_shift[cell_coded] + j
                         nid = obj_located_cell.part_log[shift]
-                        if not nid == i:
-                            # compute down below
-                            x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
+                        # compute down below
+                        x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
+                        dis_0 = x_ji_0.norm()
+                        if dis_0 > 1e-6:
                             x_ji_now = obj_pos_now[nid] - obj_pos_now[i]
-                            dis_0 = distance_2(x_ji_0)
                             grad_W_vec = (
                                 obj_R[i]
                                 @ obj_L[i]
                                 @ (
-                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
+                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i])
                                     * (-x_ji_0)
                                     / dis_0
                                 )
@@ -337,15 +337,15 @@ class ISPH_Elastic:
                     for j in range(neighb_cell.part_count[cell_coded]):
                         shift = neighb_cell.part_shift[cell_coded] + j
                         nid = obj_located_cell.part_log[shift]
-                        if not nid == i:
-                            # compute down below
-                            x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
-                            dis_0 = distance_2(x_ji_0)
+                        # compute down below
+                        x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
+                        dis_0 = x_ji_0.norm()
+                        if dis_0 > 1e-6:
                             grad_W_vec_i = (
                                 obj_R[i]
                                 @ obj_L[i]
                                 @ (
-                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig[i])
+                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i])
                                     * (-x_ji_0)
                                     / dis_0
                                 )
@@ -355,7 +355,7 @@ class ISPH_Elastic:
                                 @ obj_L[nid]
                                 @ (
                                     grad_spline_W(
-                                        dis_0, obj_sph.h[nid], obj_sph.sig[nid]
+                                        dis_0, obj_sph.h[nid], obj_sph.sig_inv_h[nid]
                                     )
                                     * (x_ji_0)
                                     / dis_0

@@ -2,6 +2,7 @@ from plyfile import PlyData, PlyElement
 import numpy as np
 import os
 
+
 class Ply_writer:
     # file_name 为字符串，例如'pos.ply'这样的
     # save_path 为字符串，注意输入时末尾有没有 '\\' 或 '/' 都应可以，
@@ -13,7 +14,7 @@ class Ply_writer:
         self.attr_arr_stack_top = 0
         self.attr_arr_length = 0
         self.elements = []
-    
+
     # attr_name 应为字符串，如'dt' 'time_step' 'part_num'等
     def add_single_attr(self, attr_name, attr_val, dtype):
         self.single_attr_dtype.append((attr_name, dtype))
@@ -33,8 +34,10 @@ class Ply_writer:
     # 'pos' 需要特殊处理
     def push_attr_arr(self, attr_name, attr_arr, data_type) -> int:
         if self.attr_arr_stack_top == 0:
-            if not attr_name == 'pos':
-                print('EXCEPTION from func push_attr_arr(): the first attribute of an array for a Ply_writer object must be \'pos\'')
+            if not attr_name == "pos":
+                print(
+                    "EXCEPTION from func push_attr_arr(): the first attribute of an array for a Ply_writer object must be 'pos'"
+                )
                 exit(0)
 
         save_data = np.array([tuple(item) for item in attr_arr], dtype=data_type)
@@ -49,19 +52,25 @@ class Ply_writer:
     # 如产生问题，需反馈产生了什么问题
     def flush(self):
         if not os.path.exists(self.save_path):
-            print('EXCEPTION from func flush(): the directory \''+self.save_path+'\' does not exist')
+            print(
+                "EXCEPTION from func flush(): the directory '"
+                + self.save_path
+                + "' does not exist"
+            )
             exit(0)
 
-        PlyData(self.elements, text=True).write(os.path.join(self.save_path, self.file_name))
+        PlyData(self.elements, text=True).write(
+            os.path.join(self.save_path, self.file_name)
+        )
         self.elements.clear()
 
 
 def ply_write_test(file_name, save_path):
     writer = Ply_writer(file_name, save_path)
-    writer.add_single_attr('dt', 0.001, 'f4')
-    writer.add_single_attr('part_num', 4000, 'i4')
-    writer.add_single_attr('time_step', 0.5, 'f4')
-    writer.push_single_attr('simulation_info')
+    writer.add_single_attr("dt", 0.001, "f4")
+    writer.add_single_attr("part_num", 4000, "i4")
+    writer.add_single_attr("time_step", 0.5, "f4")
+    writer.push_single_attr("simulation_info")
 
     a = np.array([[1, 2], [2, 2], [3, 3]])
     b = np.array([[2, 2, 3], [2, 2, 3], [3, 3, 3]])
@@ -78,3 +87,8 @@ def ply_write_test(file_name, save_path):
     writer.push_attr_arr('volume_frac', b, volume_frac_dtype)
 
     writer.flush()
+
+
+save_path = "C:\\Users\\xuyan\\Desktop\\ma"
+file_name = "1.ply"
+ply_write_test(file_name=file_name, save_path=save_path)

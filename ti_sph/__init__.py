@@ -4,10 +4,10 @@ from .func_spline_kernel import *
 from .func_color import *
 from .func_fileIO import *
 from .class_gui import *
-from .class_config import *
-from .class_node import *
+from .data_struct.Config import *
+from .data_struct.Node import *
 from .kernel_sph import *
-from .constructor import *
+from .data_struct import Node, Neighb_Cell, Config
 
 from .data_IO import *
 from .sim import *
