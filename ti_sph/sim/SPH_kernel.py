@@ -1,8 +1,6 @@
 import taichi as ti
 import math
 
-from ti_sph.func_util import distance_1, distance_2
-
 # FROM: Eqn.(2) of the paper "Versatile Surface Tension and Adhesion for SPH Fluids"
 # REF: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.462.8293&rep=rep1&type=pdf
 # NOTE: this func is insensitive to the $dim$
@@ -88,6 +86,19 @@ def artificial_Laplacian_spline_W(
     r, grad_W, dim, V_j, x_ij: ti.template(), A_ij: ti.template()
 ):
     return 2 * (2 + dim) * V_j * grad_W * (x_ij) * A_ij.dot(x_ij) / (r**3)
+
+
+@ti.func
+def bigger_than_zero(val:ti.template()):
+    if_bigger_than_zero = False
+    if val > 1e-6:
+        if_bigger_than_zero = True
+    return if_bigger_than_zero
+
+
+@ti.func
+def make_bigger_than_zero():
+    return 1e-6
 
 
 @ti.data_oriented
@@ -453,3 +464,18 @@ class SPH_kernel:
         self.set_h(obj, obj_output_h, h)
         self.compute_sig(obj, obj_output_sig)
         self.compute_sig_inv_h(obj, obj_output_sig, obj_output_h, obj_output_sig_inv_h)
+
+
+# @ti.kernel
+# def test(val: ti.template()):
+#     if not bigger_than_zero(val[0]):
+#         print("less than 1e-6")
+#         val[0] = make_bigger_than_zero()
+
+
+# ti.init()
+# a = ti.field(ti.f32, (2))
+# a[0] = 1e-8
+# print("before a is: " + str(a[0]))
+# test(a)
+# print("now a is: " + str(a[0]))

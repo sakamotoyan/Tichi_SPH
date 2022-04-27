@@ -7,6 +7,8 @@ import taichi as ti
 
 from ti_sph.sim.SPH_kernel import (
     SPH_kernel,
+    bigger_than_zero,
+    make_bigger_than_zero,
     spline_W,
     spline_W_old,
     grad_spline_W,
@@ -137,7 +139,7 @@ class DFSPH(SPH_kernel):
                                 / dis
                             )
                             obj_output_alpha_1[i] += nobj_X[nid] * grad_W_vec
-    
+
     @ti.kernel
     def compute_alpha_2_ker(
         self,
@@ -150,3 +152,35 @@ class DFSPH(SPH_kernel):
         obj_output_alpha_2: ti.template(),
         config_neighb: ti.template(),
     ):
+        cell_vec = ti.static(obj.located_cell.vec)
+        for i in range(obj.info.stack_top[None]):
+            for cell_tpl in range(config_neighb.search_template.shape[0]):
+                cell_coded = (
+                    cell_vec[i] + config_neighb.search_template[cell_tpl]
+                ).dot(config_neighb.cell_coder[None])
+                if 0 < cell_coded < config_neighb.cell_num[None]:
+                    for j in range(nobj.cell.part_count[cell_coded]):
+                        shift = nobj.cell.part_shift[cell_coded] + j
+                        nid = nobj.located_cell.part_log[shift]
+                        """compute below"""
+                        x_ij = obj_pos[i] - nobj_pos[nid]
+                        dis = x_ij.norm()
+                        if dis > 1e-6:
+                            grad_W = (dis, obj.sph.h[i], obj.sph.sig_inv_h[i])
+                            obj_output_alpha_2[i] += (
+                                nobj_X[nid] * grad_W
+                            ) ** 2 / nobj_mass[nid]
+
+    @ti.kernel
+    def compute_alpha_ker(
+        self,
+        obj: ti.template(),
+        obj_mass: ti.template(),
+        obj_alpha_1: ti.template(),
+        obj_alpha_2: ti.template(),
+        obj_output_alpha: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_output_alpha[i] = (obj_alpha_1[i].dot(obj_alpha_1[i]) / obj_mass[i]) + obj_alpha_2[i]
+            if not bigger_than_zero(obj_output_alpha[i]):
+                make_bigger_than_zero(obj_output_alpha[i])

@@ -6,7 +6,7 @@ from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
 from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
 import math
 
-ti.init(arch=ti.cuda)
+ti.init(arch=ti.vulkan)
 
 
 """""" """ CONFIG """ """"""

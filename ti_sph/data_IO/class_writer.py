@@ -89,6 +89,3 @@ def ply_write_test(file_name, save_path):
     writer.flush()
 
 
-save_path = "C:\\Users\\xuyan\\Desktop\\ma"
-file_name = "1.ply"
-ply_write_test(file_name=file_name, save_path=save_path)
