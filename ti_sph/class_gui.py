@@ -3,10 +3,18 @@ import numpy as np
 
 
 @ti.kernel
-def pos_normalizer(num: ti.template(), global_pos: ti.template(), pos_lb: ti.template(), pos_rt: ti.template(), output_normalized_pos: ti.template()):
+def pos_normalizer(
+    num: ti.template(),
+    global_pos: ti.template(),
+    pos_lb: ti.template(),
+    pos_rt: ti.template(),
+    output_normalized_pos: ti.template(),
+):
     for i in range(num[None]):
-        output_normalized_pos[i] = (
-            global_pos[i] - pos_lb[None]) / (pos_rt[None] - pos_lb[None])
+        output_normalized_pos[i] = (global_pos[i] - pos_lb[None]) / (
+            pos_rt[None] - pos_lb[None]
+        )
+
 
 # UNDONE AND USELESS
 # @ti.kernel
@@ -14,27 +22,48 @@ def pos_normalizer(num: ti.template(), global_pos: ti.template(), pos_lb: ti.tem
 #     output_normalized_part_size = part_size[None] / (pos_lb[None] - pos_rt[None]) * gui_res[None] * relaxing_factor[None]
 
 
-class Gui():
+class Gui:
     def __init__(self, config_gui):
         self.window = ti.ui.Window(
-            "Fluid Simulation", (config_gui.res[None][0], config_gui.res[None][1]), vsync=True)
-        self.canvas = self.window.get_canvas()
-        self.scene = ti.ui.Scene()
-        self.camera = ti.ui.make_camera()
-        self.camera.position(
-            config_gui.cam_pos[None][0], config_gui.cam_pos[None][1], config_gui.cam_pos[None][2])
-        self.camera.lookat(
-            config_gui.cam_look[None][0], config_gui.cam_look[None][1], config_gui.cam_look[None][2])
-        self.camera.fov(55)
+            "Fluid Simulation",
+            (config_gui.res[None][0], config_gui.res[None][1]),
+            # vsync=True,
+        )
+        self.canvas = None
+        self.scene = None
+        self.camera = None
+
+        self.camera_fov = 55
+        self.camera_pos = (
+            config_gui.cam_pos[None][0],
+            config_gui.cam_pos[None][1],
+            config_gui.cam_pos[None][2],
+        )
+        self.camera_lookat = (
+            config_gui.cam_look[None][0],
+            config_gui.cam_look[None][1],
+            config_gui.cam_look[None][2],
+        )
         self.canvas_color = (
-            (config_gui.canvas_color[None][0], config_gui.canvas_color[None][1], config_gui.canvas_color[None][2]))
+            config_gui.canvas_color[None][0],
+            config_gui.canvas_color[None][1],
+            config_gui.canvas_color[None][2],
+        )
         self.ambient_color = (
-            config_gui.ambient_light_color[None][0], config_gui.ambient_light_color[None][1], config_gui.ambient_light_color[None][2])
+            config_gui.ambient_light_color[None][0],
+            config_gui.ambient_light_color[None][1],
+            config_gui.ambient_light_color[None][2],
+        )
         self.point_light_pos = (
-            config_gui.point_light_pos[None][0], config_gui.point_light_pos[None][1], config_gui.point_light_pos[None][2])
+            config_gui.point_light_pos[None][0],
+            config_gui.point_light_pos[None][1],
+            config_gui.point_light_pos[None][2],
+        )
         self.point_light_color = (
-            config_gui.point_light_color[None][0], config_gui.point_light_color[None][1], config_gui.point_light_color[None][2])
-        # self.dispaly_radius = config.part_size[1] * 0.5
+            config_gui.point_light_color[None][0],
+            config_gui.point_light_color[None][1],
+            config_gui.point_light_color[None][2],
+        )
 
         # Toggles
         self.show_bound = False
@@ -46,7 +75,8 @@ class Gui():
 
     def monitor_listen(self):
         self.camera.track_user_inputs(
-            self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
+            self.window, movement_speed=0.03, hold_key=ti.ui.RMB
+        )
 
         if self.show_help:
             self.window.GUI.begin("options", 0.05, 0.3, 0.2, 0.2)
@@ -64,52 +94,69 @@ class Gui():
 
         if self.window.get_event(ti.ui.PRESS):
             # run
-            if self.window.event.key == 'r':
+            if self.window.event.key == "r":
                 self.op_system_run = not self.op_system_run
                 print("start to run:", self.op_system_run)
 
-            if self.window.event.key == 'f':
+            if self.window.event.key == "f":
                 self.op_write_file = not self.op_write_file
                 print("write file:", self.op_write_file)
 
-            if self.window.event.key == 'b':
+            if self.window.event.key == "b":
                 self.show_bound = not self.show_bound
                 print("show boundary:", self.show_bound)
 
-            if self.window.event.key == 'i':
+            if self.window.event.key == "i":
                 self.show_run_info = not self.show_run_info
                 print("show run information:", self.show_run_info)
 
-            if self.window.event.key == 'h':
+            if self.window.event.key == "h":
                 self.show_help = not self.show_help
                 print("show help:", self.show_help)
 
-            if self.window.event.key == 'c':
+            if self.window.event.key == "c":
                 self.op_refresh_window = not self.op_refresh_window
                 print("refresh window:", self.op_refresh_window)
 
     def env_set_up(self):
+        self.canvas = self.window.get_canvas()
+        self.scene = ti.ui.Scene()
+        self.camera = ti.ui.make_camera()
+
         self.canvas.set_background_color(self.canvas_color)
+        self.camera.fov(self.camera_fov)
+        self.camera.position(
+            self.camera_pos[0],
+            self.camera_pos[1],
+            self.camera_pos[2],
+        )
+        self.camera.lookat(
+            self.camera_lookat[0],
+            self.camera_lookat[1],
+            self.camera_lookat[2],
+        )
 
     def scene_setup(self):
         self.scene.set_camera(self.camera)
         self.scene.ambient_light(self.ambient_color)
-        self.scene.point_light(
-            pos=self.point_light_pos, color=self.point_light_color)
+        self.scene.point_light(pos=self.point_light_pos, color=self.point_light_color)
 
     def scene_add_parts(self, obj, size):
         truncate_pos(obj)
         self.scene.particles(
-            obj.basic.pos, per_vertex_color=obj.color.vec, radius=size/2)
+            obj.basic.pos, per_vertex_color=obj.color.vec, radius=size / 2
+        )
 
     def scene_render(self):
         self.canvas.scene(self.scene)  # Render the scene
         self.window.show()
 
+
 @ti.kernel
 def truncate_pos(obj: ti.template()):
-    for i in range(obj.info.node_num[None]-obj.info.stack_top[None]):
-        obj.basic.pos[obj.info.node_num[None]-i-1][0] = 25535
+    for i in range(obj.info.node_num[None] - obj.info.stack_top[None]):
+        obj.basic.pos[obj.info.node_num[None] - i - 1][0] = 25535
+
 
 # def ti2numpy_color(num, obj_color):
 #     return obj_color.to_numpy()[:num]
@@ -128,6 +175,3 @@ def truncate_pos(obj: ti.template()):
 #     for i in range(obj.part_num[None], obj.max_part_num):
 #         obj.pos[i] = unused_pos[None]
 #         obj.gui_2d_pos[i] = unused_pos[None]
-
-
-

@@ -6,7 +6,7 @@ from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
 from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
 import math
 
-ti.init(arch=ti.vulkan)
+ti.init(arch=ti.cuda)
 
 
 """""" """ CONFIG """ """"""
@@ -264,13 +264,15 @@ def loop():
 # path = tsph.trim_path_dir(".\\data\\result")
 # np.savetxt(path, result)
 
+# window = ti.ui.Window("Fluid Simulation", (640, 480))
 # GUI
 gui = tsph.Gui(config_gui)
 gui.env_set_up()
+
 while gui.window.running:
-    # if gui.op_system_run == True:
-    loop()
     gui.monitor_listen()
+    if gui.op_system_run == True:
+        loop()
     if gui.op_refresh_window:
         gui.scene_setup()
         gui.scene_add_parts(fluid, size=config_discre.part_size[None])
