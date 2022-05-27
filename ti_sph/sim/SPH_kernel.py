@@ -89,7 +89,7 @@ def artificial_Laplacian_spline_W(
 
 
 @ti.func
-def bigger_than_zero(val:ti.template()):
+def bigger_than_zero(val: ti.template()):
     if_bigger_than_zero = False
     if val > 1e-6:
         if_bigger_than_zero = True
@@ -106,26 +106,8 @@ class SPH_kernel:
     def __init__(self):
         pass
 
-    def compute_W(
-        self,
-        obj,
-        nobj,
-        nobj_volume,
-        nobj_input_attr,
-        obj_output_attr,
-        config_neighb,
-    ):
-        self.compute_W_ker(
-            obj,
-            nobj,
-            nobj_volume,
-            nobj_input_attr,
-            obj_output_attr,
-            config_neighb,
-        )
-
     @ti.kernel
-    def compute_W_ker(
+    def compute_W(
         self,
         obj: ti.template(),
         nobj: ti.template(),
@@ -152,26 +134,8 @@ class SPH_kernel:
                             * spline_W(dis, obj.sph.h[i], obj.sph.sig[i])
                         )
 
-    def compute_W_grad(
-        self,
-        obj,
-        nobj,
-        nobj_volume,
-        nobj_input_attr,
-        obj_output_attr,
-        config_neighb,
-    ):
-        self.compute_W_grad_ker(
-            obj,
-            nobj,
-            nobj_volume,
-            nobj_input_attr,
-            obj_output_attr,
-            config_neighb,
-        )
-
     @ti.kernel
-    def compute_W_grad_ker(
+    def compute_W_grad(
         self,
         obj: ti.template(),
         nobj: ti.template(),
@@ -203,28 +167,8 @@ class SPH_kernel:
                                 nobj_input_attr[nid] * nobj_volume[nid] * grad_W_vec
                             )
 
-    def compute_W_grad_diff(
-        self,
-        obj,
-        nobj,
-        nobj_volume,
-        obj_input_attr,
-        nobj_input_attr,
-        obj_output_attr,
-        config_neighb,
-    ):
-        self.compute_W_grand_diff_ker(
-            obj,
-            nobj,
-            nobj_volume,
-            obj_input_attr,
-            nobj_input_attr,
-            obj_output_attr,
-            config_neighb,
-        )
-
     @ti.kernel
-    def compute_W_grand_diff_ker(
+    def compute_W_grand_diff(
         self,
         obj: ti.template(),
         nobj: ti.template(),
@@ -259,28 +203,8 @@ class SPH_kernel:
                                 * grad_W_vec
                             )
 
-    def compute_W_grad_sum(
-        self,
-        obj,
-        nobj,
-        nobj_volume,
-        obj_input_attr,
-        nobj_input_attr,
-        obj_output_attr,
-        config_neighb,
-    ):
-        self.compute_W_grand_sum_ker(
-            obj,
-            nobj,
-            nobj_volume,
-            obj_input_attr,
-            nobj_input_attr,
-            obj_output_attr,
-            config_neighb,
-        )
-
     @ti.kernel
-    def compute_W_grand_sum_ker(
+    def compute_W_grand_sum(
         self,
         obj: ti.template(),
         nobj: ti.template(),
@@ -315,34 +239,8 @@ class SPH_kernel:
                                 * grad_W_vec
                             )
 
-    def compute_Laplacian(
-        self,
-        obj,
-        obj_pos,
-        nobj,
-        nobj_pos,
-        nobj_volume,
-        obj_input_attr,
-        nobj_input_attr,
-        coeff,
-        obj_output_attr,
-        config_neighb,
-    ):
-        self.compute_Laplacian_ker(
-            obj,
-            obj_pos,
-            nobj,
-            nobj_pos,
-            nobj_volume,
-            obj_input_attr,
-            nobj_input_attr,
-            coeff,
-            obj_output_attr,
-            config_neighb,
-        )
-
     @ti.kernel
-    def compute_Laplacian_ker(
+    def compute_Laplacian(
         self,
         obj: ti.template(),
         obj_pos: ti.template(),
@@ -383,20 +281,8 @@ class SPH_kernel:
                                 A_ij,
                             )
 
-    def set_h(
-        self,
-        obj,
-        obj_output_h,
-        h,
-    ):
-        self.set_h_ker(
-            obj,
-            obj_output_h,
-            h,
-        )
-
     @ti.kernel
-    def set_h_ker(
+    def set_h(
         self,
         obj: ti.template(),
         obj_output_h: ti.template(),
@@ -428,22 +314,8 @@ class SPH_kernel:
         for i in range(obj.info.stack_top[None]):
             obj_output_sig[i] = sig / ti.pow(obj.sph.h[i], dim)
 
-    def compute_sig_inv_h(
-        self,
-        obj,
-        obj_sig,
-        obj_h,
-        obj_output_sig_inv_h,
-    ):
-        self.compute_sig_inv_h_ker(
-            obj,
-            obj_sig,
-            obj_h,
-            obj_output_sig_inv_h,
-        )
-
     @ti.kernel
-    def compute_sig_inv_h_ker(
+    def compute_sig_inv_h(
         self,
         obj: ti.template(),
         obj_sig: ti.template(),

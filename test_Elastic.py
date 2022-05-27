@@ -13,11 +13,13 @@ ti.init(arch=ti.cuda)
 # CONFIG
 config_capacity = ["info_space", "info_discretization", "info_sim", "info_gui"]
 config = tsph.Config(dim=3, capacity_list=config_capacity)
+
 # space
 config_space = ti.static(config.space)
 config_space.dim[None] = 3
 config_space.lb[None] = [-8, -8, -8]
 config_space.rt[None] = [8, 8, 8]
+
 # discretization
 config_discre = ti.static(config.discre)
 config_discre.part_size[None] = 0.1
@@ -28,6 +30,7 @@ config_discre.dt[None] = tsph.fixed_dt(
     config_discre.part_size[None],
     config_discre.cfl_factor[None],
 )
+
 # gui
 config_gui = ti.static(config.gui)
 config_gui.res[None] = [1920, 1080]
@@ -61,7 +64,7 @@ fluid_capacity = [
 fluid = tsph.Node(
     dim=config_space.dim[None],
     id=0,
-    node_num=int(1e5),
+    node_num=int(1e6),
     neighb_cell_num=config_neighb.cell_num[None],
     capacity_list=fluid_capacity,
 )
@@ -70,7 +73,7 @@ fluid_node_num = fluid.push_cube(
     ti.Vector([1, 0.9, 1]),
     config_discre.part_size[None],
 )
-fluid.set_attr_arr(obj_attr=fluid.elastic_sph.pos_0, val_arr=fluid.basic.pos)
+fluid.attr_set_arr(obj_attr=fluid.elastic_sph.pos_0, val_arr=fluid.basic.pos)
 fluid.push_attr(
     obj_attr=fluid.basic.size,
     attr=config_discre.part_size[None],
@@ -112,7 +115,7 @@ bound_capacity = [
 bound = tsph.Node(
     dim=config_space.dim[None],
     id=0,
-    node_num=int(1e5),
+    node_num=int(1e6),
     neighb_cell_num=config_neighb.cell_num[None],
     capacity_list=bound_capacity,
 )

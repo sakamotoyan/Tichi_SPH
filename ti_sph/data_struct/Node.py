@@ -49,31 +49,16 @@ class Node:
             for j in ti.static(range(dim)):
                 obj_attr[i_p][j] = attr_seq[i][j]
 
-    def clear(
-        self,
-        obj_attr,
-    ):
-        self.clear_ker(obj_attr)
-
     @ti.kernel
-    def clear_ker(
+    def clear(
         self,
         obj_attr: ti.template(),
     ):
         for i in range(self.info.stack_top[None]):
             obj_attr[i] *= 0
 
-    def push_attr(
-        self,
-        obj_attr,
-        attr,
-        begin_index,
-        pushed_node_num,
-    ):
-        self.push_attr_ker(obj_attr, attr, begin_index, pushed_node_num)
-
     @ti.kernel
-    def push_attr_ker(
+    def push_attr(
         self,
         obj_attr: ti.template(),
         attr: ti.template(),
@@ -83,38 +68,41 @@ class Node:
         for i in range(begin_index, pushed_node_num):
             obj_attr[i] = attr
 
-    def set_attr(
-        self,
-        obj,
-        obj_attr,
-        val,
-    ):
-        self.set_attr_ker(self, obj, obj_attr, val)
-
     @ti.kernel
-    def set_attr_ker(
+    def attr_set(
         self,
         obj_attr: ti.template(),
         val: ti.template(),
     ):
         for i in range(self.info.stack_top[None]):
-            obj_attr[i] = val
-
-    def set_attr_arr(
-        self,
-        obj_attr,
-        val_arr,
-    ):
-        self.set_attr_arr_ker(obj_attr, val_arr)
+            obj_attr[i] = val[None]
 
     @ti.kernel
-    def set_attr_arr_ker(
+    def attr_set_arr(
         self,
         obj_attr: ti.template(),
         val_arr: ti.template(),
     ):
         for i in range(self.info.stack_top[None]):
             obj_attr[i] = val_arr[i]
+
+    @ti.kernel
+    def attr_add(
+        self,
+        obj_attr: ti.template(),
+        val: ti.template(),
+    ):
+        for i in range(self.info.stack_top[None]):
+            obj_attr[i] += val[None]
+
+    @ti.kernel
+    def attr_add_arr(
+        self,
+        obj_attr: ti.template(),
+        val_arr: ti.template(),
+    ):
+        for i in range(self.info.stack_top[None]):
+            obj_attr[i] += val_arr[i]
 
     def resize(
         self,

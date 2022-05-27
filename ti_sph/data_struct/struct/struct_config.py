@@ -16,6 +16,7 @@ def struct_config_discretization():
     struct_config_discretization = ti.types.struct(
         part_size=ti.f32,
         dt=ti.f32,
+        inv_dt=ti.f32,
         cs=ti.f32,
         cfl_factor=ti.f32,
     )
@@ -33,10 +34,13 @@ def struct_config_neighb_search(dim):
     return struct_config_neighb_search.field(shape=())
 
 
+# info_construct()
+# "info_sim" -> sim
 def struct_config_sim(dim):
     struct_config_sim = ti.types.struct(
         gravity=ti.types.vector(dim, ti.f32),
         fluid_dynamic_vis=ti.f32,
+        fluid_kinematic_vis=ti.f32,
     )
     return struct_config_sim.field(shape=())
 

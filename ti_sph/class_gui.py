@@ -27,7 +27,7 @@ class Gui:
         self.window = ti.ui.Window(
             "Fluid Simulation",
             (config_gui.res[None][0], config_gui.res[None][1]),
-            # vsync=True,
+            vsync=True,
         )
         self.canvas = None
         self.scene = None

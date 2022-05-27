@@ -7,7 +7,7 @@ from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
 from ti_sph.sim.DFSPH import DFSPH
 import math
 
-ti.init(arch=ti.cpu)
+ti.init(arch=ti.cuda)
 
 
 """""" """ CONFIG """ """"""
@@ -24,11 +24,19 @@ config_discre = ti.static(config.discre)
 config_discre.part_size[None] = 0.1
 config_discre.cs[None] = 220
 config_discre.cfl_factor[None] = 0.5
-config_discre.dt[None] = tsph.fixed_dt(
-    config_discre.cs[None],
-    config_discre.part_size[None],
-    config_discre.cfl_factor[None],
+config_discre.dt[None] = (
+    tsph.fixed_dt(
+        config_discre.cs[None],
+        config_discre.part_size[None],
+        config_discre.cfl_factor[None],
+    )
+    * 3
 )
+config_discre.inv_dt[None] = 1 / config_discre.dt[None]
+# sim
+config_sim = ti.static(config.sim)
+config_sim.gravity[None] = ti.Vector([0, -9.8, 0])
+config_sim.fluid_kinematic_vis[None] = 1e-3
 # gui
 config_gui = ti.static(config.gui)
 config_gui.res[None] = [1920, 1080]
@@ -55,7 +63,6 @@ fluid_capacity = [
     "node_basic",
     "node_color",
     "node_sph",
-    "node_ISPH_Elastic",
     "node_implicit_sph",
     "node_neighb_search",
 ]
@@ -71,7 +78,6 @@ fluid_node_num = fluid.push_cube(
     ti.Vector([1, 0.9, 1]),
     config_discre.part_size[None],
 )
-fluid.set_attr_arr(obj_attr=fluid.elastic_sph.pos_0, val_arr=fluid.basic.pos)
 fluid.push_attr(
     obj_attr=fluid.basic.size,
     attr=config_discre.part_size[None],
@@ -123,15 +129,28 @@ bound_node_num = bound.push_box(
     config_discre.part_size[None],
     2,
 )
+
 bound.push_attr(
-    bound.basic.rest_volume,
+    bound.basic.size,
     config_discre.part_size[None],
     bound.info.stack_top[None] - bound_node_num,
     bound_node_num,
 )
 bound.push_attr(
-    bound.basic.size,
+    bound.basic.rest_volume,
     config_discre.part_size[None] ** config_space.dim[None],
+    bound.info.stack_top[None] - bound_node_num,
+    bound_node_num,
+)
+bound.push_attr(
+    bound.basic.rest_density,
+    1000,
+    bound.info.stack_top[None] - bound_node_num,
+    bound_node_num,
+)
+bound.push_attr(
+    bound.basic.mass,
+    1000 * config_discre.part_size[None] ** config_space.dim[None],
     bound.info.stack_top[None] - bound_node_num,
     bound_node_num,
 )
@@ -169,36 +188,298 @@ bound_df_solver.compute_kernel(
 def loop():
 
     """neighb search"""
+    # fluid
     fluid.neighb_search(config_neighb, config_space)
+    # bound
     bound.neighb_search(config_neighb, config_space)
 
+    """clear value"""
+    # fluid
+    fluid.clear(fluid.implicit_sph.sph_density)
+    fluid.clear(fluid.implicit_sph.alpha_1)
+    fluid.clear(fluid.implicit_sph.alpha_2)
+    fluid.clear(fluid.implicit_sph.acc_adv)
+    fluid_df_solver.comp_iter_count[None] = 0
+    fluid_df_solver.div_iter_count[None] = 0
+    # bound
+    bound.clear(bound.implicit_sph.sph_density)
+    bound.clear(bound.implicit_sph.alpha_1)
+    bound.clear(bound.implicit_sph.alpha_2)
+
     """compute density"""
-    fluid.clear(fluid.implicit_sph.approximated_density)
-    fluid_df_solver.compute_density(
+    # fluid <- fluid
+    fluid_df_solver.compute_psi(
+        obj=fluid,
+        obj_pos=fluid.basic.pos,
+        nobj=fluid,
+        nobj_pos=fluid.basic.pos,
+        nobj_X=fluid.basic.mass,
+        obj_output_psi=fluid.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+    # fluid <- bound
+    fluid_df_solver.compute_psi(
+        obj=fluid,
+        obj_pos=fluid.basic.pos,
+        nobj=bound,
+        nobj_pos=bound.basic.pos,
+        nobj_X=bound.basic.mass,
+        obj_output_psi=fluid.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+    # bound <- bound
+    bound_df_solver.compute_psi(
+        obj=bound,
+        obj_pos=bound.basic.pos,
+        nobj=bound,
+        nobj_pos=bound.basic.pos,
+        nobj_X=bound.basic.mass,
+        obj_output_psi=bound.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+    # bound <- fluid
+    bound_df_solver.compute_psi(
+        obj=bound,
+        obj_pos=bound.basic.pos,
+        nobj=fluid,
+        nobj_pos=fluid.basic.pos,
+        nobj_X=fluid.basic.mass,
+        obj_output_psi=bound.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+
+    """compute alpha"""
+    # fluid <- fluid
+    fluid_df_solver.compute_alpha_1(
+        obj=fluid,
+        obj_pos=fluid.basic.pos,
+        nobj=fluid,
+        nobj_pos=fluid.basic.pos,
+        nobj_X=fluid.basic.mass,
+        obj_output_alpha_1=fluid.implicit_sph.alpha_1,
+        config_neighb=config_neighb,
+    )
+    # fluid <- bound
+    fluid_df_solver.compute_alpha_1(
+        obj=fluid,
+        obj_pos=fluid.basic.pos,
+        nobj=bound,
+        nobj_pos=bound.basic.pos,
+        nobj_X=bound.basic.mass,
+        obj_output_alpha_1=fluid.implicit_sph.alpha_1,
+        config_neighb=config_neighb,
+    )
+    # fluid <- fluid
+    fluid_df_solver.compute_alpha_2(
         obj=fluid,
         obj_pos=fluid.basic.pos,
         nobj=fluid,
         nobj_pos=fluid.basic.pos,
         nobj_mass=fluid.basic.mass,
-        obj_output_density=fluid.implicit_sph.approximated_density,
+        nobj_X=fluid.basic.mass,
+        obj_output_alpha_2=fluid.implicit_sph.alpha_2,
         config_neighb=config_neighb,
     )
+    # fluid
+    fluid_df_solver.compute_alpha(
+        obj=fluid,
+        obj_mass=fluid.basic.mass,
+        obj_alpha_1=fluid.implicit_sph.alpha_1,
+        obj_alpha_2=fluid.implicit_sph.alpha_2,
+        obj_output_alpha=fluid.implicit_sph.alpha,
+    )
+    # bound <- fluid
+    bound_df_solver.compute_alpha_2(
+        obj=bound,
+        obj_pos=bound.basic.pos,
+        nobj=fluid,
+        nobj_pos=fluid.basic.pos,
+        nobj_mass=fluid.basic.mass,
+        nobj_X=fluid.basic.mass,
+        obj_output_alpha_2=bound.implicit_sph.alpha_2,
+        config_neighb=config_neighb,
+    )
+    # bound
+    bound_df_solver.compute_alpha(
+        obj=bound,
+        obj_mass=bound.basic.mass,
+        obj_alpha_1=bound.implicit_sph.alpha_1,
+        obj_alpha_2=bound.implicit_sph.alpha_2,
+        obj_output_alpha=bound.implicit_sph.alpha,
+    )
+
+    # fluid
+    """compute vel_adv"""
+    # gravity
+    fluid.attr_add(
+        obj_attr=fluid.implicit_sph.acc_adv,
+        val=config_sim.gravity,
+    )
+    # viscosity fluid inside
+    fluid_df_solver.compute_Laplacian(
+        obj=fluid,
+        obj_pos=fluid.basic.pos,
+        nobj=fluid,
+        nobj_pos=fluid.basic.pos,
+        nobj_volume=fluid.basic.rest_volume,
+        obj_input_attr=fluid.basic.vel,
+        nobj_input_attr=fluid.basic.vel,
+        coeff=config_sim.fluid_kinematic_vis[None],
+        obj_output_attr=fluid.implicit_sph.acc_adv,
+        config_neighb=config_neighb,
+    )
+    # add velocity
+    fluid.attr_set_arr(
+        obj_attr=fluid.implicit_sph.vel_adv,
+        val_arr=fluid.basic.vel,
+    )
+    fluid_df_solver.time_integral(
+        obj=fluid,
+        obj_frac=fluid.implicit_sph.acc_adv,
+        dt=config_discre.dt[None],
+        obj_output_int=fluid.implicit_sph.vel_adv,
+    )
+
+    """incompressible solver"""
+    while fluid_df_solver.is_compressible():
+        fluid_df_solver.comp_iter_count[None] += 1
+
+        """compute delta density"""
+        # fluid
+        fluid_df_solver.compute_delta_psi(
+            obj=fluid,
+            obj_sph_psi=fluid.implicit_sph.sph_density,
+            obj_rest_psi=fluid.basic.rest_density,
+            obj_output_delta_psi=fluid.implicit_sph.delta_psi,
+        )
+        # bound
+        bound_df_solver.compute_delta_psi(
+            obj=bound,
+            obj_sph_psi=bound.implicit_sph.sph_density,
+            obj_rest_psi=bound.basic.rest_density,
+            obj_output_delta_psi=bound.implicit_sph.delta_psi,
+        )
+
+        # fluid <- fluid
+        fluid_df_solver.compute_adv_psi_advection(
+            obj=fluid,
+            obj_pos=fluid.basic.pos,
+            obj_vel_adv=fluid.implicit_sph.vel_adv,
+            nobj=fluid,
+            nobj_pos=fluid.basic.pos,
+            nobj_vel_adv=fluid.implicit_sph.vel_adv,
+            nobj_X=fluid.basic.mass,
+            dt=config_discre.dt[None],
+            obj_output_delta_psi=fluid.implicit_sph.delta_psi,
+            config_neighb=config_neighb,
+        )
+        # fluid <- bound
+        fluid_df_solver.compute_adv_psi_advection(
+            obj=fluid,
+            obj_pos=fluid.basic.pos,
+            obj_vel_adv=fluid.implicit_sph.vel_adv,
+            nobj=bound,
+            nobj_pos=bound.basic.pos,
+            nobj_vel_adv=bound.implicit_sph.vel_adv,
+            nobj_X=bound.basic.mass,
+            dt=config_discre.dt[None],
+            obj_output_delta_psi=fluid.implicit_sph.delta_psi,
+            config_neighb=config_neighb,
+        )
+        # bound <- fluid
+        bound_df_solver.compute_adv_psi_advection(
+            obj=bound,
+            obj_pos=bound.basic.pos,
+            obj_vel_adv=bound.implicit_sph.vel_adv,
+            nobj=fluid,
+            nobj_pos=fluid.basic.pos,
+            nobj_vel_adv=fluid.implicit_sph.vel_adv,
+            nobj_X=fluid.basic.mass,
+            dt=config_discre.dt[None],
+            obj_output_delta_psi=bound.implicit_sph.delta_psi,
+            config_neighb=config_neighb,
+        )
+
+        # fluid
+        fluid_df_solver.statistic_non_negative_delta_psi(
+            obj=fluid,
+            obj_rest_psi=fluid.basic.rest_density,
+            obj_output_delta_psi=fluid.implicit_sph.delta_psi,
+        )
+        # bound
+        bound_df_solver.statistic_non_negative_delta_psi(
+            obj=bound,
+            obj_rest_psi=bound.basic.rest_density,
+            obj_output_delta_psi=bound.implicit_sph.delta_psi,
+        )
+
+        # fluid <- fluid
+        fluid_df_solver.update_vel_adv(
+            obj=fluid,
+            obj_pos=fluid.basic.pos,
+            obj_X=fluid.basic.mass,
+            obj_delta_psi=fluid.implicit_sph.delta_psi,
+            obj_alpha=fluid.implicit_sph.alpha,
+            obj_mass=fluid.basic.mass,
+            nobj=fluid,
+            nobj_pos=fluid.basic.pos,
+            nobj_delta_psi=fluid.implicit_sph.delta_psi,
+            nobj_X=fluid.basic.mass,
+            nobj_alpha=fluid.implicit_sph.alpha,
+            inv_dt=config_discre.inv_dt[None],
+            obj_output_vel_adv=fluid.implicit_sph.vel_adv,
+            config_neighb=config_neighb,
+        )
+        # fluid <- bound
+        fluid_df_solver.update_vel_adv(
+            obj=fluid,
+            obj_pos=fluid.basic.pos,
+            obj_X=fluid.basic.mass,
+            obj_delta_psi=fluid.implicit_sph.delta_psi,
+            obj_alpha=fluid.implicit_sph.alpha,
+            obj_mass=fluid.basic.mass,
+            nobj=bound,
+            nobj_pos=bound.basic.pos,
+            nobj_delta_psi=bound.implicit_sph.delta_psi,
+            nobj_X=bound.basic.mass,
+            nobj_alpha=bound.implicit_sph.alpha,
+            inv_dt=config_discre.inv_dt[None],
+            obj_output_vel_adv=fluid.implicit_sph.vel_adv,
+            config_neighb=config_neighb,
+        )
+
+        # result = fluid.implicit_sph.vel_adv
+        # print(result.to_numpy()[1000:1002])
+
+    # fluid: vel_adv to vel
+    fluid.attr_set_arr(obj_attr=fluid.basic.vel, val_arr=fluid.implicit_sph.vel_adv)
+    # fluid: vel to pos
+    fluid_df_solver.time_integral(
+        obj=fluid,
+        obj_frac=fluid.basic.vel,
+        dt=config_discre.dt[None],
+        obj_output_int=fluid.basic.pos,
+    )
+
 
 loop()
 
-result = fluid.implicit_sph.approximated_density
-print(result.to_numpy()[:1000])
 
+# result = bound.basic.mass
+# print(result.to_numpy()[0:10])
+# result = bound.basic.rest_volume
+# print(result.to_numpy()[0:10])
 
-# GUI
-# gui = tsph.Gui(config_gui)
-# gui.env_set_up()
-# while gui.window.running:
-#     # if gui.op_system_run == True:
-#     loop()
-#     gui.monitor_listen()
-#     if gui.op_refresh_window:
-#         gui.scene_setup()
-#         gui.scene_add_parts(fluid, size=config_discre.part_size[None])
-#         # gui.scene_add_parts(bound, size=config_discre.part_size[None])
-#         gui.scene_render()
+""" GUI """
+gui = tsph.Gui(config_gui)
+gui.env_set_up()
+while gui.window.running:
+    if gui.op_system_run:
+        loop()
+    gui.monitor_listen()
+    if gui.op_refresh_window:
+        gui.scene_setup()
+        gui.scene_add_parts(fluid, size=config_discre.part_size[None])
+        # if gui.show_bound:
+        #     gui.scene_add_parts(bound, size=config_discre.part_size[None])
+        gui.scene_render()
