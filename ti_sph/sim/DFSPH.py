@@ -217,7 +217,7 @@ class DFSPH(SPH_kernel):
                                     / dis
                                 ).dot(obj_vel_adv[i] - nobj_vel_adv[nid])
                                 * nobj_X[nid]
-                                * dt
+                                * dt[None]
                             )
 
     @ti.kernel
@@ -269,7 +269,7 @@ class DFSPH(SPH_kernel):
                         dis = x_ij.norm()
                         if dis > 1e-6:
                             obj_output_vel_adv[i] += (
-                                -inv_dt
+                                -inv_dt[None]
                                 * (
                                     grad_spline_W(
                                         dis, obj.sph.h[i], obj.sph.sig_inv_h[i]
@@ -293,4 +293,4 @@ class DFSPH(SPH_kernel):
         obj_output_int: ti.template(),
     ):
         for i in range(obj.info.stack_top[None]):
-            obj_output_int[i] += obj_frac[i] * dt
+            obj_output_int[i] += obj_frac[i] * dt[None]

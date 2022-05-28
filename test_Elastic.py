@@ -6,6 +6,8 @@ from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
 from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
 import math
 
+from ti_sph.sim.SPH_kernel import cfl_dt
+
 ti.init(arch=ti.cuda)
 
 
@@ -29,7 +31,7 @@ config_discre.dt[None] = tsph.fixed_dt(
     config_discre.cs[None],
     config_discre.part_size[None],
     config_discre.cfl_factor[None],
-)
+) * 3
 
 # gui
 config_gui = ti.static(config.gui)
@@ -242,18 +244,18 @@ def loop():
     fluid.update_acc(
         obj_force=fluid.elastic_sph.force,
     )
-    fluid_solver.compute_Laplacian(
-        obj=fluid,
-        obj_pos=fluid.basic.pos,
-        nobj=fluid,
-        nobj_pos=fluid.basic.pos,
-        nobj_volume=fluid.basic.rest_volume,
-        obj_input_attr=fluid.basic.vel,
-        nobj_input_attr=fluid.basic.vel,
-        coeff=1,
-        obj_output_attr=fluid.basic.acc,
-        config_neighb=config_neighb,
-    )
+    # fluid_solver.compute_Laplacian(
+    #     obj=fluid,
+    #     obj_pos=fluid.basic.pos,
+    #     nobj=fluid,
+    #     nobj_pos=fluid.basic.pos,
+    #     nobj_volume=fluid.basic.rest_volume,
+    #     obj_input_attr=fluid.basic.vel,
+    #     nobj_input_attr=fluid.basic.vel,
+    #     coeff=1,
+    #     obj_output_attr=fluid.basic.acc,
+    #     config_neighb=config_neighb,
+    # )
     # update vel
     fluid.update_vel(dt=config_discre.dt[None])
     # update pos

@@ -1,3 +1,4 @@
+from numpy import float32
 import taichi as ti
 import math
 
@@ -99,6 +100,38 @@ def bigger_than_zero(val: ti.template()):
 @ti.func
 def make_bigger_than_zero():
     return 1e-6
+
+
+@ti.kernel
+def fixed_dt(cs: ti.f32, discretization_size: ti.f32, cfl_factor: ti.f32) -> ti.f32:
+    return discretization_size / cs * cfl_factor
+
+
+@ti.kernel
+def cfl_dt(
+    obj: ti.template(),
+    obj_size: ti.template(),
+    obj_vel: ti.template(),
+    cfl_factor: ti.template(),
+    min_acc_norm: ti.f32,
+    output_dt: ti.template(),
+    output_inv_dt: ti.template(),
+):
+    dt = ti.Vector([100.0])
+    dt[0] = 100
+
+    for i in range(obj.info.stack_top[None]):
+        acc_dt = ti.sqrt(obj_size[i] * cfl_factor[None] / min_acc_norm)
+
+        vel_dt = obj_size[i] / 1 * cfl_factor[None]
+        vel_norm = obj_vel[i].norm()
+        if bigger_than_zero(vel_norm):
+            vel_dt = obj_size[i] / vel_norm * cfl_factor[None]
+
+        ti.atomic_min(dt[0], ti.min(vel_dt, acc_dt))
+
+    output_dt[None] = float(dt[0])
+    output_inv_dt[None] = 1 / output_dt[None]
 
 
 @ti.data_oriented
@@ -272,7 +305,7 @@ class SPH_kernel:
                                 dis, obj.sph.h[i], obj.sph.sig_inv_h[i]
                             )
                             A_ij = obj_input_attr[i] - nobj_input_attr[nid]
-                            obj_output_attr[i] += coeff * artificial_Laplacian_spline_W(
+                            obj_output_attr[i] += coeff[None] * artificial_Laplacian_spline_W(
                                 dis,
                                 grad_W,
                                 dim,
@@ -336,18 +369,3 @@ class SPH_kernel:
         self.set_h(obj, obj_output_h, h)
         self.compute_sig(obj, obj_output_sig)
         self.compute_sig_inv_h(obj, obj_output_sig, obj_output_h, obj_output_sig_inv_h)
-
-
-# @ti.kernel
-# def test(val: ti.template()):
-#     if not bigger_than_zero(val[0]):
-#         print("less than 1e-6")
-#         val[0] = make_bigger_than_zero()
-
-
-# ti.init()
-# a = ti.field(ti.f32, (2))
-# a[0] = 1e-8
-# print("before a is: " + str(a[0]))
-# test(a)
-# print("now a is: " + str(a[0]))

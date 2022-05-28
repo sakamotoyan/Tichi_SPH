@@ -24,14 +24,11 @@ config_discre = ti.static(config.discre)
 config_discre.part_size[None] = 0.1
 config_discre.cs[None] = 220
 config_discre.cfl_factor[None] = 0.5
-config_discre.dt[None] = (
-    tsph.fixed_dt(
-        config_discre.cs[None],
-        config_discre.part_size[None],
-        config_discre.cfl_factor[None],
-    )
-    * 3
-)
+config_discre.dt[None] = tsph.fixed_dt(
+    config_discre.cs[None],
+    config_discre.part_size[None],
+    config_discre.cfl_factor[None],
+) * 5
 config_discre.inv_dt[None] = 1 / config_discre.dt[None]
 # sim
 config_sim = ti.static(config.sim)
@@ -184,9 +181,18 @@ bound_df_solver.compute_kernel(
     bound.sph.sig_inv_h,
 )
 
-
 def loop():
-
+    """dynamic dt"""
+    tsph.cfl_dt(
+        obj=fluid,
+        obj_size=fluid.basic.size,
+        obj_vel=fluid.basic.vel,
+        cfl_factor=config_discre.cfl_factor,
+        min_acc_norm=20,
+        output_dt=config_discre.dt,
+        output_inv_dt=config_discre.inv_dt,
+    )
+    print(config_discre.dt[None])
     """neighb search"""
     # fluid
     fluid.neighb_search(config_neighb, config_space)
@@ -324,7 +330,7 @@ def loop():
         nobj_volume=fluid.basic.rest_volume,
         obj_input_attr=fluid.basic.vel,
         nobj_input_attr=fluid.basic.vel,
-        coeff=config_sim.fluid_kinematic_vis[None],
+        coeff=config_sim.fluid_kinematic_vis,
         obj_output_attr=fluid.implicit_sph.acc_adv,
         config_neighb=config_neighb,
     )
@@ -336,7 +342,7 @@ def loop():
     fluid_df_solver.time_integral(
         obj=fluid,
         obj_frac=fluid.implicit_sph.acc_adv,
-        dt=config_discre.dt[None],
+        dt=config_discre.dt,
         obj_output_int=fluid.implicit_sph.vel_adv,
     )
 
@@ -369,7 +375,7 @@ def loop():
             nobj_pos=fluid.basic.pos,
             nobj_vel_adv=fluid.implicit_sph.vel_adv,
             nobj_X=fluid.basic.mass,
-            dt=config_discre.dt[None],
+            dt=config_discre.dt,
             obj_output_delta_psi=fluid.implicit_sph.delta_psi,
             config_neighb=config_neighb,
         )
@@ -382,7 +388,7 @@ def loop():
             nobj_pos=bound.basic.pos,
             nobj_vel_adv=bound.implicit_sph.vel_adv,
             nobj_X=bound.basic.mass,
-            dt=config_discre.dt[None],
+            dt=config_discre.dt,
             obj_output_delta_psi=fluid.implicit_sph.delta_psi,
             config_neighb=config_neighb,
         )
@@ -395,7 +401,7 @@ def loop():
             nobj_pos=fluid.basic.pos,
             nobj_vel_adv=fluid.implicit_sph.vel_adv,
             nobj_X=fluid.basic.mass,
-            dt=config_discre.dt[None],
+            dt=config_discre.dt,
             obj_output_delta_psi=bound.implicit_sph.delta_psi,
             config_neighb=config_neighb,
         )
@@ -426,7 +432,7 @@ def loop():
             nobj_delta_psi=fluid.implicit_sph.delta_psi,
             nobj_X=fluid.basic.mass,
             nobj_alpha=fluid.implicit_sph.alpha,
-            inv_dt=config_discre.inv_dt[None],
+            inv_dt=config_discre.inv_dt,
             obj_output_vel_adv=fluid.implicit_sph.vel_adv,
             config_neighb=config_neighb,
         )
@@ -443,13 +449,12 @@ def loop():
             nobj_delta_psi=bound.implicit_sph.delta_psi,
             nobj_X=bound.basic.mass,
             nobj_alpha=bound.implicit_sph.alpha,
-            inv_dt=config_discre.inv_dt[None],
+            inv_dt=config_discre.inv_dt,
             obj_output_vel_adv=fluid.implicit_sph.vel_adv,
             config_neighb=config_neighb,
         )
 
-        # result = fluid.implicit_sph.vel_adv
-        # print(result.to_numpy()[1000:1002])
+        # print(fluid_df_solver.comp_iter_count[None])
 
     # fluid: vel_adv to vel
     fluid.attr_set_arr(obj_attr=fluid.basic.vel, val_arr=fluid.implicit_sph.vel_adv)
@@ -457,7 +462,7 @@ def loop():
     fluid_df_solver.time_integral(
         obj=fluid,
         obj_frac=fluid.basic.vel,
-        dt=config_discre.dt[None],
+        dt=config_discre.dt,
         obj_output_int=fluid.basic.pos,
     )
 
@@ -473,9 +478,11 @@ loop()
 """ GUI """
 gui = tsph.Gui(config_gui)
 gui.env_set_up()
+loop_count = 0
 while gui.window.running:
     if gui.op_system_run:
         loop()
+        loop_count += 1
     gui.monitor_listen()
     if gui.op_refresh_window:
         gui.scene_setup()

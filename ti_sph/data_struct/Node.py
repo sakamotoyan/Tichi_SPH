@@ -133,7 +133,7 @@ class Node:
         self,
         lb: ti.template(),
         rt: ti.template(),
-        span: ti.template(),
+        span: ti.f32,
     ) -> ti.i32:
         current_node_num = self.info.stack_top[None]
         pushed_node_seq_coder = ti.Vector([0, 0, 0])
@@ -180,7 +180,7 @@ class Node:
         self,
         lb: ti.template(),
         rt: ti.template(),
-        span: ti.template(),
+        span: ti.f32,
         layers: ti.i32,
     ) -> ti.i32:
         dim = ti.static(self.basic.pos.n)
