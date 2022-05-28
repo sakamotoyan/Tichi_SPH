@@ -39,8 +39,8 @@ def struct_config_neighb_search(dim):
 def struct_config_sim(dim):
     struct_config_sim = ti.types.struct(
         gravity=ti.types.vector(dim, ti.f32),
-        fluid_dynamic_vis=ti.f32,
-        fluid_kinematic_vis=ti.f32,
+        dynamic_vis=ti.f32,
+        kinematic_vis=ti.f32,
     )
     return struct_config_sim.field(shape=())
 

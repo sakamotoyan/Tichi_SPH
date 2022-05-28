@@ -33,7 +33,7 @@ config_discre.inv_dt[None] = 1 / config_discre.dt[None]
 # sim
 config_sim = ti.static(config.sim)
 config_sim.gravity[None] = ti.Vector([0, -9.8, 0])
-config_sim.fluid_kinematic_vis[None] = 1e-3
+config_sim.kinematic_vis[None] = 1e-3
 # gui
 config_gui = ti.static(config.gui)
 config_gui.res[None] = [1920, 1080]
@@ -330,7 +330,7 @@ def loop():
         nobj_volume=fluid.basic.rest_volume,
         obj_input_attr=fluid.basic.vel,
         nobj_input_attr=fluid.basic.vel,
-        coeff=config_sim.fluid_kinematic_vis,
+        coeff=config_sim.kinematic_vis,
         obj_output_attr=fluid.implicit_sph.acc_adv,
         config_neighb=config_neighb,
     )

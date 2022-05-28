@@ -22,16 +22,24 @@ config_space.dim[None] = 3
 config_space.lb[None] = [-8, -8, -8]
 config_space.rt[None] = [8, 8, 8]
 
+# sim
+config_sim = ti.static(config.sim)
+config_sim.gravity[None] = ti.Vector([0, -9.8, 0])
+config_sim.kinematic_vis[None] = 1e-1
+
 # discretization
 config_discre = ti.static(config.discre)
 config_discre.part_size[None] = 0.1
 config_discre.cs[None] = 220
 config_discre.cfl_factor[None] = 0.5
-config_discre.dt[None] = tsph.fixed_dt(
-    config_discre.cs[None],
-    config_discre.part_size[None],
-    config_discre.cfl_factor[None],
-) * 3
+config_discre.dt[None] = (
+    tsph.fixed_dt(
+        config_discre.cs[None],
+        config_discre.part_size[None],
+        config_discre.cfl_factor[None],
+    )
+    * 3
+)
 
 # gui
 config_gui = ti.static(config.gui)
@@ -244,18 +252,18 @@ def loop():
     fluid.update_acc(
         obj_force=fluid.elastic_sph.force,
     )
-    # fluid_solver.compute_Laplacian(
-    #     obj=fluid,
-    #     obj_pos=fluid.basic.pos,
-    #     nobj=fluid,
-    #     nobj_pos=fluid.basic.pos,
-    #     nobj_volume=fluid.basic.rest_volume,
-    #     obj_input_attr=fluid.basic.vel,
-    #     nobj_input_attr=fluid.basic.vel,
-    #     coeff=1,
-    #     obj_output_attr=fluid.basic.acc,
-    #     config_neighb=config_neighb,
-    # )
+    fluid_solver.compute_Laplacian(
+        obj=fluid,
+        obj_pos=fluid.basic.pos,
+        nobj=fluid,
+        nobj_pos=fluid.basic.pos,
+        nobj_volume=fluid.basic.rest_volume,
+        obj_input_attr=fluid.basic.vel,
+        nobj_input_attr=fluid.basic.vel,
+        coeff=config_sim.kinematic_vis,
+        obj_output_attr=fluid.basic.acc,
+        config_neighb=config_neighb,
+    )
     # update vel
     fluid.update_vel(dt=config_discre.dt[None])
     # update pos
@@ -273,7 +281,7 @@ def loop():
 # GUI
 gui = tsph.Gui(config_gui)
 gui.env_set_up()
-
+loop()
 while gui.window.running:
     gui.monitor_listen()
     if gui.op_system_run == True:
