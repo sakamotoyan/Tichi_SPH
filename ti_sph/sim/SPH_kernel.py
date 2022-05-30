@@ -369,3 +369,25 @@ class SPH_kernel:
         self.set_h(obj, obj_output_h, h)
         self.compute_sig(obj, obj_output_sig)
         self.compute_sig_inv_h(obj, obj_output_sig, obj_output_h, obj_output_sig_inv_h)
+
+    @ti.kernel
+    def time_integral(
+        self,
+        obj: ti.template(),
+        obj_frac: ti.template(),
+        dt: ti.template(),
+        obj_output_int: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_output_int[i] += obj_frac[i] * dt[None]
+
+    @ti.kernel
+    def update_acc(
+        self,
+        obj: ti.template(),
+        obj_mass: ti.template(),
+        obj_force: ti.template(),
+        obj_output_acc: ti.template(),
+    ):
+        for i in range(obj.info.stack_top[None]):
+            obj_output_acc[i] += obj_force[i] / obj_mass[i]

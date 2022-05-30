@@ -4,6 +4,7 @@ import numpy as np
 from plyfile import PlyData, PlyElement
 from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
 from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
+from ti_sph.sim.DFSPH import DFSPH
 import math
 
 from ti_sph.sim.SPH_kernel import cfl_dt
@@ -40,6 +41,7 @@ config_discre.dt[None] = (
     )
     * 3
 )
+config_discre.inv_dt[None] = 1 / config_discre.dt[None]
 
 # gui
 config_gui = ti.static(config.gui)
@@ -62,8 +64,8 @@ config_neighb = tsph.Neighb_Cell(
 )
 
 """""" """ OBJECT """ """"""
-# FLUID
-fluid_capacity = [
+# ELASTIC
+elastic_capacity = [
     "node_basic",
     "node_color",
     "node_sph",
@@ -71,48 +73,50 @@ fluid_capacity = [
     "node_implicit_sph",
     "node_neighb_search",
 ]
-fluid = tsph.Node(
+elastic_obj = tsph.Node(
     dim=config_space.dim[None],
     id=0,
     node_num=int(1e6),
     neighb_cell_num=config_neighb.cell_num[None],
-    capacity_list=fluid_capacity,
+    capacity_list=elastic_capacity,
 )
-fluid_node_num = fluid.push_cube(
+elastic_node_num = elastic_obj.push_cube(
     ti.Vector([-1, -1.1, -1]),
     ti.Vector([1, 0.9, 1]),
     config_discre.part_size[None],
 )
-fluid.attr_set_arr(obj_attr=fluid.elastic_sph.pos_0, val_arr=fluid.basic.pos)
-fluid.push_attr(
-    obj_attr=fluid.basic.size,
+elastic_obj.attr_set_arr(
+    obj_attr=elastic_obj.elastic_sph.pos_0, val_arr=elastic_obj.basic.pos
+)
+elastic_obj.push_attr(
+    obj_attr=elastic_obj.basic.size,
     attr=config_discre.part_size[None],
-    begin_index=fluid.info.stack_top[None] - fluid_node_num,
-    pushed_node_num=fluid_node_num,
+    begin_index=elastic_obj.info.stack_top[None] - elastic_node_num,
+    pushed_node_num=elastic_node_num,
 )
-fluid.push_attr(
-    fluid.basic.rest_volume,
+elastic_obj.push_attr(
+    elastic_obj.basic.rest_volume,
     config_discre.part_size[None] ** config_space.dim[None],
-    fluid.info.stack_top[None] - fluid_node_num,
-    fluid_node_num,
+    elastic_obj.info.stack_top[None] - elastic_node_num,
+    elastic_node_num,
 )
-fluid.push_attr(
-    fluid.basic.rest_density,
+elastic_obj.push_attr(
+    elastic_obj.basic.rest_density,
     1000,
-    fluid.info.stack_top[None] - fluid_node_num,
-    fluid_node_num,
+    elastic_obj.info.stack_top[None] - elastic_node_num,
+    elastic_node_num,
 )
-fluid.push_attr(
-    fluid.basic.mass,
+elastic_obj.push_attr(
+    elastic_obj.basic.mass,
     1000 * config_discre.part_size[None] ** config_space.dim[None],
-    fluid.info.stack_top[None] - fluid_node_num,
-    fluid_node_num,
+    elastic_obj.info.stack_top[None] - elastic_node_num,
+    elastic_node_num,
 )
-fluid.push_attr(
-    fluid.color.vec,
+elastic_obj.push_attr(
+    elastic_obj.color.vec,
     ti.Vector([0, 1, 1]),
-    fluid.info.stack_top[None] - fluid_node_num,
-    fluid_node_num,
+    elastic_obj.info.stack_top[None] - elastic_node_num,
+    elastic_node_num,
 )
 # BOUND
 bound_capacity = [
@@ -136,14 +140,26 @@ bound_node_num = bound.push_box(
     2,
 )
 bound.push_attr(
-    bound.basic.rest_volume,
+    bound.basic.size,
     config_discre.part_size[None],
     bound.info.stack_top[None] - bound_node_num,
     bound_node_num,
 )
 bound.push_attr(
-    bound.basic.size,
+    bound.basic.rest_volume,
     config_discre.part_size[None] ** config_space.dim[None],
+    bound.info.stack_top[None] - bound_node_num,
+    bound_node_num,
+)
+bound.push_attr(
+    bound.basic.rest_density,
+    1000,
+    bound.info.stack_top[None] - bound_node_num,
+    bound_node_num,
+)
+bound.push_attr(
+    bound.basic.mass,
+    1000 * config_discre.part_size[None] ** config_space.dim[None],
     bound.info.stack_top[None] - bound_node_num,
     bound_node_num,
 )
@@ -156,129 +172,326 @@ bound.push_attr(
 
 
 """""" """ COMPUTE """ """"""
-
-"""SPH_kernel"""
-# sph_kernel = SPH_kernel()
-# sph_kernel.set_h(obj=fluid, obj_h=fluid.sph.h, h=config_discre.part_size[None] * 2)
-# sph_kernel.compute_sig(obj=fluid, obj_sig=fluid.sph.sig)
-"""ISPH_Elastic"""
-fluid_solver = ISPH_Elastic(obj=fluid)
-fluid_solver.compute_kernel(
-    obj=fluid,
+# /// --- INIT SOLVER --- ///
+# /// ISPH_Elastic ///
+elastic_solver = ISPH_Elastic(obj=elastic_obj, K=2e5, G=2e4)
+contact_df_solver = DFSPH(obj=elastic_obj)
+bound_df_solver = DFSPH(bound)
+#  / compute kernel /
+elastic_solver.compute_kernel(
+    obj=elastic_obj,
     h=config_discre.part_size[None] * 2,
-    obj_output_h=fluid.sph.h,
-    obj_output_sig=fluid.sph.sig,
-    obj_output_sig_inv_h=fluid.sph.sig_inv_h,
+    obj_output_h=elastic_obj.sph.h,
+    obj_output_sig=elastic_obj.sph.sig,
+    obj_output_sig_inv_h=elastic_obj.sph.sig_inv_h,
 )
-
-"""neighb search"""
-fluid.neighb_search(config_neighb, config_space)
+bound_df_solver.compute_kernel(
+    bound,
+    config_discre.part_size[None] * 2,
+    bound.sph.h,
+    bound.sph.sig,
+    bound.sph.sig_inv_h,
+)
+#  / neighb search /
+elastic_obj.neighb_search(config_neighb, config_space)
 bound.neighb_search(config_neighb, config_space)
-"""some first-time computation"""
-fluid.resize(fluid.basic.pos, ti.Vector([1, 1, 1.2]))
-"""compute L"""
-clean_attr_mat(fluid, fluid.elastic_sph.L)
-fluid_solver.compute_L(
-    obj_sph=fluid.sph,
-    obj_volume=fluid.basic.rest_volume,
-    obj_pos_0=fluid.elastic_sph.pos_0,
-    obj_output_L=fluid.elastic_sph.L,
+# / resize pos /
+elastic_obj.resize(elastic_obj.basic.pos, ti.Vector([1, 1, 1.2]))
+# / compute L /
+elastic_obj.clear(elastic_obj.elastic_sph.L)
+elastic_solver.compute_L(
+    obj_sph=elastic_obj.sph,
+    obj_volume=elastic_obj.basic.rest_volume,
+    obj_pos_0=elastic_obj.elastic_sph.pos_0,
+    obj_output_L=elastic_obj.elastic_sph.L,
     config_neighb=config_neighb,
-    obj_located_cell=fluid.located_cell,
-    neighb_cell=fluid.cell,
+    obj_located_cell=elastic_obj.located_cell,
+    neighb_cell=elastic_obj.cell,
 )
 
 
-def loop():
-    """compute compression"""
-    clean_attr_arr(fluid, fluid.basic.acc)
-    """compute F"""
-    clean_attr_mat(fluid, fluid.elastic_sph.F)
-    fluid_solver.compute_F(
-        obj_sph=fluid.sph,
-        obj_volume=fluid.basic.rest_volume,
-        obj_pos_0=fluid.elastic_sph.pos_0,
-        obj_pos_now=fluid.basic.pos,
-        obj_L=fluid.elastic_sph.L,
-        obj_output_F=fluid.elastic_sph.F,
+def elastic_sim():
+    # / clear value /
+    elastic_obj.clear(elastic_obj.basic.acc)
+    elastic_obj.clear(elastic_obj.elastic_sph.F)
+    elastic_obj.clear(elastic_obj.elastic_sph.force)
+    # / compute F /
+    elastic_solver.compute_F(
+        obj_sph=elastic_obj.sph,
+        obj_volume=elastic_obj.basic.rest_volume,
+        obj_pos_0=elastic_obj.elastic_sph.pos_0,
+        obj_pos_now=elastic_obj.basic.pos,
+        obj_L=elastic_obj.elastic_sph.L,
+        obj_output_F=elastic_obj.elastic_sph.F,
         config_neighb=config_neighb,
-        obj_located_cell=fluid.located_cell,
-        neighb_cell=fluid.cell,
+        obj_located_cell=elastic_obj.located_cell,
+        neighb_cell=elastic_obj.cell,
     )
-    """compute R"""
-    fluid_solver.compute_R_pd(
-        obj_F=fluid.elastic_sph.F,
-        obj_output_R=fluid.elastic_sph.R,
+    # / compute R /
+    elastic_solver.compute_R_pd(
+        obj_F=elastic_obj.elastic_sph.F,
+        obj_output_R=elastic_obj.elastic_sph.R,
     )
-    """compute F_star"""
-    clean_attr_mat(fluid, fluid.elastic_sph.F)
-    fluid_solver.compute_F_star(
-        obj_sph=fluid.sph,
-        obj_volume=fluid.basic.rest_volume,
-        obj_pos_0=fluid.elastic_sph.pos_0,
-        obj_pos_now=fluid.basic.pos,
-        obj_R=fluid.elastic_sph.R,
-        obj_L=fluid.elastic_sph.L,
-        obj_output_F_star=fluid.elastic_sph.F,
+    # / compute F_star with F cleared first /
+    elastic_obj.clear(elastic_obj.elastic_sph.F)
+    elastic_solver.compute_F_star(
+        obj_sph=elastic_obj.sph,
+        obj_volume=elastic_obj.basic.rest_volume,
+        obj_pos_0=elastic_obj.elastic_sph.pos_0,
+        obj_pos_now=elastic_obj.basic.pos,
+        obj_R=elastic_obj.elastic_sph.R,
+        obj_L=elastic_obj.elastic_sph.L,
+        obj_output_F_star=elastic_obj.elastic_sph.F,
         config_neighb=config_neighb,
-        obj_located_cell=fluid.located_cell,
-        neighb_cell=fluid.cell,
+        obj_located_cell=elastic_obj.located_cell,
+        neighb_cell=elastic_obj.cell,
     )
-    """compute epsilon"""
-    fluid_solver.compute_eps(
-        obj_F=fluid.elastic_sph.F,
-        obj_output_eps=fluid.elastic_sph.eps,
+    # / compute epsilon /
+    elastic_solver.compute_eps(
+        obj_F=elastic_obj.elastic_sph.F,
+        obj_output_eps=elastic_obj.elastic_sph.eps,
     )
-    """compute P"""
-    fluid_solver.compute_P(
-        obj_eps=fluid.elastic_sph.eps,
-        obj_output_P=fluid.elastic_sph.P,
+    # / compute P /
+    elastic_solver.compute_P(
+        obj_eps=elastic_obj.elastic_sph.eps,
+        obj_output_P=elastic_obj.elastic_sph.P,
     )
-    """compute force"""
-    clean_attr_arr(fluid, fluid.elastic_sph.force)
-    fluid_solver.compute_force(
-        obj_sph=fluid.sph,
-        obj_volume=fluid.basic.rest_volume,
-        obj_pos_0=fluid.elastic_sph.pos_0,
-        obj_R=fluid.elastic_sph.R,
-        obj_L=fluid.elastic_sph.L,
-        obj_P=fluid.elastic_sph.P,
-        obj_output_force=fluid.elastic_sph.force,
+    # / compute force /
+    elastic_solver.compute_force(
+        obj_sph=elastic_obj.sph,
+        obj_volume=elastic_obj.basic.rest_volume,
+        obj_pos_0=elastic_obj.elastic_sph.pos_0,
+        obj_R=elastic_obj.elastic_sph.R,
+        obj_L=elastic_obj.elastic_sph.L,
+        obj_P=elastic_obj.elastic_sph.P,
+        obj_output_force=elastic_obj.elastic_sph.force,
         config_neighb=config_neighb,
-        obj_located_cell=fluid.located_cell,
-        neighb_cell=fluid.cell,
+        obj_located_cell=elastic_obj.located_cell,
+        neighb_cell=elastic_obj.cell,
     )
-    """update acc"""
-    fluid.update_acc(
-        obj_force=fluid.elastic_sph.force,
+    # / update acc /
+    elastic_solver.update_acc(
+        obj=elastic_obj,
+        obj_mass=elastic_obj.basic.mass,
+        obj_force=elastic_obj.elastic_sph.force,
+        obj_output_acc=elastic_obj.basic.acc,
     )
-    fluid_solver.compute_Laplacian(
-        obj=fluid,
-        obj_pos=fluid.basic.pos,
-        nobj=fluid,
-        nobj_pos=fluid.basic.pos,
-        nobj_volume=fluid.basic.rest_volume,
-        obj_input_attr=fluid.basic.vel,
-        nobj_input_attr=fluid.basic.vel,
+    # / vis to acc /
+    elastic_solver.compute_Laplacian(
+        obj=elastic_obj,
+        obj_pos=elastic_obj.basic.pos,
+        nobj=elastic_obj,
+        nobj_pos=elastic_obj.basic.pos,
+        nobj_volume=elastic_obj.basic.rest_volume,
+        obj_input_attr=elastic_obj.basic.vel,
+        nobj_input_attr=elastic_obj.basic.vel,
         coeff=config_sim.kinematic_vis,
-        obj_output_attr=fluid.basic.acc,
+        obj_output_attr=elastic_obj.basic.acc,
         config_neighb=config_neighb,
     )
-    # update vel
-    fluid.update_vel(dt=config_discre.dt[None])
-    # update pos
-    fluid.update_pos(dt=config_discre.dt[None])
-    # debug
-    # result = fluid.basic.vel.to_numpy()[:10]
-    # np.set_printoptions(threshold=1e6)
-    # print(result)
+    # / gravity to acc /
+    elastic_obj.attr_add(
+        obj_attr=elastic_obj.basic.acc,
+        val=config_sim.gravity,
+    )
+    # / update acc to vel /
+    elastic_solver.time_integral(
+        obj=elastic_obj,
+        obj_frac=elastic_obj.basic.acc,
+        dt=config_discre.dt,
+        obj_output_int=elastic_obj.basic.vel,
+    )
+
+def contact_sim():
+    # / elastic_obj /
+    elastic_obj.clear(elastic_obj.implicit_sph.sph_density)
+    elastic_obj.clear(elastic_obj.implicit_sph.alpha_1)
+    elastic_obj.clear(elastic_obj.implicit_sph.alpha_2)
+    elastic_obj.clear(elastic_obj.implicit_sph.acc_adv)
+    contact_df_solver.comp_iter_count[None] = 0
+    contact_df_solver.div_iter_count[None] = 0
+    # / bound /
+    bound.clear(bound.implicit_sph.sph_density)
+    bound.clear(bound.implicit_sph.alpha_1)
+    bound.clear(bound.implicit_sph.alpha_2)
+
+    contact_df_solver.compute_psi(
+        obj=elastic_obj,
+        # obj_pos=elastic_obj.elastic_sph.pos_0,
+        obj_pos=elastic_obj.elastic_sph.pos_0,
+        nobj=elastic_obj,
+        nobj_pos=elastic_obj.elastic_sph.pos_0,
+        nobj_X=elastic_obj.basic.mass,
+        obj_output_psi=elastic_obj.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+    contact_df_solver.compute_psi(
+        obj=elastic_obj,
+        obj_pos=elastic_obj.basic.pos,
+        nobj=bound,
+        nobj_pos=bound.basic.pos,
+        nobj_X=bound.basic.mass,
+        obj_output_psi=elastic_obj.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+    bound_df_solver.compute_psi(
+        obj=bound,
+        obj_pos=bound.basic.pos,
+        nobj=bound,
+        nobj_pos=bound.basic.pos,
+        nobj_X=bound.basic.mass,
+        obj_output_psi=bound.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+    bound_df_solver.compute_psi(
+        obj=bound,
+        obj_pos=bound.basic.pos,
+        nobj=elastic_obj,
+        nobj_pos=elastic_obj.basic.pos,
+        nobj_X=elastic_obj.basic.mass,
+        obj_output_psi=bound.implicit_sph.sph_density,
+        config_neighb=config_neighb,
+    )
+
+    contact_df_solver.compute_alpha_1(
+        obj=elastic_obj,
+        obj_pos=elastic_obj.basic.pos,
+        nobj=bound,
+        nobj_pos=bound.basic.pos,
+        nobj_X=bound.basic.mass,
+        obj_output_alpha_1=elastic_obj.implicit_sph.alpha_1,
+        config_neighb=config_neighb,
+    )
+    contact_df_solver.compute_alpha(
+        obj=elastic_obj,
+        obj_mass=elastic_obj.basic.mass,
+        obj_alpha_1=elastic_obj.implicit_sph.alpha_1,
+        obj_alpha_2=elastic_obj.implicit_sph.alpha_2,
+        obj_output_alpha=elastic_obj.implicit_sph.alpha,
+    )
+
+    bound_df_solver.compute_alpha_2(
+        obj=bound,
+        obj_pos=bound.basic.pos,
+        nobj=elastic_obj,
+        nobj_pos=elastic_obj.basic.pos,
+        nobj_mass=elastic_obj.basic.mass,
+        nobj_X=elastic_obj.basic.mass,
+        obj_output_alpha_2=bound.implicit_sph.alpha_2,
+        config_neighb=config_neighb,
+    )
+    # / bound /
+    bound_df_solver.compute_alpha(
+        obj=bound,
+        obj_mass=bound.basic.mass,
+        obj_alpha_1=bound.implicit_sph.alpha_1,
+        obj_alpha_2=bound.implicit_sph.alpha_2,
+        obj_output_alpha=bound.implicit_sph.alpha,
+    )
+
+    elastic_obj.attr_set_arr(
+        obj_attr=elastic_obj.implicit_sph.vel_adv,
+        val_arr=elastic_obj.basic.vel,
+    )
+
+    while contact_df_solver.is_compressible():
+        contact_df_solver.comp_iter_count[None] += 1
+
+        contact_df_solver.compute_delta_psi(
+            obj=elastic_obj,
+            obj_sph_psi=elastic_obj.implicit_sph.sph_density,
+            obj_rest_psi=elastic_obj.basic.rest_density,
+            obj_output_delta_psi=elastic_obj.implicit_sph.delta_psi,
+        )
+        bound_df_solver.compute_delta_psi(
+            obj=bound,
+            obj_sph_psi=bound.implicit_sph.sph_density,
+            obj_rest_psi=bound.basic.rest_density,
+            obj_output_delta_psi=bound.implicit_sph.delta_psi,
+        )
+
+        contact_df_solver.compute_adv_psi_advection(
+            obj=elastic_obj,
+            obj_pos=elastic_obj.basic.pos,
+            obj_vel_adv=elastic_obj.implicit_sph.vel_adv,
+            nobj=bound,
+            nobj_pos=bound.basic.pos,
+            nobj_vel_adv=bound.implicit_sph.vel_adv,
+            nobj_X=bound.basic.mass,
+            dt=config_discre.dt,
+            obj_output_delta_psi=elastic_obj.implicit_sph.delta_psi,
+            config_neighb=config_neighb,
+        )
+        bound_df_solver.compute_adv_psi_advection(
+            obj=bound,
+            obj_pos=bound.basic.pos,
+            obj_vel_adv=bound.implicit_sph.vel_adv,
+            nobj=elastic_obj,
+            nobj_pos=elastic_obj.basic.pos,
+            nobj_vel_adv=elastic_obj.implicit_sph.vel_adv,
+            nobj_X=elastic_obj.basic.mass,
+            dt=config_discre.dt,
+            obj_output_delta_psi=bound.implicit_sph.delta_psi,
+            config_neighb=config_neighb,
+        )
+
+        contact_df_solver.statistic_non_negative_delta_psi(
+            obj=elastic_obj,
+            obj_rest_psi=elastic_obj.basic.rest_density,
+            obj_output_delta_psi=elastic_obj.implicit_sph.delta_psi,
+        )
+        bound_df_solver.statistic_non_negative_delta_psi(
+            obj=bound,
+            obj_rest_psi=bound.basic.rest_density,
+            obj_output_delta_psi=bound.implicit_sph.delta_psi,
+        )
+
+        contact_df_solver.update_vel_adv(
+            obj=elastic_obj,
+            obj_pos=elastic_obj.basic.pos,
+            obj_X=elastic_obj.basic.mass,
+            obj_delta_psi=elastic_obj.implicit_sph.delta_psi,
+            obj_alpha=elastic_obj.implicit_sph.alpha,
+            obj_mass=elastic_obj.basic.mass,
+            nobj=bound,
+            nobj_pos=bound.basic.pos,
+            nobj_delta_psi=bound.implicit_sph.delta_psi,
+            nobj_X=bound.basic.mass,
+            nobj_alpha=bound.implicit_sph.alpha,
+            inv_dt=config_discre.inv_dt,
+            obj_output_vel_adv=elastic_obj.implicit_sph.vel_adv,
+            config_neighb=config_neighb,
+        )
+
+    elastic_obj.attr_set_arr(
+        obj_attr=elastic_obj.basic.vel,
+        val_arr=elastic_obj.implicit_sph.vel_adv,
+    )
+
+# /// --- LOOP --- ///
+def loop():
+    #  / neighb search /
+    elastic_obj.neighb_search(config_neighb, config_space)
+    bound.neighb_search(config_neighb, config_space)
+    #  / elastic sim  /
+    elastic_sim()
+    contact_sim()
+    # / update vel to pos /
+    elastic_solver.time_integral(
+        obj=elastic_obj,
+        obj_frac=elastic_obj.basic.vel,
+        dt=config_discre.dt,
+        obj_output_int=elastic_obj.basic.pos,
+    )
 
 
+# /// --- END OF LOOP --- ///
+
+#  /// debug ///
 # path = tsph.trim_path_dir(".\\data\\result")
 # np.savetxt(path, result)
 
-# window = ti.ui.Window("Fluid Simulation", (640, 480))
-# GUI
+# /// --- GUI --- ///
 gui = tsph.Gui(config_gui)
 gui.env_set_up()
 loop()
@@ -288,59 +501,7 @@ while gui.window.running:
         loop()
     if gui.op_refresh_window:
         gui.scene_setup()
-        gui.scene_add_parts(fluid, size=config_discre.part_size[None])
-        # gui.scene_add_parts(bound, size=config_discre.part_size[None])
+        gui.scene_add_parts(elastic_obj, size=config_discre.part_size[None])
+        if gui.show_bound:
+            gui.scene_add_parts(bound, size=config_discre.part_size[None])
         gui.scene_render()
-
-
-# file_seq = 0
-# obj_name = 'fluid'
-# path = tsph.trim_path_dir(".\\data\\")
-# file_name = 'pos'
-
-# save_data = fluid.basic.pos.to_numpy()[:fluid.info.stack_top[None]]
-# pos_dtype = [('x','f4'),('y','f4'),('z','f4')]
-# save_data = np.array([tuple(item) for item in save_data],dtype=pos_dtype)
-# el = PlyElement.describe(save_data, 'vertex')
-# # save_data.dtype = pos_dtype
-# PlyData([el]).write(save_path+'pos_data.ply')
-# np.save(save_path+'pos_data', save_data)
-
-# print(save_data['x'])
-
-# print(config.space)
-# print(config.discre)
-# print(config.neighb)
-# print(config.sim)
-# print(config.gui)
-
-
-# def inverse_mat(
-#     mat,
-#     inv_mat,
-# ):
-#     mat_np = mat.to_numpy()
-#     mat_inv = np.linalg.pinv(mat_np)
-#     inv_mat.from_numpy(mat_inv)
-
-
-# A = ti.Matrix.field(3, 3, ti.f32, (2,))
-# B = ti.Matrix.field(3, 3, ti.f32, (2,))
-# A[0] = [[1, 0, 0], [0, 3, 0], [0, 0, 2]]
-# A[1] = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
-# inverse_mat(A, B)
-# print(B)
-
-
-# a = ti.Matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-# b = ti.Matrix.field(3, 3, ti.f32, (2,))
-
-
-# @ti.kernel
-# def pd(mat: ti.template()):
-#     print(ti.Vector.one(dt=ti.f32, n=4))
-
-
-# A = ti.Matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-# pd(A)
-# print(A)

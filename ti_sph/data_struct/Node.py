@@ -258,27 +258,6 @@ class Node:
                 )
                 self.located_cell.part_log[seq] = i
 
-    def update_acc(
-        self,
-        obj_force,
-    ):
-        self.update_acc_ker(
-            self,
-            self.basic.mass,
-            obj_force,
-            self.basic.acc,
-        )
-
-    @ti.kernel
-    def update_acc_ker(
-        self,
-        obj: ti.template(),
-        obj_mass: ti.template(),
-        obj_force: ti.template(),
-        obj_output_acc: ti.template(),
-    ):
-        for i in range(obj.info.stack_top[None]):
-            obj_output_acc[i] += obj_force[i] / obj_mass[i]
 
     def update_vel(
         self,

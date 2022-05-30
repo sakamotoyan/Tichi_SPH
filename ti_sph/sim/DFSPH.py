@@ -283,14 +283,3 @@ class DFSPH(SPH_kernel):
                                     + (nobj_delta_psi[nid] * obj_X[i] / nobj_alpha[nid])
                                 )
                             )
-
-    @ti.kernel
-    def time_integral(
-        self,
-        obj: ti.template(),
-        obj_frac: ti.template(),
-        dt: ti.template(),
-        obj_output_int: ti.template(),
-    ):
-        for i in range(obj.info.stack_top[None]):
-            obj_output_int[i] += obj_frac[i] * dt[None]
