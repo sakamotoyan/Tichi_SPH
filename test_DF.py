@@ -4,7 +4,7 @@ import ti_sph as tsph
 import numpy as np
 from plyfile import PlyData, PlyElement
 from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
-from ti_sph.sim.DFSPH import DFSPH
+from ti_sph.solver.DFSPH import DFSPH
 import math
 
 ti.init(arch=ti.cuda)

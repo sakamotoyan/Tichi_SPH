@@ -3,11 +3,11 @@ import ti_sph as tsph
 import numpy as np
 from plyfile import PlyData, PlyElement
 from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
-from ti_sph.sim.ISPH_Elastic import ISPH_Elastic
-from ti_sph.sim.DFSPH import DFSPH
+from ti_sph.solver.ISPH_Elastic import ISPH_Elastic
+from ti_sph.solver.DFSPH import DFSPH
 import math
 
-from ti_sph.sim.SPH_kernel import cfl_dt
+from ti_sph.solver.SPH_kernel import cfl_dt
 
 ti.init(arch=ti.cuda)
 
@@ -205,8 +205,6 @@ elastic_solver.compute_L(
     obj_pos_0=elastic_obj.elastic_sph.pos_0,
     obj_output_L=elastic_obj.elastic_sph.L,
     config_neighb=config_neighb,
-    obj_located_cell=elastic_obj.located_cell,
-    neighb_cell=elastic_obj.cell,
 )
 
 
@@ -217,6 +215,7 @@ def elastic_sim():
     elastic_obj.clear(elastic_obj.elastic_sph.force)
     # / compute F /
     elastic_solver.compute_F(
+        obj=elastic_obj,
         obj_sph=elastic_obj.sph,
         obj_volume=elastic_obj.basic.rest_volume,
         obj_pos_0=elastic_obj.elastic_sph.pos_0,
@@ -224,17 +223,17 @@ def elastic_sim():
         obj_L=elastic_obj.elastic_sph.L,
         obj_output_F=elastic_obj.elastic_sph.F,
         config_neighb=config_neighb,
-        obj_located_cell=elastic_obj.located_cell,
-        neighb_cell=elastic_obj.cell,
     )
     # / compute R /
     elastic_solver.compute_R_pd(
+        obj=elastic_obj,
         obj_F=elastic_obj.elastic_sph.F,
         obj_output_R=elastic_obj.elastic_sph.R,
     )
     # / compute F_star with F cleared first /
     elastic_obj.clear(elastic_obj.elastic_sph.F)
     elastic_solver.compute_F_star(
+        obj=elastic_obj,
         obj_sph=elastic_obj.sph,
         obj_volume=elastic_obj.basic.rest_volume,
         obj_pos_0=elastic_obj.elastic_sph.pos_0,
@@ -243,21 +242,22 @@ def elastic_sim():
         obj_L=elastic_obj.elastic_sph.L,
         obj_output_F_star=elastic_obj.elastic_sph.F,
         config_neighb=config_neighb,
-        obj_located_cell=elastic_obj.located_cell,
-        neighb_cell=elastic_obj.cell,
     )
     # / compute epsilon /
     elastic_solver.compute_eps(
+        obj=elastic_obj,
         obj_F=elastic_obj.elastic_sph.F,
         obj_output_eps=elastic_obj.elastic_sph.eps,
     )
     # / compute P /
     elastic_solver.compute_P(
+        obj=elastic_obj,
         obj_eps=elastic_obj.elastic_sph.eps,
         obj_output_P=elastic_obj.elastic_sph.P,
     )
     # / compute force /
     elastic_solver.compute_force(
+        obj=elastic_obj,
         obj_sph=elastic_obj.sph,
         obj_volume=elastic_obj.basic.rest_volume,
         obj_pos_0=elastic_obj.elastic_sph.pos_0,
@@ -266,8 +266,6 @@ def elastic_sim():
         obj_P=elastic_obj.elastic_sph.P,
         obj_output_force=elastic_obj.elastic_sph.force,
         config_neighb=config_neighb,
-        obj_located_cell=elastic_obj.located_cell,
-        neighb_cell=elastic_obj.cell,
     )
     # / update acc /
     elastic_solver.update_acc(

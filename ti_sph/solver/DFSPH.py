@@ -5,7 +5,7 @@
 
 import taichi as ti
 
-from ti_sph.sim.SPH_kernel import (
+from ti_sph.solver.SPH_kernel import (
     SPH_kernel,
     bigger_than_zero,
     make_bigger_than_zero,

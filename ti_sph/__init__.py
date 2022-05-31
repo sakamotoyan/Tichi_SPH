@@ -10,4 +10,4 @@ from .kernel_sph import *
 from .data_struct import Node, Neighb_Cell, Config
 
 from .data_IO import *
-from .sim import *
+from .solver import *
