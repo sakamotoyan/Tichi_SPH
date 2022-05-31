@@ -1,3 +1,5 @@
+# data structure for most global variables
+
 import taichi as ti
 from .struct.constructor import *
 

@@ -1,19 +1,21 @@
+# data structure for neighbor-search-related global variables
+
 import taichi as ti
 
 @ti.data_oriented
 class Neighb_Cell:
     def __init__(self, dim, struct_space, cell_size, search_range):
-        self.cell_size = ti.field(ti.f32, ())
-        self.cell_num = ti.field(ti.i32, ())
-        self.cell_num_vec = ti.Vector.field(dim, ti.i32, ())
-        self.cell_coder = ti.Vector.field(dim, ti.i32, ())
-        self.search_range = ti.field(ti.i32, ())
+        self.cell_size = ti.field(ti.f32, ())                   # side length of cells
+        self.cell_num = ti.field(ti.i32, ())                    # total number of cells
+        self.cell_num_vec = ti.Vector.field(dim, ti.i32, ())    # number of cells in each dimension
+        self.cell_coder = ti.Vector.field(dim, ti.i32, ())      # index increment between adjacent cell in each dimention 
+        self.search_range = ti.field(ti.i32, ())                # neighbor search range in term of cells
 
         self.cell_size[None] = cell_size
         self.search_range[None] = search_range
 
-        self.search_template = ti.Vector.field(dim, ti.i32, (self.search_range[None] * 2 + 1) ** dim)
-        self.neighb_dice = ti.field(ti.i32, self.search_range[None] * 2 + 1)
+        self.search_template = ti.Vector.field(dim, ti.i32, (self.search_range[None] * 2 + 1) ** dim)   # cell shift for each neighboring grid
+        self.neighb_dice = ti.field(ti.i32, self.search_range[None] * 2 + 1)                            # cell shift for each neighboring grid on one dimension
 
         self.calculate_neighb_cell_param(struct_space)
 
@@ -27,7 +29,7 @@ class Neighb_Cell:
                 tmp = tmp % (self.neighb_dice.shape[0] ** (dim - j - 1))
                 self.search_template[i][dim - j - 1] = self.neighb_dice[digit]
         
-        
+    # helper for __init__
     @ti.kernel
     def calculate_neighb_cell_param(self, struct_space: ti.template()):
         struct_space = ti.static(struct_space)

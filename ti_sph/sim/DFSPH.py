@@ -1,7 +1,9 @@
+# handels DFSPH computation and error-related global variables
 # PAPER:        Divergence-free smoothed particle hydrodynamics
 # AUTHOR:       Jan Bender, Dan Koschier
 # CONFERENCE:   SCA '15: Proceedings of the 14th ACM SIGGRAPH / Eurographics Symposium on Computer Animation, August 2015
 # URL:          https://doi.org/10.1145/2786784.2786796
+# uses the psi-X notation, see (Add url here)
 
 import taichi as ti
 
@@ -34,10 +36,10 @@ class DFSPH(SPH_kernel):
         self.max_comp_error = ti.field(ti.f32, ())
         self.max_div_iter = ti.field(ti.i32, ())
         self.max_comp_iter = ti.field(ti.i32, ())
-        self.min_comp_tier = ti.field(ti.i32, ())
+        self.min_comp_tier = ti.field(ti.i32, ())   # typo: tier -> iter
         self.min_div_iter = ti.field(ti.i32, ())
-        self.comp_avg_ratio = ti.field(ti.f32, ())
-        self.div_avg_ratio = ti.field(ti.f32, ())
+        self.comp_avg_ratio = ti.field(ti.f32, ())  # incompressible error term
+        self.div_avg_ratio = ti.field(ti.f32, ())   # divergence-free error term
         self.comp_iter_count = ti.field(ti.i32, ())
         self.div_iter_count = ti.field(ti.i32, ())
 
@@ -52,6 +54,7 @@ class DFSPH(SPH_kernel):
         self.comp_avg_ratio[None] = 1
         self.div_avg_ratio[None] = 1
 
+    # returns whether incompressible solver iteration should be continued
     def is_compressible(
         self,
     ):
@@ -61,6 +64,7 @@ class DFSPH(SPH_kernel):
             and (not self.comp_iter_count[None] == self.max_comp_iter[None])
         )
 
+    #compute psi (corresponds to SPH density estimationn)
     @ti.kernel
     def compute_psi(
         self,
@@ -88,6 +92,7 @@ class DFSPH(SPH_kernel):
                             dis, obj.sph.h[i], obj.sph.sig[i]
                         )
 
+    # compute alpha_1
     @ti.kernel
     def compute_alpha_1(
         self,
@@ -120,6 +125,7 @@ class DFSPH(SPH_kernel):
                             )
                             obj_output_alpha_1[i] += nobj_X[nid] * grad_W_vec
 
+    # compute alpha_2
     @ti.kernel
     def compute_alpha_2(
         self,
@@ -153,6 +159,7 @@ class DFSPH(SPH_kernel):
                                 nobj_X[nid] * grad_W
                             ) ** 2 / nobj_mass[nid]
 
+    # compute alpha
     @ti.kernel
     def compute_alpha(
         self,
@@ -169,6 +176,7 @@ class DFSPH(SPH_kernel):
             if not bigger_than_zero(obj_output_alpha[i]):
                 obj_output_alpha[i] = make_bigger_than_zero()
 
+    # compute delta_psi
     @ti.kernel
     def compute_delta_psi(
         self,
@@ -180,6 +188,7 @@ class DFSPH(SPH_kernel):
         for i in range(obj.info.stack_top[None]):
             obj_output_delta_psi[i] = obj_sph_psi[i] - obj_rest_psi[i]
 
+    # compute delta_psi from advection
     @ti.kernel
     def compute_adv_psi_advection(
         self,
@@ -220,6 +229,7 @@ class DFSPH(SPH_kernel):
                                 * dt[None]
                             )
 
+    # clamp delta_psi to above 0, AND update comp_avg_ratio (error term)
     @ti.kernel
     def statistic_non_negative_delta_psi(
         self,
@@ -236,6 +246,7 @@ class DFSPH(SPH_kernel):
 
         self.comp_avg_ratio[None] /= obj.info.stack_top[None]
 
+    # update vel_adv with pressure
     @ti.kernel
     def update_vel_adv(
         self,
@@ -284,6 +295,7 @@ class DFSPH(SPH_kernel):
                                 )
                             )
 
+    # perform time integral (probably should be moved to SPH_kernel)
     @ti.kernel
     def time_integral(
         self,

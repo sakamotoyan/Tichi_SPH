@@ -1,3 +1,5 @@
+# data structure for particles and neighbor search cells
+
 import taichi as ti
 from .struct.constructor import *
 from ..func_util import *
@@ -14,17 +16,18 @@ class Node:
         capacity_list,
     ):
 
-        self.info = self.node()
+        self.info = self.node() # some information for the entire Node object (not particle-wise)
         self.info.id[None] = id
-        self.info.dim = dim
-        self.info.node_num[None] = node_num
-        self.info.stack_top[None] = 0
+        self.info.dim = dim                     # dimensions (e.g. 2D, 3D)
+        self.info.node_num[None] = node_num     # total number of nodes (max number of particles)
+        self.info.stack_top[None] = 0           # number of used nodes (actual number of particles)
         self.info.neighb_cell_num[None] = neighb_cell_num
         self.capacity_list = capacity_list
 
         node_construct(self, dim, node_num, capacity_list)
         node_neighb_cell_construct(self, dim, neighb_cell_num, capacity_list)
 
+    # for initializing self.info (define the struct for self.info)
     def node(self):
         struct_node = ti.types.struct(
             id=ti.i32,
@@ -35,6 +38,11 @@ class Node:
         )
         return struct_node.field(shape=())
 
+    # ====================================================================================
+    # setting and modifying particle-wise attributes
+    # field length and dimensions are NOT checked, need to make sure they match
+
+    # set obj_attr[begin_index:begin_index+pushed_node_num] to element values in attr_seq
     @ti.kernel
     def push_attr_seq(
         self,
@@ -49,6 +57,7 @@ class Node:
             for j in ti.static(range(dim)):
                 obj_attr[i_p][j] = attr_seq[i][j]
 
+    # set all elements in obj_attr to 0
     @ti.kernel
     def clear(
         self,
@@ -57,6 +66,7 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] *= 0
 
+    # set elements in obj_attr[begin_index:begin_index+pushed_node_num] to attr
     @ti.kernel
     def push_attr(
         self,
@@ -68,6 +78,7 @@ class Node:
         for i in range(begin_index, pushed_node_num):
             obj_attr[i] = attr
 
+    # set all elements of obj_attr to val
     @ti.kernel
     def attr_set(
         self,
@@ -77,6 +88,7 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] = val[None]
 
+    # set all elements of obj_attr to element values in val_arr
     @ti.kernel
     def attr_set_arr(
         self,
@@ -86,6 +98,7 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] = val_arr[i]
 
+    # add val to all elements of obj_attr
     @ti.kernel
     def attr_add(
         self,
@@ -95,6 +108,7 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] += val[None]
 
+    # add elements in val_arr to each element in obj_attr
     @ti.kernel
     def attr_add_arr(
         self,
@@ -104,6 +118,8 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] += val_arr[i]
 
+    # multiply each element in obj_attr with val
+    @ti.kernel
     def resize(
         self,
         obj_attr: ti.template(),
@@ -112,6 +128,10 @@ class Node:
         for i in range(self.info.stack_top[None]):
             obj_attr[i] = obj_attr[i] * val
 
+    # ====================================================================================
+    # add particles with certain positions
+
+    # add pushed_node_num particles, and set their positions to elements in pos_seq
     def push_pos_seq(
         self,
         obj,
@@ -128,6 +148,10 @@ class Node:
         obj.info.stack_top[None] = new_node_num
         return pushed_node_num
 
+    # add particles that form the shape of a cuboid (not cube), center of the particle with smallest coordinate in each dimension is aligned to lb
+    # lb: corner with smallest coordinate in each dimension
+    # rt: corner with largest coordinate in each dimension
+    # span: distance between particles
     @ti.kernel
     def push_cube(
         self,
@@ -153,7 +177,7 @@ class Node:
             pushed_node_num *= pushed_node_seq[i]
         new_node_num = current_node_num + pushed_node_num
         if new_node_num > self.info.node_num[None]:
-            print("WARNING from push_cube(): overflow")
+            print("WARNING from push_cube(): overflow") # exceeded self.info.node_num[None]
         # inject pos [1/2]
         for i in range(pushed_node_num):
             tmp = i
@@ -175,6 +199,11 @@ class Node:
         self.info.stack_top[None] = new_node_num
         return pushed_node_num
 
+    # add particles that form the shape of a box, if a particle is placed inside the hollow part of the box, at the position with smallest coordinate in each dimension, its center is aligned to lb
+    # lb: corner with smallest coordinate in each dimension (box's inside)
+    # rt: corner with largest coordinate in each dimension (box's inside)
+    # span: distance between particles
+    # layers: layers of particles of the box
     @ti.kernel
     def push_box(
         self,
@@ -227,6 +256,10 @@ class Node:
         self.info.stack_top[None] = pushed_node_num
         return pushed_node_num
 
+    # ====================================================================================
+    # neighbor search
+
+    # for "node_neighb_search"
     @ti.kernel
     def neighb_search(
         self,
@@ -257,6 +290,9 @@ class Node:
                     + self.located_cell.sequence[i]
                 )
                 self.located_cell.part_log[seq] = i
+
+    # ====================================================================================
+    # some advection stuff (probably should be moved to 'sim' folder)
 
     def update_acc(
         self,

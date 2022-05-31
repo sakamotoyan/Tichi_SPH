@@ -1,3 +1,5 @@
+# handles initialization of Config, Node, and Neighb_Cell
+
 import taichi as ti
 
 from .struct_node import *
