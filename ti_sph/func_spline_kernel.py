@@ -1,3 +1,6 @@
+# seems duplicate with SPH_kernel, it seems SPH_kernel contains the actually used functions
+# SPH kernels
+
 import taichi as ti
 import math
 

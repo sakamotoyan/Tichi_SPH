@@ -268,7 +268,7 @@ class Node:
     ):
         for i in range(config_neighb.cell_num[None]):
             self.cell.part_count[i] = 0
-            self.located_cell.sequence[i] = -1
+            self.located_cell.sequence[i] = -1 # shoudn't this be initialized for each particle?
         for i in range(self.info.stack_top[None]):
             self.located_cell.vec[i] = node_encode(
                 self.basic.pos[i], config_space.lb, config_neighb.cell_size[None]
@@ -293,29 +293,7 @@ class Node:
 
     # ====================================================================================
     # some advection stuff (probably should be moved to 'sim' folder)
-
-    def update_acc(
-        self,
-        obj_force,
-    ):
-        self.update_acc_ker(
-            self,
-            self.basic.mass,
-            obj_force,
-            self.basic.acc,
-        )
-
-    @ti.kernel
-    def update_acc_ker(
-        self,
-        obj: ti.template(),
-        obj_mass: ti.template(),
-        obj_force: ti.template(),
-        obj_output_acc: ti.template(),
-    ):
-        for i in range(obj.info.stack_top[None]):
-            obj_output_acc[i] += obj_force[i] / obj_mass[i]
-
+    
     def update_vel(
         self,
         dt,

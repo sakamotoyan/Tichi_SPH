@@ -7,7 +7,7 @@
 
 import taichi as ti
 
-from ti_sph.sim.SPH_kernel import (
+from ti_sph.solver.SPH_kernel import (
     SPH_kernel,
     bigger_than_zero,
     make_bigger_than_zero,
@@ -294,15 +294,3 @@ class DFSPH(SPH_kernel):
                                     + (nobj_delta_psi[nid] * obj_X[i] / nobj_alpha[nid])
                                 )
                             )
-
-    # perform time integral (probably should be moved to SPH_kernel)
-    @ti.kernel
-    def time_integral(
-        self,
-        obj: ti.template(),
-        obj_frac: ti.template(),
-        dt: ti.template(),
-        obj_output_int: ti.template(),
-    ):
-        for i in range(obj.info.stack_top[None]):
-            obj_output_int[i] += obj_frac[i] * dt[None]

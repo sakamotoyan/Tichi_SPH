@@ -1,6 +1,5 @@
 # defines structs used in Node and Neighb_Cell
 
-from turtle import shape # ???
 import taichi as ti
 
 # basic particle attributes
@@ -10,8 +9,8 @@ def struct_node_basic(dim, node_num):
     struct_node_basic = ti.types.struct(
         pos=ti.types.vector(dim, ti.f32),   # position
         vel=ti.types.vector(dim, ti.f32),   # velocity
-        acc=ti.types.vector(dim, ti.f32),   # acceleration (?)
-        force=ti.types.vector(dim, ti.f32), # force (?)
+        acc=ti.types.vector(dim, ti.f32),   # acceleration (not always used)
+        force=ti.types.vector(dim, ti.f32), # force (not always used)
         mass=ti.f32,                        # mass
         rest_density=ti.f32,                # rest density
         rest_volume=ti.f32,                 # rest volume
@@ -28,9 +27,9 @@ def struct_node_sph(dim, node_num):
         h=ti.f32,                               # support radius
         sig=ti.f32,                             # smoothing kernel normalization factor
         sig_inv_h=ti.f32,                       # sig/h
-        W=ti.f32,                               # ?
-        W_grad=ti.types.vector(dim, ti.f32),    # ?
-        compression=ti.f32,                     # ?
+        W=ti.f32,                               # not used, smoothing kernel (probably shouldn't be stored here since W_ij is different for different j)
+        W_grad=ti.types.vector(dim, ti.f32),    # not used, gradient of smoothing kernel (probably shouldn't be stored here since W_ij is different for different j)
+        compression=ti.f32,                     # not used currently, particle compression
     )
     return struct_node_sph.field(shape=(node_num,))
 
@@ -59,11 +58,11 @@ def struct_node_implicit_sph(dim, node_num):
         alpha_1=ti.types.vector(dim, ti.f32),   # DFSPH alpha 1st term (intermediate variable)
         alpha_2=ti.f32,                         # DFSPH alpha 2nd term (intermediate variable)
         alpha=ti.f32,                           # DFSPH alpha
-        vel_adv=ti.types.vector(dim, ti.f32),   # advection velocity (?)
-        acc_adv=ti.types.vector(dim, ti.f32),   # advection acceleration (?)
-        sph_compression_ratio=ti.f32,           # ?
+        vel_adv=ti.types.vector(dim, ti.f32),   # advection velocity
+        acc_adv=ti.types.vector(dim, ti.f32),   # advection acceleration
+        sph_compression_ratio=ti.f32,           # not used
         sph_density=ti.f32,                     # sph density
-        delta_psi=ti.f32,                       # ?
+        delta_psi=ti.f32,                       # delta psi (corresponds to density deviation)
     )
     return struct_node_implicit_sph.field(shape=(node_num,))
 
@@ -84,10 +83,10 @@ def struct_node_color(node_num):
 # "node_neighb_search" -> located_cell
 def struct_node_neighb_search(dim, node_num):
     struct_node_neighb_search = ti.types.struct(
-        vec=ti.types.vector(dim, ti.i32),       # ?
-        coded=ti.i32,                           # ?
-        sequence=ti.i32,                        # ?
-        part_log=ti.i32,                        # ?
+        vec=ti.types.vector(dim, ti.i32),       # cell index vector (n-dimensional) the particle belongs to
+        coded=ti.i32,                           # cell index (1D) the particle belongs to
+        sequence=ti.i32,                        # the sequence of the particle within its cell (temporary variable for neighbor search)
+        part_log=ti.i32,                        # an array that stores the IDs of particles in each cell sequentially according to cell index
     )
     return struct_node_neighb_search.field(shape=(node_num,))
 
@@ -98,6 +97,6 @@ def struct_node_neighb_search(dim, node_num):
 def struct_node_neighb_cell(cell_num):
     struct_node_neighb_cell = ti.types.struct(
         part_count=ti.i32,  # particle count in cell
-        part_shift=ti.i32,  # ?
+        part_shift=ti.i32,  # begin index for this cell in located_cell.part_log
     )
     return struct_node_neighb_cell.field(shape=(cell_num))

@@ -29,7 +29,7 @@ def struct_config_discretization():
     return struct_config_discretization.field(shape=())
 
 
-# not used? (related info is already in Neighb_Cell)
+# not used currently (related info is already in Neighb_Cell)
 # info_construct()
 # "info_neighb_search" -> neighb
 def struct_config_neighb_search(dim):

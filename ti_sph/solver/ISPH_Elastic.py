@@ -24,33 +24,8 @@ class ISPH_Elastic(SPH_kernel):
         pass
 
     # Eqn.3
-    def compute_F(
-        self,
-        obj_sph,
-        obj_volume,
-        obj_pos_0,
-        obj_pos_now,
-        obj_L,
-        obj_output_F,
-        config_neighb,
-        neighb_cell,
-        obj_located_cell,
-    ):
-        self.compute_F_ker(
-            self.obj,
-            obj_sph,
-            obj_volume,
-            obj_pos_0,
-            obj_pos_now,
-            obj_L,
-            obj_output_F,
-            config_neighb,
-            neighb_cell,
-            obj_located_cell,
-        )
-
     @ti.kernel
-    def compute_F_ker(
+    def compute_F(
         self,
         obj: ti.template(),
         obj_sph: ti.template(),
@@ -60,19 +35,17 @@ class ISPH_Elastic(SPH_kernel):
         obj_L: ti.template(),
         obj_output_F: ti.template(),
         config_neighb: ti.template(),
-        neighb_cell: ti.template(),
-        obj_located_cell: ti.template(),
     ):
-        cell_vec = ti.static(obj_located_cell.vec)
+        cell_vec = ti.static(obj.located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(neighb_cell.part_count[cell_coded]):
-                        shift = neighb_cell.part_shift[cell_coded] + j
-                        nid = obj_located_cell.part_log[shift]
+                    for j in range(obj.cell.part_count[cell_coded]):
+                        shift = obj.cell.part_shift[cell_coded] + j
+                        nid = obj.located_cell.part_log[shift]
                         # compute down below
                         x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
                         dis_0 = x_ji_0.norm()
@@ -95,8 +68,6 @@ class ISPH_Elastic(SPH_kernel):
         obj_pos_0,
         obj_output_L,
         config_neighb,
-        neighb_cell,
-        obj_located_cell,
     ):
         self.compute_L_ker(
             self.obj,
@@ -105,8 +76,6 @@ class ISPH_Elastic(SPH_kernel):
             obj_pos_0,
             obj_output_L,
             config_neighb,
-            neighb_cell,
-            obj_located_cell,
         )
         L = obj_output_L.to_numpy()
         inv = np.linalg.pinv(L[: self.obj.info.stack_top[None]])
@@ -122,19 +91,17 @@ class ISPH_Elastic(SPH_kernel):
         obj_pos_0: ti.template(),
         obj_output_L: ti.template(),
         config_neighb: ti.template(),
-        neighb_cell: ti.template(),
-        obj_located_cell: ti.template(),
     ):
-        cell_vec = ti.static(obj_located_cell.vec)
+        cell_vec = ti.static(obj.located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(neighb_cell.part_count[cell_coded]):
-                        shift = neighb_cell.part_shift[cell_coded] + j
-                        nid = obj_located_cell.part_log[shift]
+                    for j in range(obj.cell.part_count[cell_coded]):
+                        shift = obj.cell.part_shift[cell_coded] + j
+                        nid = obj.located_cell.part_log[shift]
                         # compute down below
                         x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
                         dis_0 = x_ji_0.norm()
@@ -148,15 +115,8 @@ class ISPH_Elastic(SPH_kernel):
                                 nid
                             ] * grad_W_vec.outer_product(x_ji_0)
 
-    def compute_R_pd(
-        self,
-        obj_F,
-        obj_output_R,
-    ):
-        self.compute_R_pd_ker(self.obj, obj_F, obj_output_R)
-
     @ti.kernel
-    def compute_R_pd_ker(
+    def compute_R_pd(
         self,
         obj: ti.template(),
         obj_F: ti.template(),
@@ -166,35 +126,8 @@ class ISPH_Elastic(SPH_kernel):
             obj_output_R[i] = ti.polar_decompose(obj_F[i])[0]
 
     # Eqn.5
-    def compute_F_star(
-        self,
-        obj_sph,
-        obj_volume,
-        obj_pos_0,
-        obj_pos_now,
-        obj_R,
-        obj_L,
-        obj_output_F_star,
-        config_neighb,
-        neighb_cell,
-        obj_located_cell,
-    ):
-        self.compute_F_star_ker(
-            self.obj,
-            obj_sph,
-            obj_volume,
-            obj_pos_0,
-            obj_pos_now,
-            obj_R,
-            obj_L,
-            obj_output_F_star,
-            config_neighb,
-            neighb_cell,
-            obj_located_cell,
-        )
-
     @ti.kernel
-    def compute_F_star_ker(
+    def compute_F_star(
         self,
         obj: ti.template(),
         obj_sph: ti.template(),
@@ -205,21 +138,19 @@ class ISPH_Elastic(SPH_kernel):
         obj_L: ti.template(),
         obj_output_F_star: ti.template(),
         config_neighb: ti.template(),
-        neighb_cell: ti.template(),
-        obj_located_cell: ti.template(),
     ):
         dim = ti.static(obj.basic.pos[0].n)
         I = ti.Matrix.identity(dt=ti.f32, n=dim)
-        cell_vec = ti.static(obj_located_cell.vec)
+        cell_vec = ti.static(obj.located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(neighb_cell.part_count[cell_coded]):
-                        shift = neighb_cell.part_shift[cell_coded] + j
-                        nid = obj_located_cell.part_log[shift]
+                    for j in range(obj.cell.part_count[cell_coded]):
+                        shift = obj.cell.part_shift[cell_coded] + j
+                        nid = obj.located_cell.part_log[shift]
                         # compute down below
                         x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
                         dis_0 = x_ji_0.norm()
@@ -229,7 +160,9 @@ class ISPH_Elastic(SPH_kernel):
                                 obj_R[i]
                                 @ obj_L[i]
                                 @ (
-                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i])
+                                    grad_spline_W(
+                                        dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i]
+                                    )
                                     * (-x_ji_0)
                                     / dis_0
                                 )
@@ -239,19 +172,8 @@ class ISPH_Elastic(SPH_kernel):
                             ).outer_product(grad_W_vec)
             obj_output_F_star[i] += I
 
-    def compute_eps(
-        self,
-        obj_F,
-        obj_output_eps,
-    ):
-        self.compute_eps_ker(
-            self.obj,
-            obj_F,
-            obj_output_eps,
-        )
-
     @ti.kernel
-    def compute_eps_ker(
+    def compute_eps(
         self,
         obj: ti.template(),
         obj_F: ti.template(),
@@ -261,19 +183,8 @@ class ISPH_Elastic(SPH_kernel):
         for i in range(obj.info.stack_top[None]):
             obj_output_eps[i] = (obj_F[i] + obj_F[i].transpose()) * 0.5 - I
 
-    def compute_P(
-        self,
-        obj_eps,
-        obj_output_P,
-    ):
-        self.compute_P_ker(
-            self.obj,
-            obj_eps,
-            obj_output_P,
-        )
-
     @ti.kernel
-    def compute_P_ker(
+    def compute_P(
         self,
         obj: ti.template(),
         obj_eps: ti.template(),
@@ -285,35 +196,8 @@ class ISPH_Elastic(SPH_kernel):
                 (self.K[None] - (2 / 3 * self.G[None])) * obj_eps[i].trace() * I
             )
 
-    def compute_force(
-        self,
-        obj_sph,
-        obj_volume,
-        obj_pos_0,
-        obj_R,
-        obj_L,
-        obj_P,
-        obj_output_force,
-        config_neighb,
-        neighb_cell,
-        obj_located_cell,
-    ):
-        self.compute_force_ker(
-            self.obj,
-            obj_sph,
-            obj_volume,
-            obj_pos_0,
-            obj_R,
-            obj_L,
-            obj_P,
-            obj_output_force,
-            config_neighb,
-            neighb_cell,
-            obj_located_cell,
-        )
-
     @ti.kernel
-    def compute_force_ker(
+    def compute_force(
         self,
         obj: ti.template(),
         obj_sph: ti.template(),
@@ -324,19 +208,17 @@ class ISPH_Elastic(SPH_kernel):
         obj_P: ti.template(),
         obj_output_force: ti.template(),
         config_neighb: ti.template(),
-        neighb_cell: ti.template(),
-        obj_located_cell: ti.template(),
     ):
-        cell_vec = ti.static(obj_located_cell.vec)
+        cell_vec = ti.static(obj.located_cell.vec)
         for i in range(obj.info.stack_top[None]):
             for cell_tpl in range(config_neighb.search_template.shape[0]):
                 cell_coded = (
                     cell_vec[i] + config_neighb.search_template[cell_tpl]
                 ).dot(config_neighb.cell_coder[None])
                 if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(neighb_cell.part_count[cell_coded]):
-                        shift = neighb_cell.part_shift[cell_coded] + j
-                        nid = obj_located_cell.part_log[shift]
+                    for j in range(obj.cell.part_count[cell_coded]):
+                        shift = obj.cell.part_shift[cell_coded] + j
+                        nid = obj.located_cell.part_log[shift]
                         # compute down below
                         x_ji_0 = obj_pos_0[nid] - obj_pos_0[i]
                         dis_0 = x_ji_0.norm()
@@ -345,7 +227,9 @@ class ISPH_Elastic(SPH_kernel):
                                 obj_R[i]
                                 @ obj_L[i]
                                 @ (
-                                    grad_spline_W(dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i])
+                                    grad_spline_W(
+                                        dis_0, obj_sph.h[i], obj_sph.sig_inv_h[i]
+                                    )
                                     * (-x_ji_0)
                                     / dis_0
                                 )
@@ -369,51 +253,3 @@ class ISPH_Elastic(SPH_kernel):
                                     - (obj_P[nid] @ grad_W_vec_nid)
                                 )
                             )
-
-    # def update_acc(
-    #     self,
-    #     obj_force,
-    #     obj_mass,
-    #     obj_output_acc,
-    # ):
-    #     self.update_acc_ker(
-    #         self.obj,
-    #         obj_force,
-    #         obj_mass,
-    #         obj_output_acc,
-    #     )
-
-    # @ti.kernel
-    # def update_acc_ker(
-    #     self,
-    #     obj: ti.template(),
-    #     obj_force: ti.template(),
-    #     obj_mass: ti.template(),
-    #     obj_output_acc: ti.template(),
-    # ):
-    #     for i in range(obj.info.stack_top[None]):
-    #         obj_output_acc[i] += obj_force[i] / obj_mass[i]
-
-    # def compute_vel(
-    #     self,
-    #     dt,
-    #     obj_acc,
-    #     obj_output_vel,
-    # ):
-    #     self.compute_vel_ker(
-    #         self.obj,
-    #         dt,
-    #         obj_acc,
-    #         obj_output_vel,
-    #     )
-
-    # @ti.kernel
-    # def compute_vel_ker(
-    #     self,
-    #     obj: ti.template(),
-    #     dt: ti.f32,
-    #     obj_acc: ti.template(),
-    #     obj_output_vel: ti.template(),
-    # ):
-    #     for i in range(obj.info.stack_top[None]):
-    #         obj_output_vel[i] += obj_acc[i] * dt
