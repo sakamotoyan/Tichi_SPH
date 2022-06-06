@@ -27,7 +27,7 @@ config_space.rt[None] = [8, 8, 8]
 # sim
 config_sim = ti.static(config.sim)
 config_sim.gravity[None] = ti.Vector([0, -9.8, 0])
-config_sim.kinematic_vis[None] = 1e-3
+config_sim.kinematic_vis[None] = 1e-2
 
 # discretization
 config_discre = ti.static(config.discre)
@@ -71,9 +71,10 @@ elastic = tsph.Node(
     node_num=int(1e6),
     capacity_list=elastic_capacity,
 )
+devi = ti.Vector([0, 1, 0])
 elastic_node_num = elastic.push_cube_with_basic_attr(
-    lb=ti.Vector([-1, -1.1, -1]),
-    rt=ti.Vector([1, 0.9, 1]),
+    lb=ti.Vector([-1, -1.4, -2.5]) + devi,
+    rt=ti.Vector([1, 0.0, -0.1]) + devi,
     span=config_discre.part_size[None],
     size=config_discre.part_size[None],
     rest_density=1000,
@@ -94,8 +95,8 @@ bound = tsph.Node(
     capacity_list=bound_capacity,
 )
 bound_node_num = bound.push_box_with_basic_attr(
-    lb=ti.Vector([-1.5, -1.5, -1.5]),
-    rt=ti.Vector([1.5, 1, 1.5]),
+    lb=ti.Vector([-1.5, -1.5, -3]),
+    rt=ti.Vector([1.5, 1, 3]),
     span=config_discre.part_size[None],
     size=config_discre.part_size[None],
     layers=2,
@@ -148,17 +149,24 @@ elastic_df_solver = DFSPH(
     dt=config_discre.dt[None],
     background_neighb_grid=elastic_neighb_grid,
     search_template=search_template,
+    port_sph_psi="implicit_sph.sph_compression_ratio",
+    port_rest_psi="implicit_sph.one",
+    port_X="basic.rest_volume",
 )
 bound_df_solver = DFSPH(
     obj=bound,
     dt=config_discre.dt[None],
     background_neighb_grid=bound_neighb_grid,
     search_template=search_template,
+    port_sph_psi="implicit_sph.sph_compression_ratio",
+    port_rest_psi="implicit_sph.one",
+    port_X="basic.rest_volume",
 )
 
 
 elastic_neighb_grid.register(obj_pos=elastic_solver.obj_pos_now)
 bound_neighb_grid.register(obj_pos=bound_df_solver.obj_pos)
+
 
 def contact_sim():
 
@@ -166,11 +174,7 @@ def contact_sim():
 
     # /// compute psi ///
     elastic_df_solver.clear_psi()
-    elastic_df_solver.compute_self_psi(
-        obj=elastic,
-        obj_X=elastic.basic.mass,
-        obj_output_psi=elastic.implicit_sph.sph_density,
-    )
+    elastic_df_solver.compute_self_psi()
     elastic_df_solver.compute_psi_from(bound_df_solver)
 
     bound_df_solver.clear_psi()
@@ -181,6 +185,7 @@ def contact_sim():
     elastic_df_solver.clear_alpha()
     elastic_df_solver.compute_alpha_1_from(elastic_df_solver)
     elastic_df_solver.compute_alpha_2_from(elastic_df_solver)
+    elastic_df_solver.compute_alpha_1_from(bound_df_solver)
     elastic_df_solver.compute_alpha_2_from(bound_df_solver)
     elastic_df_solver.compute_alpha_self()
 
@@ -219,25 +224,21 @@ def loop():
     #  / neighb search /
     elastic_neighb_grid.register(obj_pos=elastic.basic.pos)
     bound_neighb_grid.register(obj_pos=bound.basic.pos)
-
     #  / elastic sim  /
     elastic_solver.internal_loop(output_force=elastic.basic.force)
-
     elastic_solver.update_acc(
         input_force=elastic.basic.force,
         output_acc=elastic.basic.acc,
     )
-
-    # / vis to acc /
-    elastic_solver.compute_vis(
-        kinetic_vis_coeff=config_sim.kinematic_vis,
-        output_acc=elastic.basic.acc,
-    )
-    # / gravity to acc /
+    # elastic_solver.compute_vis(
+    #     kinetic_vis_coeff=config_sim.kinematic_vis,
+    #     output_acc=elastic.basic.acc,
+    # )
     elastic.attr_add(
         obj_attr=elastic.basic.acc,
         val=config_sim.gravity,
     )
+
     # / update acc to vel /
     elastic_solver.time_integral_arr(
         obj_frac=elastic.basic.acc,

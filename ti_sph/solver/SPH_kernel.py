@@ -90,7 +90,7 @@ def artificial_Laplacian_spline_W(
 
 
 @ti.func
-def bigger_than_zero(val: ti.template()):
+def bigger_than_zero(val: ti.f32):
     if_bigger_than_zero = False
     if val > 1e-6:
         if_bigger_than_zero = True
@@ -113,7 +113,7 @@ def cfl_dt(
     obj_size: ti.template(),
     obj_vel: ti.template(),
     cfl_factor: ti.template(),
-    min_acc_norm: ti.f32,
+    standard_dt: ti.f32,
     output_dt: ti.template(),
     output_inv_dt: ti.template(),
 ):
@@ -121,17 +121,14 @@ def cfl_dt(
     dt[0] = 100
 
     for i in range(obj.info.stack_top[None]):
-        acc_dt = ti.sqrt(obj_size[i] * cfl_factor[None] / min_acc_norm)
-
-        vel_dt = obj_size[i] / 1 * cfl_factor[None]
+        vel_dt = obj_size[i] * cfl_factor[None]
         vel_norm = obj_vel[i].norm()
         if bigger_than_zero(vel_norm):
             vel_dt = obj_size[i] / vel_norm * cfl_factor[None]
+        ti.atomic_min(dt[0], vel_dt)
 
-        ti.atomic_min(dt[0], ti.min(vel_dt, acc_dt))
-
-    output_dt[None] = float(dt[0])
-    output_inv_dt[None] = 1 / output_dt[None]
+    dt[0] = ti.min(dt[0], standard_dt)
+    output_dt[None] = dt[0]
 
 
 @ti.data_oriented
@@ -277,35 +274,45 @@ class SPH_kernel:
         self,
         obj: ti.template(),
         obj_pos: ti.template(),
-        nobj: ti.template(),
         nobj_pos: ti.template(),
         nobj_volume: ti.template(),
         obj_input_attr: ti.template(),
         nobj_input_attr: ti.template(),
         coeff: ti.template(),
         obj_output_attr: ti.template(),
-        config_neighb: ti.template(),
+        background_neighb_grid: ti.template(),
+        search_template: ti.template(),
     ):
         dim = ti.static(obj.basic.pos[0].n)
-        cell_vec = ti.static(obj.located_cell.vec)
-        for i in range(obj.info.stack_top[None]):
-            for cell_tpl in range(config_neighb.search_template.shape[0]):
-                cell_coded = (
-                    cell_vec[i] + config_neighb.search_template[cell_tpl]
-                ).dot(config_neighb.cell_coder[None])
-                if 0 < cell_coded < config_neighb.cell_num[None]:
-                    for j in range(nobj.cell.part_count[cell_coded]):
-                        shift = nobj.cell.part_shift[cell_coded] + j
-                        nid = nobj.located_cell.part_log[shift]
+        for pid in range(obj.info.stack_top[None]):
+            located_cell = background_neighb_grid.get_located_cell(
+                pos=obj_pos[pid],
+            )
+            for neighb_cell_iter in range(search_template.get_neighb_cell_num()):
+                neighb_cell_index = background_neighb_grid.get_neighb_cell_index(
+                    located_cell=located_cell,
+                    cell_iter=neighb_cell_iter,
+                    neighb_search_template=search_template,
+                )
+                if background_neighb_grid.within_grid(neighb_cell_index):
+                    for neighb_part in range(
+                        background_neighb_grid.get_cell_part_num(neighb_cell_index)
+                    ):
+                        nid = background_neighb_grid.get_neighb_part_id(
+                            cell_index=neighb_cell_index,
+                            neighb_part_index=neighb_part,
+                        )
                         """compute below"""
-                        x_ij = obj_pos[i] - nobj_pos[nid]
+                        x_ij = obj_pos[pid] - nobj_pos[nid]
                         dis = x_ij.norm()
                         if dis > 1e-6:
                             grad_W = grad_spline_W(
-                                dis, obj.sph.h[i], obj.sph.sig_inv_h[i]
+                                dis, obj.sph.h[pid], obj.sph.sig_inv_h[pid]
                             )
-                            A_ij = obj_input_attr[i] - nobj_input_attr[nid]
-                            obj_output_attr[i] += coeff[None] * artificial_Laplacian_spline_W(
+                            A_ij = obj_input_attr[pid] - nobj_input_attr[nid]
+                            obj_output_attr[pid] += coeff[
+                                None
+                            ] * artificial_Laplacian_spline_W(
                                 dis,
                                 grad_W,
                                 dim,
@@ -370,16 +377,49 @@ class SPH_kernel:
         self.compute_sig(obj, obj_output_sig)
         self.compute_sig_inv_h(obj, obj_output_sig, obj_output_h, obj_output_sig_inv_h)
 
+    def kernel_init(self):
+        dim = ti.static(self.obj.basic.pos[0].n)
+        sig = 0
+        if dim == 3:
+            sig = 8 / math.pi
+        elif dim == 2:
+            sig = 40 / 7 / math.pi
+        elif dim == 1:
+            sig = 4 / 3
+        else:
+            print("Exception from kernel_init():")
+            print("dim out of range")
+            exit(0)
+        self.kernel_init_h_and_sig(dim=dim, sig=sig)
+
     @ti.kernel
-    def time_integral(
+    def kernel_init_h_and_sig(
         self,
-        obj: ti.template(),
+        dim: ti.i32,
+        sig: ti.f32,
+    ):
+        for pid in range(self.obj.info.stack_top[None]):
+            self.obj.sph.h[pid] = self.obj.basic.size[pid] * 2
+            self.obj.sph.sig[pid] = sig / ti.pow(self.obj.sph.h[pid], dim)
+            self.obj.sph.sig_inv_h[pid] = self.obj.sph.sig[pid] / self.obj.sph.h[pid]
+
+    @ti.kernel
+    def time_integral_arr(
+        self,
         obj_frac: ti.template(),
-        dt: ti.template(),
         obj_output_int: ti.template(),
     ):
-        for i in range(obj.info.stack_top[None]):
-            obj_output_int[i] += obj_frac[i] * dt[None]
+        for i in range(self.obj.info.stack_top[None]):
+            obj_output_int[i] += obj_frac[i] * self.dt
+
+    @ti.kernel
+    def time_integral_val(
+        self,
+        obj_frac: ti.template(),
+        obj_output_int: ti.template(),
+    ):
+        for i in range(self.obj.info.stack_top[None]):
+            obj_output_int[i] += obj_frac[None] * self.dt
 
     @ti.kernel
     def update_acc(

@@ -54,10 +54,11 @@ def struct_node_implicit_sph(dim, node_num):
         alpha_2=ti.f32,
         alpha=ti.f32,
         vel_adv=ti.types.vector(dim, ti.f32),
-        acc_adv=ti.types.vector(dim, ti.f32),
+        acc=ti.types.vector(dim, ti.f32),
         sph_compression_ratio=ti.f32,
         sph_density=ti.f32,
         delta_psi=ti.f32,
+        one=ti.f32,
     )
     return struct_node_implicit_sph.field(shape=(node_num,))
 
