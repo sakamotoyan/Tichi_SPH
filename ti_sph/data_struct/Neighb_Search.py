@@ -105,7 +105,7 @@ class Neighb_grid:
     def calculate_neighb_cell_param(self):
         self.cell_num_vec[None] = ti.ceil(
             (self.rt[None] - self.lb[None]) / self.cell_size[None]
-        )
+        ).cast(ti.i32)
 
         for i in ti.static(range(self.cell_coder[None].n)):
             self.cell_coder[None][i] = 1

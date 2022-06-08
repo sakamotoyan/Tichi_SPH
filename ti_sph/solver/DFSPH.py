@@ -678,6 +678,11 @@ class DFSPH(SPH_kernel):
     def update_vel_adv_from_acc(self):
         for pid in range(self.obj.info.stack_top[None]):
             self.obj_vel_adv[pid] += self.obj_acc[pid] * self.dt
+    
+    @ti.kernel
+    def update_vel_from_acc(self):
+        for pid in range(self.obj.info.stack_top[None]):
+            self.obj_vel[pid] += self.obj_acc[pid] * self.dt
 
     def add_acc_from_vis(
         self,

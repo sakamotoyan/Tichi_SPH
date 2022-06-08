@@ -4,6 +4,7 @@ import ti_sph as tsph
 import numpy as np
 from plyfile import PlyData, PlyElement
 from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
+from ti_sph.solver import DFSPH_layer
 from ti_sph.solver.ISPH_Elastic import ISPH_Elastic
 from ti_sph.solver.DFSPH import DFSPH
 import math
@@ -71,10 +72,32 @@ elastic = tsph.Node(
     node_num=int(1e6),
     capacity_list=elastic_capacity,
 )
-devi = ti.Vector([0, 1, 0])
+devi = ti.Vector([0, 1.2, 0])
 elastic_node_num = elastic.push_cube_with_basic_attr(
-    lb=ti.Vector([-1, -1.4, -2.5]) + devi,
-    rt=ti.Vector([1, 0.0, -0.1]) + devi,
+    lb=ti.Vector([-1, -1.4, -1]) + devi,
+    rt=ti.Vector([1, -0.4, 1]) + devi,
+    span=config_discre.part_size[None],
+    size=config_discre.part_size[None],
+    rest_density=100,
+    color=ti.Vector([1, 0, 1]),
+)
+
+# FLUID
+fluid_capacity = [
+    "node_basic",
+    "node_color",
+    "node_sph",
+    "node_implicit_sph",
+]
+fluid = tsph.Node(
+    dim=config_space.dim[None],
+    id=0,
+    node_num=int(1e6),
+    capacity_list=fluid_capacity,
+)
+fluid_node_num = fluid.push_cube_with_basic_attr(
+    lb=ti.Vector([-1, -1.4, -2.5]),
+    rt=ti.Vector([1, -0.4, 2.5]),
     span=config_discre.part_size[None],
     size=config_discre.part_size[None],
     rest_density=1000,
@@ -133,17 +156,34 @@ bound_neighb_grid = tsph.Neighb_grid(
     rt=config_space.rt,
     cell_size=config_discre.part_size[None] * 2,
 )
+fluid_neighb_grid = tsph.Neighb_grid(
+    obj=fluid,
+    dim=config_space.dim[None],
+    lb=config_space.lb,
+    rt=config_space.rt,
+    cell_size=config_discre.part_size[None] * 2,
+)
 
 # /// --- INIT SOLVER --- ///
 # /// ISPH_Elastic ///
 elastic_solver = ISPH_Elastic(
     obj=elastic,
     dt=config_discre.dt[None],
+    K=1e4,
+    G=1e4,
     background_neighb_grid=elastic_neighb_grid,
     background_neighb_grid_0=elastic_neighb_grid_0,
     search_template=search_template,
 )
-
+fluid_df_solver = DFSPH(
+    obj=fluid,
+    dt=config_discre.dt[None],
+    background_neighb_grid=fluid_neighb_grid,
+    search_template=search_template,
+    port_sph_psi="implicit_sph.sph_compression_ratio",
+    port_rest_psi="implicit_sph.one",
+    port_X="basic.rest_volume",
+)
 elastic_df_solver = DFSPH(
     obj=elastic,
     dt=config_discre.dt[None],
@@ -163,95 +203,58 @@ bound_df_solver = DFSPH(
     port_X="basic.rest_volume",
 )
 
-
-elastic_neighb_grid.register(obj_pos=elastic_solver.obj_pos_now)
-bound_neighb_grid.register(obj_pos=bound_df_solver.obj_pos)
-
-
-def contact_sim():
-
-    elastic_df_solver.set_vel_adv()
-
-    # /// compute psi ///
-    elastic_df_solver.clear_psi()
-    elastic_df_solver.compute_self_psi()
-    elastic_df_solver.compute_psi_from(bound_df_solver)
-
-    bound_df_solver.clear_psi()
-    bound_df_solver.compute_psi_from(elastic_df_solver)
-    bound_df_solver.compute_psi_from(bound_df_solver)
-
-    # /// compute alpha ///
-    elastic_df_solver.clear_alpha()
-    elastic_df_solver.compute_alpha_1_from(elastic_df_solver)
-    elastic_df_solver.compute_alpha_2_from(elastic_df_solver)
-    elastic_df_solver.compute_alpha_1_from(bound_df_solver)
-    elastic_df_solver.compute_alpha_2_from(bound_df_solver)
-    elastic_df_solver.compute_alpha_self()
-
-    bound_df_solver.clear_alpha()
-    bound_df_solver.compute_alpha_2_from(elastic_df_solver)
-    bound_df_solver.compute_alpha_self()
-
-    elastic_df_solver.comp_iter_count[None] = 0
-    while elastic_df_solver.is_compressible():
-        elastic_df_solver.comp_iter_count[None] += 1
-
-        elastic_df_solver.compute_delta_psi_self()
-        bound_df_solver.compute_delta_psi_self()
-
-        elastic_df_solver.compute_delta_psi_advection_from(bound_df_solver)
-        bound_df_solver.compute_delta_psi_advection_from(elastic_df_solver)
-
-        elastic_df_solver.ReLU_delta_psi()
-        bound_df_solver.ReLU_delta_psi()
-
-        elastic_df_solver.check_if_compressible()
-        bound_df_solver.check_if_compressible()
-
-        elastic_df_solver.update_vel_adv_from(bound_df_solver)
-
-    elastic.attr_set_arr(
-        obj_attr=elastic.basic.vel,
-        val_arr=elastic_df_solver.obj_vel_adv,
-    )
+coupling_solver = [elastic_df_solver, bound_df_solver, fluid_df_solver]
+solver_type = ["elastic", "static", "fluid"]
+df_solver_layer = DFSPH_layer(coupling_solver, solver_type)
 
 
 # /// --- LOOP --- ///
 def loop():
-    elastic.clear(elastic.basic.force)
-    elastic.clear(elastic.basic.acc)
-    #  / neighb search /
+    #  /// neighb search ///
     elastic_neighb_grid.register(obj_pos=elastic.basic.pos)
     bound_neighb_grid.register(obj_pos=bound.basic.pos)
-    #  / elastic sim  /
+    fluid_neighb_grid.register(obj_pos=fluid.basic.pos)
+
+    #  /// elastic sim  ///
+    elastic.clear(elastic.basic.force)
+    elastic.clear(elastic.basic.acc)
+
     elastic_solver.internal_loop(output_force=elastic.basic.force)
     elastic_solver.update_acc(
         input_force=elastic.basic.force,
         output_acc=elastic.basic.acc,
     )
-    # elastic_solver.compute_vis(
-    #     kinetic_vis_coeff=config_sim.kinematic_vis,
-    #     output_acc=elastic.basic.acc,
-    # )
+
+    #  /// advection  ///
+    elastic_solver.compute_vis(
+        kinetic_vis_coeff=config_sim.kinematic_vis,
+        output_acc=elastic.basic.acc,
+    )
     elastic.attr_add(
         obj_attr=elastic.basic.acc,
         val=config_sim.gravity,
     )
 
-    # / update acc to vel /
     elastic_solver.time_integral_arr(
         obj_frac=elastic.basic.acc,
         obj_output_int=elastic.basic.vel,
     )
 
-    #  / contact sim  /
-    contact_sim()
+    fluid_df_solver.clear_acc()
+    fluid_df_solver.add_acc(config_sim.gravity)
+    fluid_df_solver.update_vel_from_acc()
 
-    # / update vel to pos /
+    #  /// df sim  ///
+    df_solver_layer.loop()
+
+    # /// update vel to pos ///
     elastic_solver.time_integral_arr(
         obj_frac=elastic.basic.vel,
         obj_output_int=elastic.basic.pos,
+    )
+    fluid_df_solver.time_integral_arr(
+        obj_frac=fluid_df_solver.obj_vel,
+        obj_output_int=fluid_df_solver.obj_pos,
     )
 
 
@@ -267,6 +270,7 @@ while gui.window.running:
     if gui.op_refresh_window:
         gui.scene_setup()
         gui.scene_add_parts(elastic, size=config_discre.part_size[None])
+        gui.scene_add_parts(fluid, size=config_discre.part_size[None])
         if gui.show_bound:
             gui.scene_add_parts(bound, size=config_discre.part_size[None])
         gui.scene_render()
