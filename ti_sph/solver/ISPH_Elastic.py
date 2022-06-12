@@ -80,6 +80,10 @@ class ISPH_Elastic(SPH_kernel):
         )
         pass
 
+    def update_dt(self, dt):
+        self.dt = dt
+        self.inv_dt = 1 / dt
+
     # Eqn.3
     @ti.kernel
     def compute_F(
