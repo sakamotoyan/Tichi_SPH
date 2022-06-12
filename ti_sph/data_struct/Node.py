@@ -62,7 +62,7 @@ class Node:
         begin_index: ti.i32,
         pushed_node_num: ti.i32,
     ):
-        for i in range(begin_index, pushed_node_num):
+        for i in range(begin_index, begin_index + pushed_node_num):
             obj_attr[i] = attr
 
     @ti.kernel

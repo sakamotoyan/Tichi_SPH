@@ -103,6 +103,15 @@ fluid_node_num = fluid.push_cube_with_basic_attr(
     rest_density=1000,
     color=ti.Vector([0, 1, 1]),
 )
+devi = ti.Vector([0, 1.2, 0])
+fluid_node_num = fluid.push_cube_with_basic_attr(
+    lb=ti.Vector([-1, -1.4, -3]) + devi,
+    rt=ti.Vector([1, -0.4, -2]) + devi,
+    span=config_discre.part_size[None],
+    size=config_discre.part_size[None],
+    rest_density=1000,
+    color=ti.Vector([0, 1, 0.5]),
+)
 
 # BOUND
 bound_capacity = [
