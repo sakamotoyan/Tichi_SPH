@@ -28,11 +28,11 @@ config_space.rt[None] = [8, 8, 8]
 # sim
 config_sim = ti.static(config.sim)
 config_sim.gravity[None] = ti.Vector([0, -9.8, 0])
-config_sim.kinematic_vis[None] = 1e-2
+config_sim.kinematic_vis[None] = 1e-1
 
 # discretization
 config_discre = ti.static(config.discre)
-config_discre.part_size[None] = 0.1
+config_discre.part_size[None] = 0.075
 config_discre.cs[None] = 220
 config_discre.cfl_factor[None] = 0.5
 config_discre.dt[None] = (
@@ -82,7 +82,7 @@ elastic_list.append(
 )
 elastic_node_num = elastic_list[0].push_cube_with_basic_attr(
     lb=ti.Vector([-1, -0.2, -1]),
-    rt=ti.Vector([1, 0.8, 1]),
+    rt=ti.Vector([1, 0.1, 1]),
     span=config_discre.part_size[None],
     size=config_discre.part_size[None],
     rest_density=500,
@@ -98,8 +98,8 @@ elastic_list.append(
     )
 )
 elastic_node_num = elastic_list[1].push_cube_with_basic_attr(
-    lb=ti.Vector([-1, 1, -1]),
-    rt=ti.Vector([1, 2, 1]),
+    lb=ti.Vector([-0.5, 0.4, -0.5]),
+    rt=ti.Vector([0.5, 1, 0.5]),
     span=config_discre.part_size[None],
     size=config_discre.part_size[None],
     rest_density=100,
@@ -211,15 +211,16 @@ for elastic, neighb, neighb_0 in zip(
         ISPH_Elastic(
             obj=elastic,
             dt=config_discre.dt[None],
-            K=1e4,
-            G=1e4,
             background_neighb_grid=neighb,
             background_neighb_grid_0=neighb_0,
             search_template=search_template,
         )
     )
-elastic_solver_list[1].K[None]=5e4
-elastic_solver_list[1].G[None]=5e4
+
+elastic_solver_list[0].K[None]=1e5
+elastic_solver_list[0].G[None]=5e3
+elastic_solver_list[1].K[None]=1e5
+elastic_solver_list[1].G[None]=1e4
 
 fluid_df_solver = DFSPH(
     obj=fluid,
@@ -293,12 +294,6 @@ def loop():
         elastic.clear(elastic.basic.force)
         elastic.clear(elastic.basic.acc)
 
-        elastic_solver.internal_loop(output_force=elastic.basic.force)
-        elastic_solver.update_acc(
-            input_force=elastic.basic.force,
-            output_acc=elastic.basic.acc,
-        )
-
         #  /// advection  ///
         elastic_solver.compute_vis(
             kinetic_vis_coeff=config_sim.kinematic_vis,
@@ -307,6 +302,21 @@ def loop():
         elastic.attr_add(
             obj_attr=elastic.basic.acc,
             val=config_sim.gravity,
+        )
+
+        elastic_solver.time_integral_arr(
+            obj_frac=elastic.basic.acc,
+            obj_output_int=elastic.basic.vel,
+        )
+
+        elastic.clear(elastic.basic.force)
+        elastic.clear(elastic.basic.acc)
+
+        elastic_solver.internal_loop(output_force=elastic.basic.force)    
+
+        elastic_solver.update_acc(
+            input_force=elastic.basic.force,
+            output_acc=elastic.basic.acc,
         )
 
         elastic_solver.time_integral_arr(
@@ -346,7 +356,7 @@ while gui.window.running:
         gui.scene_setup()
         for elastic in elastic_list:
             gui.scene_add_parts(elastic, size=config_discre.part_size[None])
-        gui.scene_add_parts(fluid, size=config_discre.part_size[None])
         if gui.show_bound:
-            gui.scene_add_parts(bound, size=config_discre.part_size[None])
+            gui.scene_add_parts(fluid, size=config_discre.part_size[None])
+            # gui.scene_add_parts(bound, size=config_discre.part_size[None])
         gui.scene_render()

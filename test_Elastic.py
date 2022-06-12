@@ -166,11 +166,7 @@ def contact_sim():
 
     # /// compute psi ///
     elastic_df_solver.clear_psi()
-    elastic_df_solver.compute_self_psi(
-        obj=elastic,
-        obj_X=elastic.basic.mass,
-        obj_output_psi=elastic.implicit_sph.sph_density,
-    )
+    elastic_df_solver.compute_self_psi()
     elastic_df_solver.compute_psi_from(bound_df_solver)
 
     bound_df_solver.clear_psi()

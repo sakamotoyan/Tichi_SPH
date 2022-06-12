@@ -12,6 +12,15 @@ class DFSPH_layer:
         self.type_list = types
         self.check_pair()
 
+        for solver, type in zip(self.solver_list, self.type_list):
+            solver.background_neighb_grid.register(obj_pos=solver.obj_pos)
+            if self.is_compressible(type):
+                solver.compute_psi_from(solver)
+                solver.obj.attr_set_arr(
+                    obj_attr=solver.obj_tmp1,
+                    val_arr=solver.obj_sph_psi,
+                )
+
     def check_pair(self):
         if len(self.solver_list) != len(self.type_list):
             raise Exception(
@@ -43,7 +52,12 @@ class DFSPH_layer:
             solver.comp_iter_count[None] = 0
 
             if self.is_compressible(type):
-                solver.compute_self_psi()
+                solver.compute_psi_from(solver)
+                # solver.obj.attr_set_arr(
+                #     obj_attr=solver.obj_sph_psi,
+                #     val_arr=solver.obj_tmp1,
+                # )
+                # solver.compute_self_psi()
             else:
                 solver.compute_psi_from(solver)
 
@@ -87,8 +101,8 @@ class DFSPH_layer:
             solver.comp_iter_count[None] += 1
             solver.compute_delta_psi_self()
 
-            if not self.is_compressible(type):
-                solver.compute_delta_psi_advection_from(solver)
+            # if not self.is_compressible(type):
+            solver.compute_delta_psi_advection_from(solver)
 
             # loop excluding itself
             for neighbour_solver in self.solver_list:

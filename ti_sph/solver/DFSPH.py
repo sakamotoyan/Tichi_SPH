@@ -47,6 +47,7 @@ class DFSPH(SPH_kernel):
         port_sph_h="sph.h",
         port_sph_sig="sph.sig",
         port_sph_sig_inv_h="sph.sig_inv_h",
+        port_tmp1="implicit_sph.tmp1",
     ):
         self.obj = obj
         self.dt = dt
@@ -71,6 +72,7 @@ class DFSPH(SPH_kernel):
         self.obj_sph_h = eval("self.obj." + port_sph_h)
         self.obj_sph_sig = eval("self.obj." + port_sph_sig)
         self.obj_sph_sig_inv_h = eval("self.obj." + port_sph_sig_inv_h)
+        self.obj_tmp1 = eval("self.obj." + port_tmp1)
 
         self.max_div_error = ti.field(ti.f32, ())
         self.max_comp_error = ti.field(ti.f32, ())

@@ -24,9 +24,9 @@ def struct_node_sph(dim, node_num):
         h=ti.f32,
         sig=ti.f32,
         sig_inv_h=ti.f32,
-        W=ti.f32,
-        W_grad=ti.types.vector(dim, ti.f32),
-        compression=ti.f32,
+        # W=ti.f32,
+        # W_grad=ti.types.vector(dim, ti.f32),
+        # compression=ti.f32,
     )
     return struct_node_sph.field(shape=(node_num,))
 
@@ -59,6 +59,7 @@ def struct_node_implicit_sph(dim, node_num):
         sph_density=ti.f32,
         delta_psi=ti.f32,
         one=ti.f32,
+        tmp1=ti.f32,
     )
     return struct_node_implicit_sph.field(shape=(node_num,))
 
