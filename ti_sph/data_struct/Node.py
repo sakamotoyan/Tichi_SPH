@@ -366,3 +366,65 @@ class Node:
         )
 
         return pushed_num
+
+    def push_ply(
+            self,
+            pos_seq: ti.template(),
+    ):
+        current_node_num = self.info.stack_top[None]
+        pushed_node_num = len(pos_seq)
+        new_node_num = current_node_num + pushed_node_num
+        if new_node_num > self.info.node_num[None]:
+            print("WARNING from push_ply(): overflow")
+
+        dim = ti.static(self.basic.pos.n)
+        for i in range(pushed_node_num):
+            for j in ti.static(range(dim)):
+                self.basic.pos[i + current_node_num][j] = pos_seq[i, j]
+
+        self.info.stack_top[None] = new_node_num
+        return pushed_node_num
+
+    def push_ply_with_basic_attr(
+            self,
+            pos_seq,
+            size,
+            rest_density,
+            color=ti.Vector([0.3, 0.3, 0.3]),
+    ):
+        dim = self.basic.pos[0].n
+
+        pushed_num = self.push_ply(pos_seq)
+
+        self.push_attr(
+            self.basic.size,
+            size,
+            self.info.stack_top[None] - pushed_num,
+            pushed_num,
+        )
+        self.push_attr(
+            self.basic.rest_volume,
+            size ** dim,
+            self.info.stack_top[None] - pushed_num,
+            pushed_num,
+        )
+        self.push_attr(
+            self.basic.rest_density,
+            rest_density,
+            self.info.stack_top[None] - pushed_num,
+            pushed_num,
+        )
+        self.push_attr(
+            self.basic.mass,
+            rest_density * (size ** dim),
+            self.info.stack_top[None] - pushed_num,
+            pushed_num,
+        )
+        self.push_attr(
+            self.color.vec,
+            color,
+            self.info.stack_top[None] - pushed_num,
+            pushed_num,
+        )
+
+        return pushed_num
