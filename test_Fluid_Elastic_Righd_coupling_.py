@@ -264,7 +264,7 @@ solver_type = ["static", "fluid"]
 for i in range(len(elastic_df_solver_list)):
     solver_type.append("elastic")
 
-df_solver_layer = DFSPH_layer(coupling_solver, solver_type)
+df_solver_layer = DFSPH_layer(coupling_solver, solver_type, number_density=True)
 
 
 # /// --- LOOP --- ///

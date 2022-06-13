@@ -90,8 +90,12 @@ class DFSPH_layer:
             solver.compute_delta_psi_self()
 
             # loop including itself
-            for neighbour_solver in self.solver_list:
-                solver.compute_delta_psi_advection_from(neighbour_solver)
+            if self.if_number_density:
+                for neighbour_solver in self.solver_list:
+                    solver.compute_delta_numbder_density_psi_advection_from(neighbour_solver)
+            else:
+                for neighbour_solver in self.solver_list:
+                    solver.compute_delta_psi_advection_from(neighbour_solver)
 
             solver.ReLU_delta_psi()
             solver.check_if_compressible()

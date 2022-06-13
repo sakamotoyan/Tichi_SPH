@@ -629,6 +629,54 @@ class DFSPH(SPH_kernel):
                                 * from_solver.obj_X[nid]
                                 * self.dt
                             )
+    @ti.kernel
+    def compute_delta_numbder_density_psi_advection_from(
+        self,
+        from_solver: ti.template(),
+    ):
+        for pid in range(self.obj.info.stack_top[None]):
+            located_cell = from_solver.background_neighb_grid.get_located_cell(
+                pos=self.obj_pos[pid],
+            )
+            for neighb_cell_iter in range(
+                from_solver.search_template.get_neighb_cell_num()
+            ):
+                neighb_cell_index = (
+                    from_solver.background_neighb_grid.get_neighb_cell_index(
+                        located_cell=located_cell,
+                        cell_iter=neighb_cell_iter,
+                        neighb_search_template=from_solver.search_template,
+                    )
+                )
+                if from_solver.background_neighb_grid.within_grid(neighb_cell_index):
+                    for neighb_part in range(
+                        from_solver.background_neighb_grid.get_cell_part_num(
+                            neighb_cell_index
+                        )
+                    ):
+                        nid = from_solver.background_neighb_grid.get_neighb_part_id(
+                            cell_index=neighb_cell_index,
+                            neighb_part_index=neighb_part,
+                        )
+                        """compute below"""
+                        x_ij = self.obj_pos[pid] - from_solver.obj_pos[nid]
+                        dis = x_ij.norm()
+                        if bigger_than_zero(dis):
+                            self.obj_delta_psi[pid] += (
+                                (
+                                    grad_spline_W(
+                                        dis,
+                                        self.obj_sph_h[pid],
+                                        self.obj_sph_sig_inv_h[pid],
+                                    )
+                                    * x_ij
+                                    / dis
+                                ).dot(
+                                    self.obj_vel_adv[pid] - from_solver.obj_vel_adv[nid]
+                                )
+                                * self.obj_X[pid]
+                                * self.dt
+                            )
 
     @ti.kernel
     def update_vel_adv_from(
