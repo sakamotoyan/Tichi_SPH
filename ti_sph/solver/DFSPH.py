@@ -441,6 +441,41 @@ class DFSPH(SPH_kernel):
                         self.obj_sph_psi[pid] += from_solver.obj_X[nid] * spline_W(
                             dis, self.obj_sph_h[pid], self.obj_sph_sig[pid]
                         )
+    
+    @ti.kernel
+    def compute_number_density_psi_from(
+        self,
+        from_solver: ti.template(),
+    ):
+        for pid in range(self.obj.info.stack_top[None]):
+            located_cell = from_solver.background_neighb_grid.get_located_cell(
+                pos=self.obj_pos[pid],
+            )
+            for neighb_cell_iter in range(
+                from_solver.search_template.get_neighb_cell_num()
+            ):
+                neighb_cell_index = (
+                    from_solver.background_neighb_grid.get_neighb_cell_index(
+                        located_cell=located_cell,
+                        cell_iter=neighb_cell_iter,
+                        neighb_search_template=from_solver.search_template,
+                    )
+                )
+                if from_solver.background_neighb_grid.within_grid(neighb_cell_index):
+                    for neighb_part in range(
+                        from_solver.background_neighb_grid.get_cell_part_num(
+                            neighb_cell_index
+                        )
+                    ):
+                        nid = from_solver.background_neighb_grid.get_neighb_part_id(
+                            cell_index=neighb_cell_index,
+                            neighb_part_index=neighb_part,
+                        )
+                        """compute below"""
+                        dis = (self.obj_pos[pid] - from_solver.obj_pos[nid]).norm()
+                        self.obj_sph_psi[pid] += self.obj_X[pid] * spline_W(
+                            dis, self.obj_sph_h[pid], self.obj_sph_sig[pid]
+                        )
 
     @ti.kernel
     def compute_alpha_1_from(

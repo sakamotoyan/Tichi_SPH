@@ -3,23 +3,18 @@ from .DFSPH import *
 
 
 class DFSPH_layer:
-    def __init__(self, solvers, types):
+    def __init__(self, solvers, types, number_density=False):
         self.available_types = ["static", "elastic", "fluid"]
         self.dynamic_types = ["elastic", "fluid"]
-        self.compressible_types = ["elastic"]
+        self.compressible_types = []
 
         self.solver_list = solvers
         self.type_list = types
+        self.if_number_density = number_density
         self.check_pair()
 
         for solver, type in zip(self.solver_list, self.type_list):
             solver.background_neighb_grid.register(obj_pos=solver.obj_pos)
-            if self.is_compressible(type):
-                solver.compute_psi_from(solver)
-                solver.obj.attr_set_arr(
-                    obj_attr=solver.obj_tmp1,
-                    val_arr=solver.obj_sph_psi,
-                )
 
     def check_pair(self):
         if len(self.solver_list) != len(self.type_list):
@@ -51,20 +46,13 @@ class DFSPH_layer:
             solver.clear_alpha()
             solver.comp_iter_count[None] = 0
 
-            if self.is_compressible(type):
-                solver.compute_psi_from(solver)
-                # solver.obj.attr_set_arr(
-                #     obj_attr=solver.obj_sph_psi,
-                #     val_arr=solver.obj_tmp1,
-                # )
-                # solver.compute_self_psi()
-            else:
-                solver.compute_psi_from(solver)
-
-            # loop excluding itself
+            # loop including itself
             for neighbour_solver in self.solver_list:
-                if not neighbour_solver is solver:
+                if self.if_number_density:
+                    solver.compute_number_density_psi_from(neighbour_solver)
+                else:
                     solver.compute_psi_from(neighbour_solver)
+                
 
             if self.is_dynamic(type):
                 # loop including itself
@@ -101,13 +89,9 @@ class DFSPH_layer:
             solver.comp_iter_count[None] += 1
             solver.compute_delta_psi_self()
 
-            # if not self.is_compressible(type):
-            solver.compute_delta_psi_advection_from(solver)
-
-            # loop excluding itself
+            # loop including itself
             for neighbour_solver in self.solver_list:
-                if not neighbour_solver is solver:
-                    solver.compute_delta_psi_advection_from(neighbour_solver)
+                solver.compute_delta_psi_advection_from(neighbour_solver)
 
             solver.ReLU_delta_psi()
             solver.check_if_compressible()

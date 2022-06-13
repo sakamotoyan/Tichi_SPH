@@ -227,9 +227,9 @@ fluid_df_solver = DFSPH(
     dt=config_discre.dt[None],
     background_neighb_grid=fluid_neighb_grid,
     search_template=search_template,
-    port_sph_psi="implicit_sph.sph_compression_ratio",
-    port_rest_psi="implicit_sph.one",
-    port_X="basic.rest_volume",
+    # port_sph_psi="implicit_sph.sph_compression_ratio",
+    # port_rest_psi="implicit_sph.one",
+    # port_X="basic.rest_volume",
 )
 
 for elastic, neighb in zip(elastic_list, elastic_neighb_list):
@@ -239,9 +239,9 @@ for elastic, neighb in zip(elastic_list, elastic_neighb_list):
             dt=config_discre.dt[None],
             background_neighb_grid=neighb,
             search_template=search_template,
-            port_sph_psi="implicit_sph.sph_compression_ratio",
-            port_rest_psi="implicit_sph.one",
-            port_X="basic.rest_volume",
+            # port_sph_psi="implicit_sph.sph_compression_ratio",
+            # port_rest_psi="implicit_sph.one",
+            # port_X="basic.rest_volume",
         )
     )
 
@@ -250,9 +250,9 @@ bound_df_solver = DFSPH(
     dt=config_discre.dt[None],
     background_neighb_grid=bound_neighb_grid,
     search_template=search_template,
-    port_sph_psi="implicit_sph.sph_compression_ratio",
-    port_rest_psi="implicit_sph.one",
-    port_X="basic.rest_volume",
+    # port_sph_psi="implicit_sph.sph_compression_ratio",
+    # port_rest_psi="implicit_sph.one",
+    # port_X="basic.rest_volume",
 )
 
 solvers = (
