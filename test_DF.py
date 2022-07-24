@@ -1,3 +1,5 @@
+# runs DFSPH
+
 import re
 import taichi as ti
 import ti_sph as tsph
@@ -13,6 +15,7 @@ ti.init(arch=ti.cuda)
 config_capacity = ["info_space", "info_discretization", "info_sim", "info_gui"]
 config = tsph.Config(dim=3, capacity_list=config_capacity)
 
+#initialize each value in config
 # /// space ///
 config_space = ti.static(config.space)
 config_space.dim[None] = 3
@@ -53,6 +56,7 @@ config_gui.point_light_pos[None] = [2, 1.5, -1.5]
 config_gui.point_light_color[None] = [0.8, 0.8, 0.8]
 # /// --- END OF CONNFIG --- ///
 
+# initialize Neighb_Cell object
 # /// --- NEIGHB --- ///
 config_neighb = tsph.Neighb_Cell(
     dim=3,
@@ -62,6 +66,8 @@ config_neighb = tsph.Neighb_Cell(
 )
 # /// --- END OF NEIGHB --- ///
 
+# initialize Node objects (fluid and boundary) and add particles
+"""""" """ OBJECT """ """"""
 # /// --- INIT OBJECT --- ///
 # /// FLUID ///
 fluid_capacity = [
@@ -163,6 +169,7 @@ bound_df_solver = DFSPH(
 
 # /// --- END OF INIT SOLVER --- ///
 
+# define simulation loop
 # /// --- LOOP --- ///
 def loop():
     # /// dynamic dt ///
@@ -240,7 +247,7 @@ def loop():
 
     # /// --- END OF ITERATION --- ///
 
-    # /// fluid: vel_adv to vel ///
+    # /// fluid: vel_adv to vel (set vel = vel_adv) ///
     fluid.attr_set_arr(
         obj_attr=fluid_df_solver.obj_vel,
         val_arr=fluid_df_solver.obj_vel_adv,
@@ -264,6 +271,7 @@ while gui.window.running:
     if gui.op_system_run:
         loop()
         loop_count += 1
+        print(loop_count)
     gui.monitor_listen()
     if gui.op_refresh_window:
         gui.scene_setup()

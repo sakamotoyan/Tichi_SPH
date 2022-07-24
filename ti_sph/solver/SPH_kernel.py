@@ -1,6 +1,11 @@
+# core of SPH (includes smoothing kernels, time step conditions, helper functions, SPH approximatons, and initializing smoothing kernel related particle attributes)
+
 from numpy import float32
 import taichi as ti
 import math
+
+# ====================================================================================
+# smoothing kernels
 
 # FROM: Eqn.(2) of the paper "Versatile Surface Tension and Adhesion for SPH Fluids"
 # REF: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.462.8293&rep=rep1&type=pdf
@@ -88,6 +93,8 @@ def artificial_Laplacian_spline_W(
 ):
     return 2 * (2 + dim) * V_j * grad_W * (x_ij) * A_ij.dot(x_ij) / (r**3)
 
+# ====================================================================================
+# helper functions
 
 @ti.func
 def bigger_than_zero(val: ti.f32):
@@ -101,12 +108,17 @@ def bigger_than_zero(val: ti.f32):
 def make_bigger_than_zero():
     return 1e-6
 
+# ====================================================================================
+# decide timestep length
 
+# fixed timestep length
 @ti.kernel
 def fixed_dt(cs: ti.f32, discretization_size: ti.f32, cfl_factor: ti.f32) -> ti.f32:
     return discretization_size / cs * cfl_factor
 
 
+# compute output_dt and output_inv_dt with cfl condition
+# what are min_acc_norm and acc_dt for?
 @ti.kernel
 def cfl_dt(
     obj: ti.template(),
@@ -136,6 +148,10 @@ class SPH_kernel:
     def __init__(self):
         pass
 
+    # ====================================================================================
+    # SPH approximations
+
+    # output_attr += SPH approximation of input_attr (using volume)
     @ti.kernel
     def compute_W(
         self,
@@ -164,6 +180,7 @@ class SPH_kernel:
                             * spline_W(dis, obj.sph.h[i], obj.sph.sig[i])
                         )
 
+    # output_attr += SPH gradient approximation of input_attr (using volume) (using neither difference nor symmetry equation)
     @ti.kernel
     def compute_W_grad(
         self,
@@ -197,6 +214,7 @@ class SPH_kernel:
                                 nobj_input_attr[nid] * nobj_volume[nid] * grad_W_vec
                             )
 
+    # output_attr += SPH gradient approximation of input_attr (using volume) (using difference equation), typo: grad -> grand
     @ti.kernel
     def compute_W_grand_diff(
         self,
@@ -233,6 +251,7 @@ class SPH_kernel:
                                 * grad_W_vec
                             )
 
+    # output_attr += SPH gradient approximation of input_attr (using volume) (using the A_i + A_j symmetric equation), typo: grad -> grand
     @ti.kernel
     def compute_W_grand_sum(
         self,
@@ -269,6 +288,7 @@ class SPH_kernel:
                                 * grad_W_vec
                             )
 
+    # obj_output_attr += laplacian approximation of input_attr
     @ti.kernel
     def compute_Laplacian(
         self,
@@ -321,6 +341,10 @@ class SPH_kernel:
                                 A_ij,
                             )
 
+    # ====================================================================================
+    # initialize per-particle attributes that are related to smoothing kernel
+
+    # initialize support radius per-particle
     @ti.kernel
     def set_h(
         self,
@@ -331,6 +355,7 @@ class SPH_kernel:
         for i in range(obj.info.stack_top[None]):
             obj_output_h[i] = h
 
+    # compute smoothing kernel normalization factor
     def compute_sig(self, obj, obj_output_sig):
         dim = ti.static(obj.basic.pos[0].n)
         sig = 0
@@ -346,6 +371,7 @@ class SPH_kernel:
             exit(0)
         self.compute_sig_ker(obj, obj_output_sig, sig)
 
+    # compute smoothing kernel normalization factor (ti kernel)
     @ti.kernel
     def compute_sig_ker(
         self, obj: ti.template(), obj_output_sig: ti.template(), sig: ti.f32
@@ -354,6 +380,7 @@ class SPH_kernel:
         for i in range(obj.info.stack_top[None]):
             obj_output_sig[i] = sig / ti.pow(obj.sph.h[i], dim)
 
+    # compute sig/h
     @ti.kernel
     def compute_sig_inv_h(
         self,
@@ -365,6 +392,7 @@ class SPH_kernel:
         for i in range(obj.info.stack_top[None]):
             obj_output_sig_inv_h[i] = obj_sig[i] / obj_h[i]
 
+    # a part of per-particle initialization (related to smoothing kernel)
     def compute_kernel(
         self,
         obj,
@@ -421,6 +449,7 @@ class SPH_kernel:
         for i in range(self.obj.info.stack_top[None]):
             obj_output_int[i] += obj_frac[None] * self.dt
 
+    # update acceleration from force
     @ti.kernel
     def update_acc(
         self,

@@ -1,3 +1,5 @@
+# helper functions
+
 import taichi as ti
 import os
 
@@ -33,7 +35,7 @@ def has_positive(vec) -> bool:
             has_positive = True
     return has_positive
 
-
+# returns corresponding cell index vector from position node_pos
 @ti.func
 def node_encode(node_pos: ti.template(), lb: ti.template(), cell_size: ti.f32):
     return int((node_pos - lb[None]) // cell_size)
