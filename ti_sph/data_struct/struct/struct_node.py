@@ -24,21 +24,12 @@ def struct_node_basic(dim, node_num):
 # "node_sph" -> sph
 def struct_node_sph(dim, node_num):
     struct_node_sph = ti.types.struct(
-<<<<<<< HEAD
-        h=ti.f32,
-        sig=ti.f32,
-        sig_inv_h=ti.f32,
-        # W=ti.f32,
-        # W_grad=ti.types.vector(dim, ti.f32),
-        # compression=ti.f32,
-=======
         h=ti.f32,                               # support radius
         sig=ti.f32,                             # smoothing kernel normalization factor
         sig_inv_h=ti.f32,                       # sig/h
-        W=ti.f32,                               # not used, smoothing kernel (probably shouldn't be stored here since W_ij is different for different j)
-        W_grad=ti.types.vector(dim, ti.f32),    # not used, gradient of smoothing kernel (probably shouldn't be stored here since W_ij is different for different j)
-        compression=ti.f32,                     # not used currently, particle compression
->>>>>>> NEW_FBM
+        # W=ti.f32,
+        # W_grad=ti.types.vector(dim, ti.f32),
+        # compression=ti.f32,
     )
     return struct_node_sph.field(shape=(node_num,))
 
@@ -64,27 +55,16 @@ def struct_node_elastic_sph(dim, node_num):
 # "node_implicit_sph" -> implicit_sph
 def struct_node_implicit_sph(dim, node_num):
     struct_node_implicit_sph = ti.types.struct(
-<<<<<<< HEAD
-        alpha_1=ti.types.vector(dim, ti.f32),
-        alpha_2=ti.f32,
-        alpha=ti.f32,
-        vel_adv=ti.types.vector(dim, ti.f32),
-        acc=ti.types.vector(dim, ti.f32),
-        sph_compression_ratio=ti.f32,
-        sph_density=ti.f32,
-        delta_psi=ti.f32,
-        one=ti.f32,
-        tmp1=ti.f32,
-=======
         alpha_1=ti.types.vector(dim, ti.f32),   # DFSPH alpha 1st term (intermediate variable)
         alpha_2=ti.f32,                         # DFSPH alpha 2nd term (intermediate variable)
         alpha=ti.f32,                           # DFSPH alpha
         vel_adv=ti.types.vector(dim, ti.f32),   # advection velocity
-        acc_adv=ti.types.vector(dim, ti.f32),   # advection acceleration
+        acc=ti.types.vector(dim, ti.f32),       # advection acceleration
         sph_compression_ratio=ti.f32,           # not used
         sph_density=ti.f32,                     # sph density
         delta_psi=ti.f32,                       # delta psi (corresponds to density deviation)
->>>>>>> NEW_FBM
+        one=ti.f32,
+        tmp1=ti.f32,
     )
     return struct_node_implicit_sph.field(shape=(node_num,))
 
