@@ -405,6 +405,7 @@ class SPH_kernel:
         self.compute_sig(obj, obj_output_sig)
         self.compute_sig_inv_h(obj, obj_output_sig, obj_output_h, obj_output_sig_inv_h)
 
+    # initialize smoothing kernel
     def kernel_init(self):
         dim = ti.static(self.obj.basic.pos[0].n)
         sig = 0

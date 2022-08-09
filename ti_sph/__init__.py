@@ -7,7 +7,7 @@ from .class_gui import *
 from .data_struct.Config import *
 from .data_struct.Node import *
 from .kernel_sph import *
-from .data_struct import Node, Neighb_Cell, Config, Neighb_grid, Neighb_search_template
+from .data_struct import Node, Neighb_Cell, Config, Neighb_grid, Neighb_search_template, SDF_boundary
 
 from .data_IO import *
 from .solver import *

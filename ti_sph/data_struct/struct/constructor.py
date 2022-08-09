@@ -20,6 +20,8 @@ def node_construct(self, dim, node_num, capacity_list):
             self.located_cell = struct_node_neighb_search(dim, node_num)
         if capacity == "node_ISPH_Elastic":
             self.elastic_sph = struct_node_elastic_sph(dim, node_num)
+        if capacity == "node_wcsph":
+            self.wcsph = struct_node_wcsph(dim, node_num)
 
 
 def node_neighb_cell_construct(self, dim, neighb_cell_num, capacity_list):
