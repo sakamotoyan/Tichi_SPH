@@ -109,6 +109,13 @@ class DFSPH(SPH_kernel):
             and (not self.comp_iter_count[None] == self.max_comp_iter[None])
         )
 
+    def is_div(self):
+        return (
+            (self.div_iter_count[None] < self.min_div_iter[None])
+            or (self.div_avg_ratio[None] > self.max_div_error[None])
+            and (not self.div_iter_count[None] == self.max_div_iter[None])
+        )
+
     def update_dt(self, dt):
         self.dt = dt
         self.inv_dt = 1 / dt
@@ -352,6 +359,15 @@ class DFSPH(SPH_kernel):
             )
 
         self.comp_avg_ratio[None] /= self.obj.info.stack_top[None]
+
+    @ti.kernel
+    def check_if_divfree(self):
+        for pid in range(self.obj.info.stack_top[None]):
+            self.div_avg_ratio[None] += (
+                self.obj_delta_psi[pid] / self.obj_rest_psi[pid]
+            )
+
+        self.div_avg_ratio[None] /= self.obj.info.stack_top[None]
 
     @ti.kernel
     def update_vel_adv(

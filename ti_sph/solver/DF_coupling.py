@@ -77,12 +77,104 @@ class DFSPH_layer:
                 val_arr=solver.obj_vel_adv,
             )
 
+    def loop_incomp(self):
+        for solver, type in zip(self.solver_list, self.type_list):
+
+            solver.set_vel_adv()
+
+            solver.clear_psi()
+            solver.clear_alpha()
+            solver.comp_iter_count[None] = 0
+
+            # loop including itself
+            for neighbour_solver in self.solver_list:
+                if self.if_number_density:
+                    solver.compute_number_density_psi_from(neighbour_solver)
+                else:
+                    solver.compute_psi_from(neighbour_solver)
+                
+            if self.is_dynamic(type):
+                # loop including itself
+                for neighbour_solver in self.solver_list:
+                    solver.compute_alpha_1_from(neighbour_solver)
+
+            # loop including itself
+            for neighbour_solver, neighbour_type in zip(
+                self.solver_list, self.type_list
+            ):
+                if self.is_dynamic(neighbour_type):
+                    solver.compute_alpha_2_from(neighbour_solver)
+
+            solver.compute_alpha_self()
+
+        while not self.is_global_incompressible():
+            self.comp_iter()
+
+        for solver in self.solver_list:
+            solver.obj.attr_set_arr(
+                obj_attr=solver.obj_vel,
+                val_arr=solver.obj_vel_adv,
+            )
+        
+        print("comp_iter_count:")
+        print(solver.comp_iter_count[None])
+
+    def loop_divfree(self):
+        for solver, type in zip(self.solver_list, self.type_list):
+
+            solver.set_vel_adv()
+
+            solver.clear_psi()
+            solver.clear_alpha()
+            solver.div_iter_count[None] = 0
+
+            # loop including itself
+            for neighbour_solver in self.solver_list:
+                if self.if_number_density:
+                    solver.compute_number_density_psi_from(neighbour_solver)
+                else:
+                    solver.compute_psi_from(neighbour_solver)
+                
+
+            if self.is_dynamic(type):
+                # loop including itself
+                for neighbour_solver in self.solver_list:
+                    solver.compute_alpha_1_from(neighbour_solver)
+
+            # loop including itself
+            for neighbour_solver, neighbour_type in zip(
+                self.solver_list, self.type_list
+            ):
+                if self.is_dynamic(neighbour_type):
+                    solver.compute_alpha_2_from(neighbour_solver)
+
+            solver.compute_alpha_self()
+
+        while not self.is_global_divfree():
+            self.div_iter()
+
+        for solver in self.solver_list:
+            solver.obj.attr_set_arr(
+                obj_attr=solver.obj_vel,
+                val_arr=solver.obj_vel_adv,
+            )
+        
+        print("div_iter_count:")
+        print(solver.div_iter_count[None])
+
     def is_global_incompressible(self):
         is_incompressible = True
         for solver in self.solver_list:
             if solver.is_compressible():
                 is_incompressible = False
         return is_incompressible
+
+    def is_global_divfree(self):
+        is_divfree = True
+        for solver in self.solver_list:
+            if solver.is_div():
+                is_divfree = False
+        return is_divfree
 
     def comp_iter(self):
         for solver, type in zip(self.solver_list, self.type_list):
@@ -99,6 +191,22 @@ class DFSPH_layer:
 
             solver.ReLU_delta_psi()
             solver.check_if_compressible()
+
+    def div_iter(self):
+        for solver, type in zip(self.solver_list, self.type_list):
+            solver.div_iter_count[None] += 1
+            solver.compute_delta_psi_self()
+
+            # loop including itself
+            if self.if_number_density:
+                for neighbour_solver in self.solver_list:
+                    solver.compute_delta_numbder_density_psi_advection_from(neighbour_solver)
+            else:
+                for neighbour_solver in self.solver_list:
+                    solver.compute_delta_psi_advection_from(neighbour_solver)
+
+            solver.ReLU_delta_psi()
+            solver.check_if_divfree()
 
         for solver, type in zip(self.solver_list, self.type_list):
             if self.is_dynamic(type):

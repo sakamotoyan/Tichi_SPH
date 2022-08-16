@@ -266,12 +266,9 @@ loop()
 """ GUI """
 gui = tsph.Gui(config_gui)
 gui.env_set_up()
-loop_count = 0
 while gui.window.running:
     if gui.op_system_run:
         loop()
-        loop_count += 1
-        print(loop_count)
     gui.monitor_listen()
     if gui.op_refresh_window:
         gui.scene_setup()

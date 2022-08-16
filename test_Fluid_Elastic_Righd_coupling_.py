@@ -264,7 +264,7 @@ solver_type = ["static", "fluid"]
 for i in range(len(elastic_df_solver_list)):
     solver_type.append("elastic")
 
-df_solver_layer = DFSPH_layer(coupling_solver, solver_type, number_density=True)
+df_solver_layer = DFSPH_layer(coupling_solver, solver_type, number_density=False)
 
 
 # /// --- LOOP --- ///
@@ -288,6 +288,9 @@ def loop():
         neighb.register(obj_pos=elastic.basic.pos)
     bound_neighb_grid.register(obj_pos=bound.basic.pos)
     fluid_neighb_grid.register(obj_pos=fluid.basic.pos)
+
+    # /// divergence-free solver ///
+    # df_solver_layer.loop_divfree()
 
     #  /// elastic sim  ///
     for elastic, elastic_solver in zip(elastic_list, elastic_solver_list):
@@ -329,7 +332,7 @@ def loop():
     fluid_df_solver.update_vel_from_acc()
 
     #  /// df sim  ///
-    df_solver_layer.loop()
+    df_solver_layer.loop_incomp()
 
     # /// update vel to pos ///
     for elastic, elastic_solver in zip(elastic_list, elastic_solver_list):
