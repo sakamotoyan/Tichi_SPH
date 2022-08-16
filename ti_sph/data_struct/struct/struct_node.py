@@ -33,19 +33,6 @@ def struct_node_sph(dim, node_num):
     )
     return struct_node_sph.field(shape=(node_num,))
 
-# wcsph
-# node_construct()
-# "node_wcsph" -> wcsph
-def struct_node_wcsph(dim, node_num):
-    struct_node_wcsph = ti.types.struct(
-        pressure=ti.f32,                        # pressure
-        vel_adv=ti.types.vector(dim, ti.f32),   # advection velocity
-        acc=ti.types.vector(dim, ti.f32),       # advection acceleration
-        sph_compression_ratio=ti.f32,           # volume compression
-        sph_density=ti.f32,                     # sph density
-        one=ti.f32,
-    )
-    return struct_node_wcsph.field(shape=(node_num,))
 
 # elastic sph
 # node_construct()
@@ -73,7 +60,7 @@ def struct_node_implicit_sph(dim, node_num):
         alpha=ti.f32,                           # DFSPH alpha
         vel_adv=ti.types.vector(dim, ti.f32),   # advection velocity
         acc=ti.types.vector(dim, ti.f32),       # advection acceleration
-        sph_compression_ratio=ti.f32,           # volume compression
+        sph_compression_ratio=ti.f32,           # not used
         sph_density=ti.f32,                     # sph density
         delta_psi=ti.f32,                       # delta psi (corresponds to density deviation)
         one=ti.f32,
