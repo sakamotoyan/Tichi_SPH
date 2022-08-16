@@ -26,12 +26,12 @@ class DFSPH(SPH_kernel):
         dt,
         background_neighb_grid,
         search_template,
-        max_div_error=1e-3,
+        max_div_error=4e-3,
         max_comp_error=1e-4,
         max_div_iter=50,
         max_comp_iter=100,
         min_comp_tier=2,
-        min_div_iter=2,
+        min_div_iter=1,
         port_pos="basic.pos",
         port_mass="basic.mass",
         port_rest_volume="basic.rest_volume",
@@ -107,6 +107,13 @@ class DFSPH(SPH_kernel):
             (self.comp_iter_count[None] < self.min_comp_tier[None])
             or (self.comp_avg_ratio[None] > self.max_comp_error[None])
             and (not self.comp_iter_count[None] == self.max_comp_iter[None])
+        )
+
+    def is_div(self):
+        return (
+            (self.div_iter_count[None] < self.min_div_iter[None])
+            or (self.div_avg_ratio[None] > self.max_div_error[None])
+            and (not self.div_iter_count[None] == self.max_div_iter[None])
         )
 
     def update_dt(self, dt):
@@ -320,6 +327,7 @@ class DFSPH(SPH_kernel):
                             )
 
     # clamp delta_psi to above 0, AND update comp_avg_ratio (error term)
+    # OBSOLETE func, do not use
     @ti.kernel
     def statistic_non_negative_delta_psi(
         self,
@@ -346,12 +354,23 @@ class DFSPH(SPH_kernel):
 
     @ti.kernel
     def check_if_compressible(self):
+        self.comp_avg_ratio[None] = 0
         for pid in range(self.obj.info.stack_top[None]):
             self.comp_avg_ratio[None] += (
                 self.obj_delta_psi[pid] / self.obj_rest_psi[pid]
             )
 
         self.comp_avg_ratio[None] /= self.obj.info.stack_top[None]
+
+    @ti.kernel
+    def check_if_div(self):
+        self.div_avg_ratio[None] = 0
+        for pid in range(self.obj.info.stack_top[None]):
+            self.div_avg_ratio[None] += (
+                self.obj_delta_psi[pid] / self.obj_rest_psi[pid]
+            )
+
+        self.div_avg_ratio[None] /= self.obj.info.stack_top[None]
 
     @ti.kernel
     def update_vel_adv(
