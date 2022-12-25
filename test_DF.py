@@ -129,16 +129,16 @@ search_template = tsph.Neighb_search_template(
 fluid_neighb_grid = tsph.Neighb_grid(
     obj=fluid,
     dim=config_space.dim[None],
-    lb=config_space.lb,
-    rt=config_space.rt,
+    lb=config_space.lb[None],
+    rt=config_space.rt[None],
     cell_size=config_discre.part_size[None] * 2,
 )
 
 bound_neighb_grid = tsph.Neighb_grid(
     obj=bound,
     dim=config_space.dim[None],
-    lb=config_space.lb,
-    rt=config_space.rt,
+    lb=config_space.lb[None],
+    rt=config_space.rt[None],
     cell_size=config_discre.part_size[None] * 2,
 )
 

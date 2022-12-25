@@ -23,7 +23,7 @@ config = tsph.Config(dim=3, capacity_list=config_capacity)
 config_space = ti.static(config.space)
 config_space.dim[None] = 3
 config_space.lb[None] = [-8, -8, -8]
-config_space.rt[None] = [8, 8, 8]
+config_space.rt[None] = [ 8,  8,  8]
 
 # sim
 config_sim = ti.static(config.sim)
@@ -173,8 +173,8 @@ for elastic in elastic_list:
         tsph.Neighb_grid(
             obj=elastic,
             dim=config_space.dim[None],
-            lb=config_space.lb,
-            rt=config_space.rt,
+            lb=config_space.lb[None],
+            rt=config_space.rt[None],
             cell_size=config_discre.part_size[None] * 2,
         )
     )
@@ -182,23 +182,23 @@ for elastic in elastic_list:
         tsph.Neighb_grid(
             obj=elastic,
             dim=config_space.dim[None],
-            lb=config_space.lb,
-            rt=config_space.rt,
+            lb=config_space.lb[None],
+            rt=config_space.rt[None],
             cell_size=config_discre.part_size[None] * 2,
         )
     )
 bound_neighb_grid = tsph.Neighb_grid(
     obj=bound,
     dim=config_space.dim[None],
-    lb=config_space.lb,
-    rt=config_space.rt,
+    lb=config_space.lb[None],
+    rt=config_space.rt[None],
     cell_size=config_discre.part_size[None] * 2,
 )
 fluid_neighb_grid = tsph.Neighb_grid(
     obj=fluid,
     dim=config_space.dim[None],
-    lb=config_space.lb,
-    rt=config_space.rt,
+    lb=config_space.lb[None],
+    rt=config_space.rt[None],
     cell_size=config_discre.part_size[None] * 2,
 )
 

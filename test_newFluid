@@ -1,0 +1,91 @@
+import taichi as ti
+import ti_sph as tsph
+import numpy as np
+
+## INIT TAICHI
+ti.init(arch=ti.cpu)
+
+## GLOBAL CONFIGURE
+g_dim = 3
+g_node_num = int(1e5)
+g_part_size=0.05
+g_simspace_lb = ti.Vector([-8, -8, -8])
+g_simspace_rt = ti.Vector([ 8,  8,  8])
+g_cell_size = g_part_size*2
+
+## CAPACITY LIST FOR SPECIFYING NODE DATA STRUCTURE 
+capacity_fluid = [
+    "node_basic",
+    "node_color",
+    "node_sph",
+    "node_implicit_sph",
+    "node_neighb_search",
+]
+
+capacity_container = [
+    "node_basic",
+    "node_color",
+    "node_sph",
+    "node_implicit_sph",
+    "node_neighb_search",
+]
+
+## ALLOCATE MEMORY
+node_fluid = tsph.Node(
+    dim=g_dim,
+    node_num=g_node_num,
+    capacity_list=capacity_fluid,
+)
+
+node_container = tsph.Node(
+    dim=g_dim,
+    node_num=g_node_num,
+    capacity_list=capacity_1,
+)
+
+## neighbour search template
+neighb_search_template = tsph.Neighb_search_template(
+    dim=g_dim,
+    search_range=1,
+)
+
+## neighbour search structure for all node structs
+fluid_neighb_search = tsph.Neighb_grid(
+    obj=node_fluid,
+    dim=g_dim,
+    lb=g_simspace_lb,
+    rt=g_simspace_rt,
+    cell_size=g_cell_size,
+)
+
+bound_neighb_search = tsph.Neighb_grid(
+    obj=node_container,
+    dim=g_dim,
+    lb=g_simspace_lb,
+    rt=g_simspace_rt,
+    cell_size=g_cell_size,
+)
+
+## push node into space
+num = node_fluid.push_cube_with_basic_attr(
+    lb=ti.Vector([-1, -1.1, -1]),
+    rt=ti.Vector([1, 0.9, 1]),
+    span=g_part_size,
+    size=g_part_size,
+    rest_density=1000,
+    color=ti.Vector([0, 1, 1]),
+)
+print("push fluid num:" + str(num))
+
+num = node_container.push_box_with_basic_attr(
+    lb=ti.Vector([-1.5, -1.5, -1.5]),
+    rt=ti.Vector([1.5, 1.5, 1.5]),
+    span=g_part_size,
+    size=g_part_size,
+    layers=3,
+    rest_density=1000,
+    color=ti.Vector([0.3, 0.3, 0.3]),
+)
+print("push container num:" + str(num))
+
+

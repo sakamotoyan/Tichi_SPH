@@ -10,9 +10,9 @@ class Node:
     def __init__(
         self,
         dim,
-        id,
         node_num,
         capacity_list,
+        id=0,
     ):
 
         self.info = self.node() # some information for the entire Node object (not particle-wise)
@@ -159,7 +159,7 @@ class Node:
         current_node_num = self.info.stack_top[None]
         pushed_node_seq_coder = ti.Vector([0, 0, 0])
         pushed_node_seq = int(ti.ceil((rt - lb) / span))
-        dim = ti.static(self.basic.pos.n)
+        dim = ti.static(lb.n)
         for i in ti.static(range(dim)):
             if pushed_node_seq[i] == 0:
                 pushed_node_seq[i] = 1  # at least push one
@@ -209,7 +209,7 @@ class Node:
         span: ti.f32,
         layers: ti.i32,
     ) -> ti.i32:
-        dim = ti.static(self.basic.pos[0].n)
+        dim = ti.static(lb.n)
 
         current_node_num = self.info.stack_top[None]
         pushed_node_seq_coder = ti.Vector([0, 0, 0])

@@ -38,7 +38,7 @@ class Neighb_Cell:
 
     @ti.kernel
     def calculate_neighb_cell_param(self, struct_space: ti.template()):
-        struct_space = ti.static(struct_space)
+        # struct_space = ti.static(struct_space)
         struct_neighb = self
 
         struct_neighb.cell_num_vec[None] = ti.ceil(
@@ -78,8 +78,8 @@ class Neighb_grid:
         self.part_log = ti.field(ti.i32, (obj.info.node_num[None]))
 
         self.obj = obj
-        self.lb[None] = lb[None]
-        self.rt[None] = rt[None]
+        self.lb[None] = lb
+        self.rt[None] = rt
         self.cell_size[None] = cell_size
 
         # self.search_template = ti.Vector.field(

@@ -26,7 +26,7 @@ class DFSPH(SPH_kernel):
         dt,
         background_neighb_grid,
         search_template,
-        max_div_error=4e-3,
+        max_div_error=3e-4,
         max_comp_error=1e-4,
         max_div_iter=50,
         max_comp_iter=100,
