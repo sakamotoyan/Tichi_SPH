@@ -50,3 +50,5 @@ def ker_arr_cpy(
     for i in range(num):
         for n in ti.static(range(arr_n)):
             to_arr[i+offset[0]][n] = from_arr[i+offset[1]][n]
+
+

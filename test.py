@@ -3,63 +3,93 @@ from ti_sph.basic_op import data_op
 from ti_sph import *
 import numpy as np
 
+# STEP 0: init taichi
 ti.init()
 
-# arr_a = ti.Vector.field(3, ti.f32, (5))
-# arr_b = ti.Vector.field(3, ti.f32, (5))
+# ------------------------- END of STEP 0 ------------------------------
 
+# STEP 1: define global parameters
+g_part_size = 0.1 # particle size
+g_supporrt_radius = 2 * g_part_size # support radius
+g_gravity = vec3f(0, -9.8, 0) # gravity
+g_dt = 1e-3 # time step
+g_rest_density = 1000 # rest density
+g_kinematic_viscosity = 1e-3 # kinematic viscosity
 
-# ker_arr_fill(arr_a, 50, 0, arr_a.shape[0])
-# ker_arr_cpy(from_arr=arr_a, to_arr=arr_b, num=arr_a.shape[0], offset=vec2i(0))
-# ker_arr_fill(val=3.3, to_arr=arr_b, num=1, offset=1)
-# ker_arr_set(to_arr=arr_b, val=ti.Vector([1.1, 2.2, 3.3]), num=1, offset=2)
-# ker_arr_add(to_arr=arr_b, val=1.1, num=1, offset=4)
+# ------------------------- END of STEP 1 ------------------------------
 
+# STEP 2: define particle data structure
 
-# print(arr_b)
+# STEP 2.1: init particle data structure
+part_num_fluid = int(1e4)
+part_num_bound = int(1e4)
 
-part_num = 10
+fluid_part = Particle(part_num_fluid)
+bound_part = Particle(part_num_bound)
 
-struct_node_basic = ti.types.struct(
-    pos=ti.types.vector(3, ti.f32),   # position
-    vel=ti.types.vector(3, ti.f32),   # velocity
-    acc=ti.types.vector(3, ti.f32),   # acceleration (not always used)
-    force=ti.types.vector(3, ti.f32),  # force (not always used)
-    mass=ti.f32,                        # mass
-    rest_density=ti.f32,                # rest density
-    rest_volume=ti.f32,                 # rest volume
-    size=ti.f32,                        # diameter
+# STEP 2.2: add attributes to particle data structure
+fluid_part.add_attr("rest_density", 1000)
+fluid_part.add_attr("test_attr_list", [0.1,0.2,1]) # example only, not used in this test
+fluid_part.add_attr("color_RGBA", vec4f([1,0,0,1]))
+
+# STEP 2.3: add arrays to particle data structure
+fluid_part.add_array("pos", vec3f.field())
+fluid_part.add_array("vel", vec3f.field())
+fluid_part.add_array("mass", ti.field(ti.f32))
+fluid_part.add_array("volume_fraction", [ti.field(ti.f32),ti.field(ti.f32)]) # example only, not used in this test
+
+# STEP 2.4: add structs to particle data structure
+part_neighb_search = ti.types.struct(
+    prev=ti.i32,
+    next=ti.i32,
 )
-
-struct_node_basic2 = ti.types.struct(
-    pos=ti.types.vector(3, ti.f32),   # position
-    vel=ti.types.vector(3, ti.f32),   # velocity
-    acc=ti.types.vector(3, ti.f32),   # acceleration (not always used)
-    force=ti.types.vector(3, ti.f32),  # force (not always used)
+fluid_phase = ti.types.struct(
+    val_frac=ti.f32,   
+    phase_vel=ti.types.vector(3, ti.f32),
+    phase_acc=ti.types.vector(3, ti.f32),
+    phase_force=vec3f,
 )
+sph = ti.types.struct(
+    density=ti.f32,
+    pressure=ti.f32,
+    pressure_force=vec3f,
+    viscosity_force=vec3f,
+    gravity_force=vec3f,
+)
+fluid_part.add_struct("neighb_search", part_neighb_search)
+fluid_part.add_struct("phases", [fluid_phase, fluid_phase])
+fluid_part.add_struct("sph", sph)
 
-struct_list = [struct_node_basic, struct_node_basic2]
+# STEP 2.5: verbose particle data structure
+# fluid_part.verbose_attrs("fluid_part")
+# fluid_part.verbose_arrays("fluid_part")
+# fluid_part.verbose_structs("fluid_part")
 
-fluid_part = Particle(part_num)
-fluid_part.add_array("gr", ti.field(ti.f32))
-fluid_part.add_array("gr2", vec3f.field())
-fluid_part.add_arrays("phases", [ti.field(ti.f32),ti.field(ti.i32),vec3f.field()])
+# STEP 2.6: same to the bound part
+bound_part.add_attr("rest_density", 1000)
+bound_part.add_attr("color_RGBA", vec4f([0,0,1,1]))
+bound_part.add_array("pos", vec3f.field())
+bound_part.add_array("vel", vec3f.field())
+bound_part.add_array("mass", ti.field(ti.f32))
+bound_part.add_struct("sph", sph)
+# bound_part.verbose_attrs("bound_part")
+# bound_part.verbose_arrays("bound_part")
+# bound_part.verbose_structs("bound_part")
 
-fluid_part.add_struct("struct_node_basic", struct_node_basic)
-fluid_part.add_structs("phases2", [struct_node_basic2, struct_node_basic2])
+# ------------------------- END of STEP 2 ------------------------------
 
-fluid_part.verbose_arrays("fluid_part arrays:")
-fluid_part.verbose_structs("fluid_part structs:")
+# STEP 3: init data value
 
-ker_arr_fill(val=3.3, to_arr=fluid_part.gr2, num=1, offset=1)
-ker_arr_set(to_arr=fluid_part.phases[2], val=ti.Vector([1.1, 2.2, 3.3]), num=1, offset=2)
-ker_arr_fill(to_arr=fluid_part.gr2, val=10, num=1, offset=0)
-ker_arr_set(to_arr=fluid_part.gr, val=10, num=1, offset=2)
-# print(fluid_part.phases[0])
+# STEP 3.1: Cube_generator to generate numpy pos array for particles
+cube_gen = Cube_generator(lb=vec3f(0,1,3), rt=vec3f(0.3,1.3,3.2))
+cube_gen.generate_pos_based_on_span(span=g_part_size)
+num = cube_gen.num
 
-cube_gen = Cube_generator(lb=vec3f(0,1,3), rt=vec3f(0.3,1.3,3.2), span=0.1)
-print(cube_gen.generate_pos_based_on_span())
+fluid_part.from_numpy(fluid_part.pos, cube_gen.pos_arr)
 
-dim = [10, 10, 10]
-# a 10x10x10 numpy array with each element as a 3D vector)
+fluid_part.update_stack_top(num)
+# fluid_part.mass.from_numpy(np.ones(cube_gen.num) * g_part_size**3 * g_rest_density)
+
+
+# dim = [10, 10, 10]
 
