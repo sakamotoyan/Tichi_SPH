@@ -198,13 +198,17 @@ class Particle:
 
     # Functions Type 3: Data operations
     # @ti.kernel
-    def from_numpy(self, to:ti.template(), data:ti.types.ndarray()):
+    def set_from_numpy(self, to:ti.template(), data:ti.types.ndarray()):
         num = data.shape[0]
-        print(f"num={num}")
         arr = to.to_numpy()
         arr[self.stack_top:num,:] = data
         to.from_numpy(arr)
     
+    @ti.kernel
+    def set_from_val(self, to:ti.template(), num:ti.i32, val:ti.template()):
+        for i in range(num):
+            to[i+self.stack_top] = val
+
     def update_stack_top(self, num):
         self.stack_top += num
 

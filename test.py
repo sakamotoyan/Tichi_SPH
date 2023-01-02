@@ -61,9 +61,9 @@ fluid_part.add_struct("phases", [fluid_phase, fluid_phase])
 fluid_part.add_struct("sph", sph)
 
 # STEP 2.5: verbose particle data structure
-# fluid_part.verbose_attrs("fluid_part")
-# fluid_part.verbose_arrays("fluid_part")
-# fluid_part.verbose_structs("fluid_part")
+fluid_part.verbose_attrs("fluid_part")
+fluid_part.verbose_arrays("fluid_part")
+fluid_part.verbose_structs("fluid_part")
 
 # STEP 2.6: same to the bound part
 bound_part.add_attr("rest_density", 1000)
@@ -72,9 +72,9 @@ bound_part.add_array("pos", vec3f.field())
 bound_part.add_array("vel", vec3f.field())
 bound_part.add_array("mass", ti.field(ti.f32))
 bound_part.add_struct("sph", sph)
-# bound_part.verbose_attrs("bound_part")
-# bound_part.verbose_arrays("bound_part")
-# bound_part.verbose_structs("bound_part")
+bound_part.verbose_attrs("bound_part")
+bound_part.verbose_arrays("bound_part")
+bound_part.verbose_structs("bound_part")
 
 # ------------------------- END of STEP 2 ------------------------------
 
@@ -83,13 +83,22 @@ bound_part.add_struct("sph", sph)
 # STEP 3.1: Cube_generator to generate numpy pos array for particles
 cube_gen = Cube_generator(lb=vec3f(0,1,3), rt=vec3f(0.3,1.3,3.2))
 cube_gen.generate_pos_based_on_span(span=g_part_size)
-num = cube_gen.num
+pushed_num = cube_gen.num
+fluid_part.set_from_numpy(fluid_part.pos, cube_gen.pos_arr)
+fluid_part.set_from_val(fluid_part.mass, pushed_num, g_part_size**3 * fluid_part.rest_density)
+fluid_part.update_stack_top(pushed_num)
+# END of STEP 3.1: generate data for fluid part
 
-fluid_part.from_numpy(fluid_part.pos, cube_gen.pos_arr)
+# STEP 3.2: generate data for bound part
+cube_gen = Cube_generator(lb=vec3f(0,0,3), rt=vec3f(0.3,0.2,3.2))
+cube_gen.generate_pos_based_on_span(span=g_part_size)
+pushed_num = cube_gen.num
+bound_part.set_from_numpy(bound_part.pos, cube_gen.pos_arr)
+bound_part.set_from_val(bound_part.mass, cube_gen.num, g_part_size**3 * bound_part.rest_density)
+bound_part.update_stack_top(cube_gen.num)
+# END of STEP 3.2: generate data for bound part
 
-fluid_part.update_stack_top(num)
-# fluid_part.mass.from_numpy(np.ones(cube_gen.num) * g_part_size**3 * g_rest_density)
-
+print("bound_part.vel: ", bound_part.mass.to_numpy()[:pushed_num])
 
 # dim = [10, 10, 10]
 
