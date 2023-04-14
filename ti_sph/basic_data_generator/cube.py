@@ -35,15 +35,20 @@ class Cube_generator(Data_generator):
 
         return (self.pos_arr, self.num)
 
-    def push_pos_based_on_span(self, span: float, pos: ti.template(), stack_top: ti.template()):
+    def push_pos_based_on_span(
+            self, 
+            span: float, 
+            obj_pos_: ti.template(), # ti.Vector.field(dim, ti.f32, part_num)
+            obj_stack_top_: ti.template()
+            ):
         self.generate_pos_based_on_span(span)
-        ti_pos = ti.Vector.field(self.dim, dtype=ti.f32, shape=self.num)
-        ti_pos.from_numpy(self.np_pos)
-        self.ker_push_pos_based_on_span(ti_pos, pos, stack_top)
+        ti_pos_ = ti.Vector.field(self.dim, dtype=ti.f32, shape=self.num)
+        ti_pos_.from_numpy(self.np_pos)
+        self.ker_push_pos_based_on_span(ti_pos_, obj_pos_, obj_stack_top_)
+        return self.num
     
     @ti.kernel
-    def ker_push_pos_based_on_span(self, ti_pos:ti.template(), pos:ti.template(), stack_top:ti.template()):
+    def ker_push_pos_based_on_span(self, ti_pos_:ti.template(), pos_:ti.template(), stack_top_:ti.template()):
         for i in range(self.num):
-            pos[stack_top[None]+i] = ti_pos[i]
+            pos_[stack_top_[None]+i] = ti_pos_[i]
         
-

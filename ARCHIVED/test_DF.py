@@ -9,7 +9,7 @@ from ti_sph.func_util import clean_attr_arr, clean_attr_val, clean_attr_mat
 from ti_sph.solver.DFSPH import DFSPH
 import math
 
-ti.init(arch=ti.cuda)
+ti.init(arch=ti.cpu)
 
 # /// --- CONNFIG --- ///
 config_capacity = ["info_space", "info_discretization", "info_sim", "info_gui"]
