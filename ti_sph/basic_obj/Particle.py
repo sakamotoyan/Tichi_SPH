@@ -1,31 +1,32 @@
 import taichi as ti
 from ..basic_op.type import *
+from ..basic_world import World, Obj
 
 @ti.data_oriented
-class Particle:
+class Particle(Obj):
     def __init__(
         self,
         part_num: int,
-        Dynamic: bool = True,
+        world: World,
+        is_dynamic: bool = True,
     ):
+        super().__init__(world, is_dynamic)
+
         if (part_num <= 0):
             raise ValueError("part_num must be larger than 0")
 
-        self.id = val_i(-1)
-
-        self.part_num_ = val_i(part_num)
-        self.stack_top_ = val_i(0)
+        self.part_num = val_i(part_num)
+        self.stack_top = val_i(0)
+        self.part_size = world.part_size
         
-        self.is_dynamic = True
-
         self.attr_list = {}
         self.array_list = {}
         self.struct_list = {}
 
         # seq_log to track the order of particles (and the swap of particles)
-        self.seq_log_ = ti.field(ti.i32, self.part_num_[None])
-        for i in range(self.part_num_[None]):
-            self.seq_log_[i] = i
+        # self.seq_log_ = ti.field(ti.i32, self.part_num[None])
+        # for i in range(self.part_num[None]):
+        #     self.seq_log_[i] = i
 
     # Functions Type 1: structure management
     def add_attr(self, name, attr):
@@ -66,17 +67,17 @@ class Particle:
                 self.array_list[name] = []
                 if (bundle == 1):
                     for array_i in array:
-                        ti.root.dense(ti.i, self.part_num_[None]).place(array_i)
+                        ti.root.dense(ti.i, self.part_num[None]).place(array_i)
                         self.__dict__[name].append(array_i)
                 else:
                     for array_i in array:
-                        ti.root.dense(ti.ij, (self.part_num_[None], bundle)).place(array_i)
+                        ti.root.dense(ti.ij, (self.part_num[None], bundle)).place(array_i)
                         self.__dict__[name].append(array_i)
             else:
                 if (bundle == 1):
-                    ti.root.dense(ti.i, self.part_num_[None]).place(array)
+                    ti.root.dense(ti.i, self.part_num[None]).place(array)
                 else:
-                    ti.root.dense(ti.ij, (self.part_num_[None], bundle)).place(array)
+                    ti.root.dense(ti.ij, (self.part_num[None], bundle)).place(array)
                 self.__dict__[name] = array
 
             self.array_list[name] = self.__dict__[name]
@@ -90,7 +91,7 @@ class Particle:
             self.__dict__[name] = []
             self.array_list[name] = []
             for array in arrays:
-                ti.root.dense(ti.i, self.part_num_[None]).place(array)
+                ti.root.dense(ti.i, self.part_num[None]).place(array)
                 self.__dict__[name].append(array)
             self.array_list[name] = self.__dict__[name]
 
@@ -104,15 +105,15 @@ class Particle:
                 self.struct_list[name] = []
                 if (bundle == 1):
                     for struct_i in struct:
-                        self.__dict__[name].append(struct_i.field(shape=(self.part_num_[None],)))
+                        self.__dict__[name].append(struct_i.field(shape=(self.part_num[None],)))
                 else:
                     for struct_i in struct:
-                        self.__dict__[name].append(struct_i.field(shape=(self.part_num_[None], bundle)))
+                        self.__dict__[name].append(struct_i.field(shape=(self.part_num[None], bundle)))
             else:
                 if (bundle == 1):
-                    self.__dict__[name] = struct.field(shape=(self.part_num_[None],))
+                    self.__dict__[name] = struct.field(shape=(self.part_num[None],))
                 else:
-                    self.__dict__[name] = struct.field(shape=(self.part_num_[None], bundle))
+                    self.__dict__[name] = struct.field(shape=(self.part_num[None], bundle))
             self.struct_list[name] = self.__dict__[name]
 
     def add_structs(self, name, structs):
@@ -123,7 +124,7 @@ class Particle:
         self.__dict__[name] = []
         self.struct_list[name] = []
         for struct in structs:
-            self.__dict__[name].append(struct.field(shape=(self.part_num_[None],)))
+            self.__dict__[name].append(struct.field(shape=(self.part_num[None],)))
         self.struct_list[name] = self.__dict__[name]
 
     # Functions Type 2: verbose functions
@@ -222,40 +223,55 @@ class Particle:
 
     # Functions Type 3: Data operations
     def update_stack_top(self, num: int):
-        self.stack_top_[None] += num
+        self.stack_top[None] += num
 
     @ti.kernel
     def clear(self, attr_: ti.template()):
-        for i in range (self.stack_top_[None]):
+        for i in range (self.stack_top[None]):
             attr_[i] *= 0
 
     def set_from_numpy(self, to: ti.template(), data: ti.types.ndarray()):
         num = data.shape[0]
         arr = to.to_numpy()
-        arr[self.stack_top_[None]:num, :] = data
+        arr[self.stack_top[None]:num, :] = data
         to.from_numpy(arr)
 
     @ti.kernel
-    def push_from_val_(self, to_: ti.template(), num: ti.i32, val_: ti.template()):
+    def set_from_val(self, to_arr: ti.template(), num: ti.i32, val: ti.template()):
         for i in range(num):
-            to_[i+self.stack_top_[None]] = val_[None]
+            to_arr[i+self.stack_top[None]] = val[None]
 
     @ti.kernel
     def add_from_valf(self, to_: ti.template(), valf:ti.f32):
-        for i in range(self.stack_top_[None]):
+        for i in range(self.stack_top[None]):
             to_[i] += valf
     
     @ti.kernel
     def set_from_valf(self, to_: ti.template(), valf:ti.f32):
-        for i in range(self.stack_top_[None]):
+        for i in range(self.stack_top[None]):
             to_[i] = valf
     
     @ti.kernel
     def add_from_vali(self, to_: ti.template(), vali:ti.i32):
-        for i in range(self.stack_top_[None]):
+        for i in range(self.stack_top[None]):
             to_[i] += vali
     
     @ti.kernel
     def set_from_vali(self, to_: ti.template(), vali:ti.i32):
-        for i in range(self.stack_top_[None]):
+        for i in range(self.stack_top[None]):
             to_[i] = vali
+
+    # Functions Type 4: Data access for single values
+    @ti.func
+    def ti_get_stack_top(self):
+        return self.stack_top
+    
+    @ti.func
+    def ti_get_part_num(self):
+        return self.part_num
+  
+    def get_stack_top(self):
+        return self.stack_top
+    
+    def get_part_num(self):
+        return self.part_num

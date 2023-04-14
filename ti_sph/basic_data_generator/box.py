@@ -2,29 +2,32 @@ import taichi as ti
 import numpy as np
 
 from .generator import *
+from ..basic_obj.Particle import Particle
 
 @ti.data_oriented
 class Box_generator(Data_generator):
-    def __init__(self, lb: ti.Vector, rt: ti.Vector, layers: ti.i32):
+    def __init__(self, obj: Particle, lb: ti.Vector, rt: ti.Vector, layers: ti.i32):
+        self.obj = obj
         self.lb = lb
         self.rt = rt
         self.layers = layers
         self.dim = ti.static(lb.n)
     
-    def push_pos_based_on_span(self, obj_pos_:ti.template(), obj_stack_top_: ti.template(), span: ti.f32) -> ti.i32:
-        self.span = span
-        pushed_part_num = self.ker_push_box_based_on_span(obj_pos_, obj_stack_top_)
-        if pushed_part_num+obj_stack_top_[None] > obj_pos_.shape[0]:
+    def push_pos(self, span: float = -1) -> ti.i32:
+        if span < 0:
+            span = self.obj.part_size[None]
+        pushed_part_num = self.ker_push_box_based_on_span(self.obj.pos, self.obj.get_stack_top(), span)
+        if pushed_part_num+self.obj.get_stack_top()[None] > self.obj.pos.shape[0]:
             raise Exception("ERROR from push_box(): overflow")
         return pushed_part_num
 
     @ti.kernel
-    def ker_push_box_based_on_span(self, obj_pos_:ti.template(), obj_stack_top_: ti.template()) -> ti.i32:
-        current_node_num = obj_stack_top_[None]
+    def ker_push_box_based_on_span(self, obj_pos:ti.template(), obj_stack_top: ti.template(), span: ti.f32) -> ti.i32:
+        current_node_num = obj_stack_top[None]
         pushed_node_seq_coder = ti.Vector([0, 0, 0])
 
-        pushed_node_seq = int(ti.ceil((self.rt - self.lb) / self.span))
-        pushed_node_seq_offset = int(ti.ceil((self.rt - self.lb) / self.span)) + (self.layers * 2)
+        pushed_node_seq = int(ti.ceil((self.rt - self.lb) / span))
+        pushed_node_seq_offset = int(ti.ceil((self.rt - self.lb) / span)) + (self.layers * 2)
 
         for i in ti.static(range(self.dim)):
             if pushed_node_seq[i] == 0:
@@ -64,5 +67,5 @@ class Box_generator(Data_generator):
             if flag:
                 index = ti.atomic_add(inc[0], 1)
                 for j in ti.static(range(self.dim - 1, -1, -1)):
-                    obj_pos_[index][j] = (a[j] - self.layers) * self.span + self.lb[j]
+                    obj_pos[index][j] = (a[j] - self.layers) * span + self.lb[j]
         return inc[0]
