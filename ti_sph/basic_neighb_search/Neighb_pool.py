@@ -73,7 +73,7 @@ class LinkedList_container:
 
 '''#################### BELOW IS THE CLASS FOR NEIGHBORHOOD SEASCHING ####################'''
 @ti.data_oriented
-class Neighb_list:
+class Neighb_pool:
     ''' init the neighb list'''
     def __init__(
             self,
@@ -84,6 +84,8 @@ class Neighb_list:
         self.obj_part_num = obj.get_part_num()
         self.obj_stack_top = self.obj.get_stack_top()
         self.max_neighb_part_num = val_i(obj.get_part_num()[None] * self.obj.world.avg_neighb_part_num[None])
+        # print('debug part_num: ', obj.get_part_num()[None])
+        # print('debug max_neighb_part_num: ', self.max_neighb_part_num[None])
         self.max_neighb_obj_num = val_i(self.obj.world.obj_num[None])
         self.dim = self.obj.world.dim
 
@@ -104,6 +106,7 @@ class Neighb_list:
 
         self.neighb_pool_used_space = val_i(0)
         self.neighb_pool_size = ti.static(self.max_neighb_part_num)
+        # print('debug neighb_pool_size: ', self.neighb_pool_size[None])
         self.neighb_pool_pointer = Pointer_pool.field(shape=(self.obj_part_num[None]))
         self.neighb_obj_pointer = Pointer_obj.field(shape=(self.obj_part_num[None], self.max_neighb_obj_num[None]))
         self.neighb_pool_container = LinkedList_container.field(shape=(self.max_neighb_part_num[None]))
@@ -154,7 +157,7 @@ class Neighb_list:
         for i in range(len(self.neighb_obj_list)):
             self.register_a_neighbour(self.neighb_obj_list[i].get_id()[None], self.neighb_search_range_list[i][None], self.neighb_obj_pos_list[i], self.neighb_cell_list[i], self.neighb_search_template_list[i])
         if not self.neighb_pool_size[None] > self.neighb_pool_used_space[None]:
-            raise Exception("neighb_pool overflow")
+            raise Exception(f"neighb_pool overflow, need {self.neighb_pool_used_space[None]} but only {self.neighb_pool_size[None]}")
         # print("debug: neighb_pool_used_space_ = ", self.neighb_pool_used_space_[None], " / ", self.neighb_pool_size_[None], " = ", self.neighb_pool_used_space_[None] / self.neighb_pool_size_[None]*100, " %")
     ''' register all particles form a $neighbour obj$ to $obj particles$ as neighbours '''
     @ti.kernel

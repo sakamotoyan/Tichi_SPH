@@ -3,20 +3,21 @@ import math
 from.SPH_funcs import *
 from ..basic_op.type import *
 from ..basic_obj.Particle import Particle
+from typing import List
 
 @ti.data_oriented
 class DF_solver:
     def __init__(self, obj: Particle, incompressible_threshold: ti.f32 = 1e-4, div_free_threshold: ti.f32 = 1e-3, incompressible_iter_max: ti.i32 = 50, div_free_iter_max: ti.i32 = 50):
         self.obj=obj
         self.dt=obj.world.dt
-        self.incompressible_threshold_ = val_f(incompressible_threshold)
+        self.incompressible_threshold = val_f(incompressible_threshold)
         self.div_free_threshold_ = val_f(div_free_threshold)
-        self.incompressible_iter_max_ = val_i(incompressible_iter_max)
+        self.incompressible_iter_max = val_i(incompressible_iter_max)
         self.div_free_iter_max_ = val_i(div_free_iter_max)
 
-        self.compressible_ratio_ = val_f(1)
+        self.compressible_ratio = val_f(1)
         self.div_free_ratio_ = val_f(1)
-        self.incompressible_iter_ = val_i(0)
+        self.incompressible_iter = val_i(0)
         self.div_free_iter_ = val_i(0)
         self.inv_dt_ = val_f(1 / self.dt[None])
         self.neg_inv_dt_ = val_f(-1 / self.dt[None])
@@ -58,7 +59,7 @@ class DF_solver:
                 neighb_part_shift = neighb_list__.neighb_pool_container[neighb_part_shift].next
 
     @ti.func
-    def inloop_compute_u_density(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
+    def inloop_accumulate_density(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
         cached_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].W
         self.obj.sph[part_id].density += neighb_obj__.mass[neighb_part_id] * cached_W
     
@@ -71,46 +72,46 @@ class DF_solver:
             self.obj.sph_df[part_id].alpha_2 += cached_grad_W.dot(cached_grad_W)
 
     @ti.func
-    def inloop_compute_u_alpha_1(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
+    def inloop_accumulate_alpha_1(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
         cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
         cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
             self.obj.sph_df[part_id].alpha_1 += neighb_obj__.mass[neighb_part_id] * cached_grad_W
 
     @ti.func
-    def inloop_compute_u_alpha_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
+    def inloop_accumulate_alpha_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
         cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
         cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
             self.obj.sph_df[part_id].alpha_2 += cached_grad_W.dot(cached_grad_W) * neighb_obj__.mass[neighb_part_id]
 
     @ti.kernel
-    def compute_a_alpha(self):
+    def compute_alpha(self):
         for part_id in range(self.obj.ti_get_stack_top()[None]):
             self.obj.sph_df[part_id].alpha = self.obj.sph_df[part_id].alpha_1.dot(self.obj.sph_df[part_id].alpha_1) / self.obj.mass[part_id] + self.obj.sph_df[part_id].alpha_2
             if not bigger_than_zero(self.obj.sph_df[part_id].alpha):
                 self.obj.sph_df[part_id].alpha = make_bigger_than_zero()
 
     @ti.kernel
-    def compute_a_delta_density(self):
+    def compute_delta_density(self):
         for part_id in range(self.obj.ti_get_stack_top()[None]):
             self.obj.sph_df[part_id].delta_density = self.obj.sph[part_id].density - self.obj.rest_density[part_id]
     
     @ti.kernel
-    def ReLU_a_delta_density(self):
+    def ReLU_delta_density(self):
         for part_id in range(self.obj.ti_get_stack_top()[None]):
             if self.obj.sph_df[part_id].delta_density < 0:
                 self.obj.sph_df[part_id].delta_density = 0
 
     @ti.func
-    def inloop_compute_u_delta_density_from_vel_adv(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
+    def inloop_update_delta_density_from_vel_adv(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
         cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
         cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
             self.obj.sph_df[part_id].delta_density += cached_grad_W.dot(self.obj.sph_df[part_id].vel_adv-neighb_obj__.sph_df[neighb_part_id].vel_adv) * neighb_obj__.mass[neighb_part_id] * self.dt[None]
 
     @ti.func
-    def inloop_compute_u_vel_adv_from_alpha(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
+    def inloop_update_vel_adv_from_alpha(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
         cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
         cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
@@ -120,10 +121,10 @@ class DF_solver:
 
     @ti.kernel 
     def update_compressible_ratio(self):
-        self.compressible_ratio_[None] = 0
+        self.compressible_ratio[None] = 0
         for part_id in range(self.obj.ti_get_stack_top()[None]):
-            self.compressible_ratio_[None] += self.obj.sph_df[part_id].delta_density / self.obj.rest_density[part_id]
-        self.compressible_ratio_[None] /= self.obj.ti_get_stack_top()[None]
+            self.compressible_ratio[None] += self.obj.sph_df[part_id].delta_density / self.obj.rest_density[part_id]
+        self.compressible_ratio[None] /= self.obj.ti_get_stack_top()[None]
 
     @ti.kernel
     def update_vel(self, out_vel_: ti.template()):
@@ -135,68 +136,85 @@ class DF_solver:
         for part_id in range(self.obj.ti_get_stack_top()[None]):
             self.obj.sph_df[part_id].vel_adv = in_vel_adv[part_id]
 
-    def df_step_static_phase(self, neighb_list:ti.template()):
+    def df_step_static_phase(self, neighb_pool:ti.template()):
         self.obj.clear(self.obj.sph.density)
         self.obj.clear(self.obj.sph_df.alpha_1)
         self.obj.clear(self.obj.sph_df.alpha_2)
 
         self.div_free_iter_[None] = 0
-        self.incompressible_iter_[None] = 0
+        self.incompressible_iter[None] = 0
 
-        for neighb_obj__ in neighb_list.neighb_obj_list:
+        for neighb_obj__ in neighb_pool.neighb_obj_list:
             ''' Compute Density '''
-            self.loop_neighb(neighb_list, neighb_obj__, self.inloop_compute_u_density)
+            self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_density)
             ''' Compute Alpha_1, Alpha_2 ''' 
             if self.obj.is_dynamic:
-                self.loop_neighb(neighb_list, neighb_obj__, self.inloop_compute_u_alpha_1)
+                self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_alpha_1)
                 if neighb_obj__.is_dynamic:
-                    self.loop_neighb(neighb_list, neighb_obj__, self.inloop_compute_u_alpha_2)
+                    self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_alpha_2)
             else: 
                 if neighb_obj__.is_dynamic:
-                    self.loop_neighb(neighb_list, neighb_obj__, self.inloop_compute_u_alpha_2)
+                    self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_alpha_2)
 
         ''' Compute Alpha '''
-        self.compute_a_alpha()
+        self.compute_alpha()            
 
-    def df_step_dynamic_phase(self, in_vel_adv_: ti.template(), out_vel_: ti.template(), neighb_list__:ti.template()):
-        ''' Compute Delta Density '''
-        self.compute_a_delta_density()    
-
-    def df_step_dynamic_phase(self, in_vel_adv: ti.template(), out_vel_: ti.template(), neighb_list__:ti.template()):
-        self.get_vel_adv(in_vel_adv)
-        while True:
-            self.incompressible_iter_[None] += 1
-
-            ''' Compute Delta Density '''
-            self.compute_a_delta_density()
-            for neighb_obj__ in neighb_list__.neighb_obj_list:
-                ''' Further Update Delta Density '''
-                self.loop_neighb(neighb_list__, neighb_obj__, self.inloop_compute_u_delta_density_from_vel_adv)
-            
-            ''' Update Density Ratio from Delta Density '''
-            self.update_compressible_ratio()
-            ''' Incompressible Condition '''
-            if not (self.compressible_ratio_[None] > self.incompressible_threshold_[None] \
-                    and self.incompressible_iter_[None] < self.incompressible_iter_max_[None]):
-                break
-            
-            for neighb_obj__ in neighb_list__.neighb_obj_list:
-                ''' Further Update Delta Density '''
-                self.loop_neighb(neighb_list__, neighb_obj__, self.inloop_compute_u_vel_adv_from_alpha)
-
-        self.update_vel(out_vel_)
-        print(self.incompressible_iter_[None])
-
-def co_df(df_solvers):
-    pass
-
-            
 @ti.data_oriented
-class DF_wrap:
-    def __init__(self, DF_solvers):
-        self.solver_list = []
+class DF_layer:
+    def __init__(self, DF_solvers: List[DF_solver] = []):
+
+        self.df_solvers = DF_solvers
+        self.incompressible_states: List[bool] = [False for _ in range(len(DF_solvers))]
+        self.divergence_free_states: List[bool] = [False for _ in range(len(DF_solvers))]
+
         for solver in DF_solvers:
             '''check if solver is DF_solver'''
             if not isinstance(solver, DF_solver):
                 raise TypeError('DF_wrap only accepts DF_solver')
-            self.solver_list.append(solver)
+    
+    def add_solver(self, solver: DF_solver):
+        if not isinstance(solver, DF_solver):
+            raise TypeError('DF_wrap only accepts DF_solver')
+        self.df_solvers.append(solver)
+    
+    def step(self):
+        for solver in self.df_solvers:
+            if solver.obj.is_dynamic:
+                solver.get_vel_adv(solver.obj.vel_adv)
+                self.incompressible_states[self.df_solvers.index(solver)] = False
+                self.divergence_free_states[self.df_solvers.index(solver)] = False
+            else:
+                self.incompressible_states[self.df_solvers.index(solver)] = True
+                self.divergence_free_states[self.df_solvers.index(solver)] = True
+
+            solver.df_step_static_phase(solver.obj.neighb_search.neighb_pool)
+            
+        while True:
+            for solver in self.df_solvers:
+                solver.incompressible_iter[None] += 1
+
+                solver.compute_delta_density()
+
+                for neighb_obj in solver.obj.neighb_search.neighb_pool.neighb_obj_list:
+                    solver.loop_neighb(solver.obj.neighb_search.neighb_pool, neighb_obj, solver.inloop_update_delta_density_from_vel_adv)
+                solver.ReLU_delta_density()
+                solver.update_compressible_ratio()
+
+                if solver.compressible_ratio[None] < solver.incompressible_threshold[None] \
+                    or solver.incompressible_iter[None] > solver.incompressible_iter_max[None]:
+                    self.incompressible_states[self.df_solvers.index(solver)] = True
+            if all(self.incompressible_states):
+                break
+        
+            for solver in self.df_solvers:
+                if solver.obj.is_dynamic:
+                    for neighb_obj in solver.obj.neighb_search.neighb_pool.neighb_obj_list:
+                        solver.loop_neighb(solver.obj.neighb_search.neighb_pool, neighb_obj, solver.inloop_update_vel_adv_from_alpha)
+
+        for solver in self.df_solvers:
+            if solver.obj.is_dynamic:
+                solver.update_vel(solver.obj.vel)
+            
+
+
+                

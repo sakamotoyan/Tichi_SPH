@@ -15,6 +15,9 @@ class World:
         self.avg_neighb_part_num = val_i(32)
         self.obj_num = val_i(3)
 
+        self.dependent_init()
+
+    def dependent_init(self):
         self.space_size = vecx_f(self.dim[None])
         self.space_center = vecx_f(self.dim[None])
         self.space_size[None] = self.space_rt[None] - self.space_lb[None]
@@ -22,3 +25,13 @@ class World:
 
         self.part_volume = val_f(self.part_size[None] ** self.dim[None])
         self.support_radius = val_f(self.part_size[None] * 2)
+
+    def refresh(self):
+        self.dependent_init()
+    
+    def set_part_size(self, size):
+        self.part_size = val_f(size)
+        self.refresh()
+    
+    def set_time_step(self, dt):
+        self.dt = val_f(dt)
