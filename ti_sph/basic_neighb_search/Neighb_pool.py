@@ -1,6 +1,6 @@
 import taichi as ti
 from ..basic_op.type import *
-from ..basic_solver_funcs.SPH_funcs import *
+from ..basic_solvers.SPH_funcs import *
 from ..basic_obj.Particle import Particle
 
 '''#################### BELOW IS THE TEMPLATE FOR NEIGHBORHOOD SEASCHING ####################'''
@@ -78,12 +78,16 @@ class Neighb_pool:
     def __init__(
             self,
             obj: Particle,  # Particle class
+            max_neighb_part_num: ti.template() = 0,  # int32
     ):
         self.obj = obj
         self.obj_pos = self.obj.pos
         self.obj_part_num = obj.get_part_num()
         self.obj_stack_top = self.obj.get_stack_top()
-        self.max_neighb_part_num = val_i(obj.get_part_num()[None] * self.obj.world.avg_neighb_part_num[None])
+        if max_neighb_part_num == 0:
+            self.max_neighb_part_num = val_i(obj.get_part_num()[None] * self.obj.world.avg_neighb_part_num[None])
+        else:
+            self.max_neighb_part_num = val_i(max_neighb_part_num[None])
         # print('debug part_num: ', obj.get_part_num()[None])
         # print('debug max_neighb_part_num: ', self.max_neighb_part_num[None])
         self.max_neighb_obj_num = val_i(self.obj.world.obj_num[None])

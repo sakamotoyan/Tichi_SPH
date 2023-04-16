@@ -1,6 +1,7 @@
 import taichi as ti
+from .Obj import Obj
 from ..basic_op.type import *
-from ..basic_world import World, Obj
+from ..basic_world import World
 
 @ti.data_oriented
 class Particle(Obj):
@@ -8,6 +9,7 @@ class Particle(Obj):
         self,
         part_num: int,
         world: World,
+        part_size: ti.template(),
         is_dynamic: bool = True,
     ):
         super().__init__(world, is_dynamic)
@@ -17,7 +19,7 @@ class Particle(Obj):
 
         self.part_num = val_i(part_num)
         self.stack_top = val_i(0)
-        self.part_size = world.part_size
+        self.part_size = part_size
         
         self.attr_list = {}
         self.array_list = {}
@@ -275,3 +277,6 @@ class Particle(Obj):
     
     def get_part_num(self):
         return self.part_num
+    
+    def get_part_size(self):
+        return self.part_size

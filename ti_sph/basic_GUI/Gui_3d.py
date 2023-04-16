@@ -105,7 +105,7 @@ class Gui3d:
         self.scene.ambient_light(self.ambient_color)
         self.scene.point_light(pos=self.point_light_pos, color=self.point_light_color)
 
-    def scene_add_parts(self, obj_pos: ti.template(), obj_color:ti.template(), index_count:ti.i32, size:ti.f32):
+    def scene_add_parts_colorful(self, obj_pos: ti.template(), obj_color:ti.template(), index_count:ti.i32, size:ti.f32):
         self.scene.particles(centers=obj_pos, radius=size/2, per_vertex_color=obj_color, index_offset=0, index_count=index_count)
 
     def scene_add_parts(self, obj_pos: ti.template(), index_count:ti.i32, size:ti.f32, obj_color=(0.5,0.5,0.5)):

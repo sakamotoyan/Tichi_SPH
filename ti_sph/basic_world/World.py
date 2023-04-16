@@ -3,13 +3,15 @@ from ..basic_op.type import *
 
 @ti.data_oriented
 class World:
-    def __init__(self):
+    def __init__(self, dim=3):
         ''' GLOBAL CONFIGURATION '''
-        self.dim = val_i(3)
-        self.space_lb = vec3_f([-8,-8,-8])
-        self.space_rt = vec3_f([8,8,8])
-
-        self.gravity = vec3_f([0,-9.8,0])
+        self.dim = val_i(dim)
+        self.space_lb = vecx_f(self.dim[None])
+        self.space_rt = vecx_f(self.dim[None])
+        self.gravity = vecx_f(self.dim[None])
+        self.space_lb.fill(-8)
+        self.space_rt.fill(8)
+        self.gravity[None][1] = -9.8
         self.dt = val_f(0.001)
         self.part_size = val_f(0.1)
         self.avg_neighb_part_num = val_i(32)

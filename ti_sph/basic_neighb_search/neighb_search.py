@@ -5,11 +5,11 @@ from .neighb_cell_simple import Neighb_cell_simple
 from ..basic_obj.Particle import Particle
 
 class Neighb_search:
-    def __init__(self, obj:Particle):
+    def __init__(self, obj:Particle, max_neighb_num:ti.template()=0):
         self.attach_to_obj(obj)
 
         self.neighb_cell = Neighb_cell_simple(obj)
-        self.neighb_pool = Neighb_pool(obj)
+        self.neighb_pool = Neighb_pool(obj, max_neighb_num)
 
     def attach_to_obj(self, obj):
         self.obj = obj

@@ -3,8 +3,8 @@ from ti_sph.basic_op import *
 from ti_sph import *
 import numpy as np
 
-def part_template(part_num, world, verbose=False):
-    fluid_part = Particle(part_num, world)
+def part_template(part_num, world: World, verbose=False):
+    fluid_part = Particle(part_num, world, world.part_size)
 
     ''' Enssential arrays'''
     ''' encouraged to add for any particle system'''

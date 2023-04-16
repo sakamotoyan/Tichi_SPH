@@ -46,44 +46,44 @@ class DF_solver:
             self.obj.sph[part_id].sig_inv_h = self.obj.sph[part_id].sig / self.obj.sph[part_id].h
 
     @ti.kernel
-    def loop_neighb(self, neighb_list__:ti.template(), neighb_obj__:ti.template(), func:ti.template()):
+    def loop_neighb(self, neighb_pool:ti.template(), neighb_obj:ti.template(), func:ti.template()):
         for part_id in range(self.obj.ti_get_stack_top()[None]):
-            neighb_part_num = neighb_list__.neighb_obj_pointer[part_id, neighb_obj__.ti_get_id()[None]].size
-            neighb_part_shift = neighb_list__.neighb_obj_pointer[part_id, neighb_obj__.ti_get_id()[None]].begin
+            neighb_part_num = neighb_pool.neighb_obj_pointer[part_id, neighb_obj.ti_get_id()[None]].size
+            neighb_part_shift = neighb_pool.neighb_obj_pointer[part_id, neighb_obj.ti_get_id()[None]].begin
             for neighb_part_iter in range(neighb_part_num):
-                neighb_part_id = neighb_list__.neighb_pool_container[neighb_part_shift].neighb_part_id
+                neighb_part_id = neighb_pool.neighb_pool_container[neighb_part_shift].neighb_part_id
                 ''' Code for Computation'''
-                func(part_id, neighb_part_id, neighb_part_shift, neighb_list__, neighb_obj__)
+                func(part_id, neighb_part_id, neighb_part_shift, neighb_pool, neighb_obj)
                 ''' End of Code for Computation'''
                 ''' DO NOT FORGET TO COPY/PASE THE FOLLOWING CODE WHEN REUSING THIS FUNCTION '''
-                neighb_part_shift = neighb_list__.neighb_pool_container[neighb_part_shift].next
+                neighb_part_shift = neighb_pool.neighb_pool_container[neighb_part_shift].next
 
     @ti.func
-    def inloop_accumulate_density(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
-        cached_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].W
-        self.obj.sph[part_id].density += neighb_obj__.mass[neighb_part_id] * cached_W
+    def inloop_accumulate_density(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
+        cached_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].W
+        self.obj.sph[part_id].density += neighb_obj.mass[neighb_part_id] * cached_W
     
     @ti.func
-    def inloop_compute_u_alpha_1_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
-        cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
-        cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
+    def inloop_compute_u_alpha_1_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
+        cached_dist = neighb_pool.cached_neighb_attributes[neighb_part_shift].dist
+        cached_grad_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
-            self.obj.sph_df[part_id].alpha_1 += neighb_obj__.mass[neighb_part_id] * cached_grad_W
+            self.obj.sph_df[part_id].alpha_1 += neighb_obj.mass[neighb_part_id] * cached_grad_W
             self.obj.sph_df[part_id].alpha_2 += cached_grad_W.dot(cached_grad_W)
 
     @ti.func
-    def inloop_accumulate_alpha_1(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
-        cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
-        cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
+    def inloop_accumulate_alpha_1(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
+        cached_dist = neighb_pool.cached_neighb_attributes[neighb_part_shift].dist
+        cached_grad_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
-            self.obj.sph_df[part_id].alpha_1 += neighb_obj__.mass[neighb_part_id] * cached_grad_W
+            self.obj.sph_df[part_id].alpha_1 += neighb_obj.mass[neighb_part_id] * cached_grad_W
 
     @ti.func
-    def inloop_accumulate_alpha_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
-        cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
-        cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
+    def inloop_accumulate_alpha_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
+        cached_dist = neighb_pool.cached_neighb_attributes[neighb_part_shift].dist
+        cached_grad_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
-            self.obj.sph_df[part_id].alpha_2 += cached_grad_W.dot(cached_grad_W) * neighb_obj__.mass[neighb_part_id]
+            self.obj.sph_df[part_id].alpha_2 += cached_grad_W.dot(cached_grad_W) * neighb_obj.mass[neighb_part_id]
 
     @ti.kernel
     def compute_alpha(self):
@@ -104,20 +104,20 @@ class DF_solver:
                 self.obj.sph_df[part_id].delta_density = 0
 
     @ti.func
-    def inloop_update_delta_density_from_vel_adv(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
-        cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
-        cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
+    def inloop_update_delta_density_from_vel_adv(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
+        cached_dist = neighb_pool.cached_neighb_attributes[neighb_part_shift].dist
+        cached_grad_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
-            self.obj.sph_df[part_id].delta_density += cached_grad_W.dot(self.obj.sph_df[part_id].vel_adv-neighb_obj__.sph_df[neighb_part_id].vel_adv) * neighb_obj__.mass[neighb_part_id] * self.dt[None]
+            self.obj.sph_df[part_id].delta_density += cached_grad_W.dot(self.obj.sph_df[part_id].vel_adv-neighb_obj.sph_df[neighb_part_id].vel_adv) * neighb_obj.mass[neighb_part_id] * self.dt[None]
 
     @ti.func
-    def inloop_update_vel_adv_from_alpha(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_list__:ti.template(), neighb_obj__:ti.template()):
-        cached_dist = neighb_list__.cached_neighb_attributes[neighb_part_shift].dist
-        cached_grad_W = neighb_list__.cached_neighb_attributes[neighb_part_shift].grad_W
+    def inloop_update_vel_adv_from_alpha(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
+        cached_dist = neighb_pool.cached_neighb_attributes[neighb_part_shift].dist
+        cached_grad_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].grad_W
         if bigger_than_zero(cached_dist):
             self.obj.sph_df[part_id].vel_adv += self.neg_inv_dt_[None] * cached_grad_W / self.obj.mass[part_id] \
-                * ((self.obj.sph_df[part_id].delta_density * neighb_obj__.mass[neighb_part_id] / self.obj.sph_df[part_id].alpha) \
-                   + (neighb_obj__.sph_df[neighb_part_id].delta_density * self.obj.mass[part_id] / neighb_obj__.sph_df[neighb_part_id].alpha))
+                * ((self.obj.sph_df[part_id].delta_density * neighb_obj.mass[neighb_part_id] / self.obj.sph_df[part_id].alpha) \
+                   + (neighb_obj.sph_df[neighb_part_id].delta_density * self.obj.mass[part_id] / neighb_obj.sph_df[neighb_part_id].alpha))
 
     @ti.kernel 
     def update_compressible_ratio(self):
@@ -127,9 +127,9 @@ class DF_solver:
         self.compressible_ratio[None] /= self.obj.ti_get_stack_top()[None]
 
     @ti.kernel
-    def update_vel(self, out_vel_: ti.template()):
+    def update_vel(self, out_vel: ti.template()):
         for part_id in range(self.obj.ti_get_stack_top()[None]):
-            out_vel_[part_id] = self.obj.sph_df[part_id].vel_adv
+            out_vel[part_id] = self.obj.sph_df[part_id].vel_adv
 
     @ti.kernel
     def get_vel_adv(self, in_vel_adv: ti.template()):
@@ -144,17 +144,17 @@ class DF_solver:
         self.div_free_iter_[None] = 0
         self.incompressible_iter[None] = 0
 
-        for neighb_obj__ in neighb_pool.neighb_obj_list:
+        for neighb_obj in neighb_pool.neighb_obj_list:
             ''' Compute Density '''
-            self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_density)
+            self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_density)
             ''' Compute Alpha_1, Alpha_2 ''' 
             if self.obj.is_dynamic:
-                self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_alpha_1)
-                if neighb_obj__.is_dynamic:
-                    self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_alpha_2)
+                self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_1)
+                if neighb_obj.is_dynamic:
+                    self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_2)
             else: 
-                if neighb_obj__.is_dynamic:
-                    self.loop_neighb(neighb_pool, neighb_obj__, self.inloop_accumulate_alpha_2)
+                if neighb_obj.is_dynamic:
+                    self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_2)
 
         ''' Compute Alpha '''
         self.compute_alpha()            
@@ -170,11 +170,11 @@ class DF_layer:
         for solver in DF_solvers:
             '''check if solver is DF_solver'''
             if not isinstance(solver, DF_solver):
-                raise TypeError('DF_wrap only accepts DF_solver')
+                raise TypeError('DF_layer only accepts DF_solver')
     
     def add_solver(self, solver: DF_solver):
         if not isinstance(solver, DF_solver):
-            raise TypeError('DF_wrap only accepts DF_solver')
+            raise TypeError('DF_layer only accepts DF_solver')
         self.df_solvers.append(solver)
     
     def step(self):
