@@ -1,4 +1,5 @@
 import taichi as ti
+from typing import List
 
 from .Particle import Particle
 from .Obj import Obj
@@ -19,6 +20,7 @@ class Cartesian(Particle):
     def __init__(self, 
                  world: World,  # int
                  sense_region_grid_size: ti.template(), # float
+                 neighb_pool_size: ti.template(), # int
                  sense_region_lb: ti.template() = DEFAULT, # vector<dim, float>
                  sense_region_rt: ti.template() = DEFAULT, # vector<dim, float>
                  sense_region_size: ti.template() = DEFAULT, # vector<dim, float>
@@ -27,6 +29,7 @@ class Cartesian(Particle):
                  ):
         self.world = world
         self.dim = world.dim
+        self.sensed_parts_list: List[Particle] = []
 
         if type == Cartesian.FIXED_GRID:
 
@@ -74,11 +77,14 @@ class Cartesian(Particle):
         self.set_from_val(to_arr=self.size, num=self.get_node_num()[None], val=self.part_size)
         self.update_stack_top(self.get_node_num()[None])
 
-        self.neighb_search = Neighb_search(self, val_i(1e6))
+        self.neighb_search = Neighb_search(self, neighb_pool_size)
         self.df_solver = DF_solver(self)
         
     def add_sensed_particles(self, particles: Particle):
-        self.sensed_parts = particles
+        if particles not in self.sensed_parts_list:
+            self.sensed_parts_list.append(particles)
+        else:
+            raise Exception("particle already added")
         self.neighb_search.add_neighb(particles, self.smooth_len)
         self.neighb_search.search_neighbors()
 
@@ -88,16 +94,21 @@ class Cartesian(Particle):
     def get_node_num(self):
         return self.node_num
     
+    @ti.func
+    def ti_get_node_num(self):
+        return self.node_num
+    
     def step(self):
         self.neighb_search.search_neighbors()
         self.clear(self.sph.density)
-        self.df_solver.loop_neighb(self.neighb_search.neighb_pool, self.sensed_parts, self.df_solver.inloop_accumulate_density)
+        for sensed_parts in self.sensed_parts_list:
+            self.df_solver.loop_neighb(self.neighb_search.neighb_pool, sensed_parts, self.df_solver.inloop_accumulate_density)
         self.density_lower_bound[None] = 0
         self.density_upper_bound[None] = 1000
         self.clamp_val(self.sph.density, self.density_lower_bound, self.density_upper_bound)
     
     @ti.kernel
     def clamp_val(self, arr: ti.template(), lower: ti.template(), upper: ti.template()):
-        for i in range(self.get_node_num()[None]):
+        for i in range(self.ti_get_node_num()[None]):
             self.clampped[i] = ti.min(ti.max(arr[i] / (upper[None] - lower[None]),0),1)
             self.clampped_rgb[i] = [self.clampped[i],self.clampped[i],self.clampped[i]]

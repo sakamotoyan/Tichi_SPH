@@ -13,17 +13,19 @@ ti.init(arch=ti.cuda, device_memory_GB=3) # Use GPU
 # ti.init(arch=ti.cpu) # Use CPU
 
 ''' GLOBAL SETTINGS '''
+part_size = 0.05
+time_step = part_size/100
 world = World(dim=2)
-world.set_part_size(0.05)
-world.set_time_step(0.001)
+world.set_part_size(part_size)
+world.set_time_step(time_step)
 
 '''BASIC SETTINGS FOR FLUID'''
-fluid_part_num = val_i(1e5)
+fluid_part_num = val_i(9e4)
 fluid_rest_density = val_f(1000)
 '''INIT AN FLUID PARTICLE OBJECT'''
 fluid_part_1 = part_template(part_num=fluid_part_num[None], world=world)
 '''PUSH PARTICLES TO THE OBJECT'''
-fluid_part_cube_gen = Cube_generator(fluid_part_1, lb=vec2f(-2, -3), rt=vec2f(0, 1))
+fluid_part_cube_gen = Cube_generator(fluid_part_1, lb=vec2f(-2, -3.8), rt=vec2f(0, 0))
 print('prepared to push fluid part', fluid_part_cube_gen.pushed_num_preview(factor=1.001))
 part_num = fluid_part_cube_gen.push_pos(factor=1.001)
 fluid_part_1.set_from_val(to_arr=fluid_part_1.size, num=part_num, val=world.part_size)
@@ -36,7 +38,7 @@ print('pushed fluid part num', part_num)
 '''INIT AN FLUID PARTICLE OBJECT'''
 fluid_part_2 = part_template(part_num=fluid_part_num[None], world=world)
 '''PUSH PARTICLES TO THE OBJECT'''
-fluid_part_cube_gen = Cube_generator(fluid_part_2, lb=vec2f(1, -3), rt=vec2f(3, 1))
+fluid_part_cube_gen = Cube_generator(fluid_part_2, lb=vec2f(1, -3.8), rt=vec2f(3, 0))
 part_num = fluid_part_cube_gen.push_pos(factor=1.001)
 fluid_part_2.set_from_val(to_arr=fluid_part_2.size, num=part_num, val=world.part_size)
 fluid_part_2.set_from_val(to_arr=fluid_part_2.volume, num=part_num, val=world.part_volume)
@@ -46,7 +48,7 @@ fluid_part_2.update_stack_top(part_num)
 print('pushed fluid part num', part_num)
 
 ''' INIT BOUNDARY PARTICLE OBJECT '''
-bound_part_num = val_i(1e5)
+bound_part_num = val_i(5e4)
 bound_rest_density = val_f(1000)
 bound_part = part_template(part_num=bound_part_num[None], world=world)
 bound_part.is_dynamic = False
@@ -87,8 +89,9 @@ fluid2_df = DF_solver(fluid_part_2)
 bound_df = DF_solver(bound_part)
 df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
 
-sense_grid = Cartesian(type=Cartesian.FIXED_GRID, world=world, sense_region_grid_size=val_f(0.2))
+sense_grid = Cartesian(type=Cartesian.FIXED_GRID, neighb_pool_size=val_i(3e6),world=world, sense_region_grid_size=val_f(0.1))
 sense_grid.add_sensed_particles(fluid_part_1)
+sense_grid.add_sensed_particles(fluid_part_2)
 sense_grid.step()
 
 def loop():
@@ -116,7 +119,10 @@ def loop():
     print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid1_df.incompressible_iter[None])
 
 
-
+fps = 60
+inv_fps = 1/fps
+timer = 0
+sim_time = 0
 loop_count = 0
 loop()
 gui = Gui3d()
@@ -124,17 +130,29 @@ while gui.window.running:
     if gui.op_system_run:
         loop()
         loop_count += 1
-
+        sim_time += world.dt[None]
+    
     gui.monitor_listen()
 
     if gui.op_refresh_window:
         gui.scene_setup()
-        gui.scene_add_parts(obj_pos=fluid_part_1.pos, obj_color=(1,0.5,0),index_count=fluid_part_1.get_stack_top()[None],size=world.part_size[None])
-        gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.part_size[None])
-        # gui.scene_add_parts_colorful(obj_pos=sense_grid.pos, obj_color=sense_grid.clampped_rgb, index_count=sense_grid.get_stack_top()[None], size=sense_grid.get_part_size()[None])
         if gui.show_bound:
+            gui.scene_add_parts(obj_pos=fluid_part_1.pos, obj_color=(1,0.5,0),index_count=fluid_part_1.get_stack_top()[None],size=world.part_size[None])
+            gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.part_size[None])
             gui.scene_add_parts(obj_pos=bound_part.pos, obj_color=(0,0.5,1),index_count=bound_part.get_stack_top()[None],size=world.part_size[None])
-        gui.scene_render()
+        else:
+            gui.scene_add_parts_colorful(obj_pos=sense_grid.pos, obj_color=sense_grid.clampped_rgb, index_count=sense_grid.get_stack_top()[None], size=sense_grid.get_part_size()[None])
+        
+        gui.canvas.scene(gui.scene)  # Render the scene
+
+        if(sim_time > timer*inv_fps):
+            gui.window.save_image('output/'+str(timer)+'.png')
+            timer += 1
+
+        gui.window.show()
+        
+        if timer > 660:
+            break
 
 
 

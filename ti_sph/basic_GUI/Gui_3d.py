@@ -10,7 +10,7 @@ class Gui3d:
         self.frame_rate = 60
         self.camera_fov = 55
         self.res = (1920, 1080)
-        self.camera_pos = (6.0, 1.0, 0.0)
+        self.camera_pos = (0.0, 0.0, 10.0)
         self.camera_lookat = (0.0, 0.0, 0.0)
         self.canvas_color = (0.2, 0.2, 0.6)
         self.ambient_color = (0.7, 0.7, 0.7)

@@ -7,7 +7,7 @@ from typing import List
 
 @ti.data_oriented
 class DF_solver:
-    def __init__(self, obj: Particle, incompressible_threshold: ti.f32 = 1e-4, div_free_threshold: ti.f32 = 1e-3, incompressible_iter_max: ti.i32 = 50, div_free_iter_max: ti.i32 = 50):
+    def __init__(self, obj: Particle, incompressible_threshold: ti.f32 = 1e-4, div_free_threshold: ti.f32 = 1e-3, incompressible_iter_max: ti.i32 = 100, div_free_iter_max: ti.i32 = 50):
         self.obj=obj
         self.dt=obj.world.dt
         self.incompressible_threshold = val_f(incompressible_threshold)
