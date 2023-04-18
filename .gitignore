@@ -4,3 +4,5 @@ ply_3d
 *.pyc
 imgui.ini
 *.png
+*.avi
+*.mp4

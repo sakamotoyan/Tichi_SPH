@@ -13,7 +13,7 @@ ti.init(arch=ti.cuda, device_memory_GB=3) # Use GPU
 # ti.init(arch=ti.cpu) # Use CPU
 
 ''' GLOBAL SETTINGS '''
-part_size = 0.05
+part_size = 0.02
 time_step = part_size/100
 world = World(dim=2)
 world.set_part_size(part_size)
@@ -146,7 +146,7 @@ while gui.window.running:
         gui.canvas.scene(gui.scene)  # Render the scene
 
         if(sim_time > timer*inv_fps):
-            gui.window.save_image('output/'+str(timer)+'.png')
+            gui.window.save_image('output2/'+str(timer)+'.png')
             timer += 1
 
         gui.window.show()
