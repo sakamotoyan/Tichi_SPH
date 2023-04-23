@@ -6,3 +6,5 @@ imgui.ini
 *.png
 *.avi
 *.mp4
+*.pth
+data

@@ -8,16 +8,16 @@ np.set_printoptions(threshold=sys.maxsize)
 
 ''' TAICHI SETTINGS '''
 # ti.init(arch=ti.cuda, kernel_profiler=True) 
-ti.init(arch=ti.cuda, device_memory_GB=3) # Use GPU
+ti.init(arch=ti.cuda, device_memory_GB=6) # Use GPU
 # ti.init(arch=ti.cpu) # Use CPU
 
 ''' GLOBAL SETTINGS '''
 world = World(dim=3)
-world.set_part_size(0.1)
+world.set_part_size(0.03)
 world.set_time_step(0.001)
 
 '''BASIC SETTINGS FOR FLUID'''
-fluid_part_num = val_i(1e5)
+fluid_part_num = val_i(1e6)
 fluid_rest_density = val_f(1000)
 '''INIT AN FLUID PARTICLE OBJECT'''
 fluid_part_1 = part_template(part_num=fluid_part_num[None], world=world)
@@ -44,7 +44,7 @@ fluid_part_2.update_stack_top(part_num)
 print('pushed fluid part num', part_num)
 
 ''' INIT BOUNDARY PARTICLE OBJECT '''
-bound_part_num = val_i(1e5)
+bound_part_num = val_i(5e5)
 bound_rest_density = val_f(1000)
 bound_part = part_template(part_num=bound_part_num[None], world=world)
 bound_part.is_dynamic = False

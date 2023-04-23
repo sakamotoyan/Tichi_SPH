@@ -9,7 +9,7 @@ np.set_printoptions(threshold=sys.maxsize)
 
 ''' TAICHI SETTINGS '''
 # ti.init(arch=ti.cuda, kernel_profiler=True) 
-ti.init(arch=ti.cuda, device_memory_GB=3) # Use GPU
+ti.init(arch=ti.cuda, device_memory_GB=4) # Use GPU
 # ti.init(arch=ti.cpu) # Use CPU
 
 ''' GLOBAL SETTINGS '''
