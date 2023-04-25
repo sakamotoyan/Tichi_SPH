@@ -26,9 +26,7 @@ class Particle(Obj):
         self.struct_list = {}
 
         # seq_log to track the order of particles (and the swap of particles)
-        # self.seq_log_ = ti.field(ti.i32, self.part_num[None])
-        # for i in range(self.part_num[None]):
-        #     self.seq_log_[i] = i
+        self.delete_list = ti.field(ti.i32, self.part_num[None]+1)
 
     # Functions Type 1: structure management
     def add_attr(self, name, attr):
@@ -280,3 +278,33 @@ class Particle(Obj):
     
     def get_part_size(self):
         return self.part_size
+    
+    
+    def delete_outbounded_particles(self):
+        self.clear(self.delete_list)
+        self.log_tobe_deleted_particles()
+
+    
+    @ti.kernel
+    def log_tobe_deleted_particles(self):
+        counter = ti.static(self.delete_list[self.delete_list.shape[0]])
+        for part_id in range(self.stack_top[None]):
+            if self.has_negative(self.pos[part_id]-self.world.space_lb[None]) or self.has_positive(self.pos[part_id]-self.world.space_rt[None]):
+                self.delete_list[ti.atomic_add(self.delete_list[counter],1)] = part_id
+
+    def move(original: ti.i32, to: ti.i32):
+        pass
+    
+    @ti.func
+    def has_negative(self, val: ti.template()):
+        for dim in ti.static(range(self.world.dim[None])):
+            if val[dim] < 0:
+                return True
+        return False
+    
+    @ti.func
+    def has_positive(self, val: ti.template()):
+        for dim in ti.static(range(self.world.dim[None])):
+            if val[dim] > 0:
+                return True
+        return False
