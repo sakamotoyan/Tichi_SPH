@@ -1,7 +1,7 @@
 import taichi as ti
 import numpy as np
 
-from .generator import *
+from .Data_generator import *
 from ..basic_obj.Particle import Particle
 
 @ti.data_oriented

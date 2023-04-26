@@ -73,9 +73,9 @@ bound_neighb_search.add_neighb(fluid_part_1, world.support_radius)
 bound_neighb_search.add_neighb(fluid_part_2, world.support_radius)
 
 '''INIT SOLVERS'''
-fluid1_adv = Adv_funcs(fluid_part_1)
+fluid1_adv = Adv_slover(fluid_part_1)
 fluid1_df = DF_solver(fluid_part_1)
-fluid2_adv = Adv_funcs(fluid_part_2)
+fluid2_adv = Adv_slover(fluid_part_2)
 fluid2_df = DF_solver(fluid_part_2)
 bound_df = DF_solver(bound_part)
 df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])

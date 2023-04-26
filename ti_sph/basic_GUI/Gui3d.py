@@ -24,6 +24,7 @@ class Gui3d:
         self.op_system_run = False
         self.op_write_file = False
         self.op_refresh_window = True
+        self.op_save_img = False
 
         self.env_set_up()
 
@@ -81,6 +82,10 @@ class Gui3d:
             if self.window.event.key == "f":
                 self.op_write_file = not self.op_write_file
                 print("write file:", self.op_write_file)
+            
+            if self.window.event.key == "i":
+                self.op_save_img = not self.op_save_img
+                print("save image:", self.op_save_img)
 
             if self.window.event.key == "b":
                 self.show_bound = not self.show_bound

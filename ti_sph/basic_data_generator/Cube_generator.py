@@ -1,7 +1,7 @@
 import taichi as ti
 import numpy as np
 
-from .generator import *
+from .Data_generator import *
 from ..basic_obj.Particle import Particle
 
 @ti.data_oriented
@@ -24,43 +24,47 @@ class Cube_generator(Data_generator):
     def push_pos(
             self, 
             factor: float = 1.0,
-            res: float = -1,
+            span: float = -1,
             ):
         
-        span = factor * self.obj.get_part_size()[None]
-        if not res < 0:
-            span = res
+        temp_span = factor * self.obj.get_part_size()[None]
+        if not span < 0:
+            temp_span = span
             
-        self.generate_pos_based_on_span(span)
+        self.generate_pos_based_on_span(temp_span)
         cube_pos_data = ti.Vector.field(self.dim, dtype=ti.f32, shape=self.num)
         cube_pos_data.from_numpy(self.np_pos)
         self.ker_push_pos(cube_pos_data, self.obj.pos, self.obj.stack_top)
         return self.num
     
-    def pushed_num_preview(self, factor: float = 1.0, res: float = -1):
-        span = factor * self.obj.get_part_size()[None]
-        if not res < 0:
-            span = res
+    def pushed_num_preview(self, factor: float = 1.0, span: float = -1):
+        temp_span = factor * self.obj.get_part_size()[None]
+        if not span < 0:
+            temp_span = span
             
-        self.generate_pos_based_on_span(span)
+        self.generate_pos_based_on_span(temp_span)
         return self.num
 
     def generate_pos_based_on_span(self, span: float):
-        voxel_num = np.ceil((self.rt - self.lb) / span)
-        voxel_num = voxel_num.astype(np.int32)
+        voxel_shape = np.ceil((self.rt - self.lb) / span)
+        voxel_shape = voxel_shape.astype(np.int32)
+        print("DEBUG: voxel_shape: ", voxel_shape)
 
         pos_frac = []
+        index_frac = []
         for i in range(self.dim):
-            pos_frac.append(np.linspace(
-                self.lb[i], self.lb[i]+span*voxel_num[i], voxel_num[i]+1))
+            pos_frac.append(np.linspace(self.lb[i], self.lb[i]+span*voxel_shape[i], voxel_shape[i]+1))
+            index_frac.append(np.linspace(0,voxel_shape[i], voxel_shape[i]+1).astype(np.int32))
 
-        self.pos_arr = np.array(np.meshgrid(*pos_frac)).T.reshape(-1, self.dim)
-        self.num = self.pos_arr.shape[0]
-        
-        # alias for pos_arr
-        self.np_pos = self.pos_arr
+        self.np_pos = np.array(np.meshgrid(*pos_frac)).T.reshape(-1, self.dim)
+        self.np_index = np.array(np.meshgrid(*index_frac)).T.reshape(-1, self.dim)
 
-        return (self.pos_arr, self.num)
+        self.num = self.np_pos.shape[0]
+
+        return (self.np_index, self.np_pos, self.num)
+
+    def _get_index(self, to):
+        return to.from_numpy(self.np_index)
 
     @ti.kernel
     def ker_push_pos(self, cube_pos_data:ti.template(), pos_arr:ti.template(), stack_top:ti.template()):

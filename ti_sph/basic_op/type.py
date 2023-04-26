@@ -23,6 +23,16 @@ def vecx_i(n):
 def vecx_f(n):
     return ti.Vector.field(n, ti.f32, ())
 
+def vec2_i(a=0):
+    vec2i = ti.Vector.field(2, ti.i32, ())
+    vec2i.fill(a)
+    return vec2i
+
+def vec2_f(a=0):
+    vec2f = ti.Vector.field(2, ti.f32, ())
+    vec2f.fill(a)
+    return vec2f
+
 def vec3_i(a=0):
     vec3i = ti.Vector.field(3, ti.i32, ())
     vec3i.fill(a)

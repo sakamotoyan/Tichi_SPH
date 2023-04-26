@@ -1,6 +1,6 @@
 import taichi as ti
 import math
-from.SPH_funcs import *
+from.sph_funcs import *
 from ..basic_op.type import *
 from ..basic_obj.Particle import Particle
 from typing import List

@@ -82,16 +82,22 @@ fluid2_neighb_search.update_self()
 bound_neighb_search.update_self()
 
 '''INIT SOLVERS'''
-fluid1_adv = Adv_funcs(fluid_part_1)
+fluid1_adv = Adv_slover(fluid_part_1)
 fluid1_df = DF_solver(fluid_part_1)
-fluid2_adv = Adv_funcs(fluid_part_2)
+fluid2_adv = Adv_slover(fluid_part_2)
 fluid2_df = DF_solver(fluid_part_2)
 bound_df = DF_solver(bound_part)
 df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
 
-sense_grid = Cartesian(type=Cartesian.FIXED_GRID, neighb_pool_size=val_i(3e6),world=world, sense_region_grid_size=val_f(0.1))
-sense_grid.add_sensed_particles(fluid_part_1)
-sense_grid.add_sensed_particles(fluid_part_2)
+# sense_grid = Sense_grid(type=Sense_grid.FIXED_GRID, neighb_pool_size=val_i(3e6),world=world, cell_size=val_f(0.1))
+sense_grid = Sense_grid(type=Sense_grid.FIXED_RES, neighb_pool_size=val_i(3e6), world=world, cell_size=val_f(0.1), grid_res=val_i(64), grid_center=vec2_f([0, 0]))
+print("DEBUG sense_grid shape", sense_grid.pos.shape)
+pos_np = sense_grid.index.to_numpy().astype(np.int32)
+# save pos_np to txt file
+np.savetxt("pos_np.txt", pos_np, fmt='%f')
+
+# sense_grid.add_sensed_particles(fluid_part_1)
+# sense_grid.add_sensed_particles(fluid_part_2)
 sense_grid.step()
 
 def loop():
@@ -127,13 +133,13 @@ loop_count = 0
 loop()
 gui = Gui3d()
 while gui.window.running:
+    gui.monitor_listen()
+
     if gui.op_system_run:
         loop()
         loop_count += 1
         sim_time += world.dt[None]
     
-    gui.monitor_listen()
-
     if gui.op_refresh_window:
         gui.scene_setup()
         if gui.show_bound:
@@ -141,18 +147,19 @@ while gui.window.running:
             gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.part_size[None])
             gui.scene_add_parts(obj_pos=bound_part.pos, obj_color=(0,0.5,1),index_count=bound_part.get_stack_top()[None],size=world.part_size[None])
         else:
-            gui.scene_add_parts_colorful(obj_pos=sense_grid.pos, obj_color=sense_grid.clampped_rgb, index_count=sense_grid.get_stack_top()[None], size=sense_grid.get_part_size()[None])
+            gui.scene_add_parts_colorful(obj_pos=sense_grid.pos, obj_color=sense_grid.clampped_rgb, index_count=sense_grid.get_stack_top()[None], size=sense_grid.get_part_size()[None]*0.5)
         
         gui.canvas.scene(gui.scene)  # Render the scene
 
         if(sim_time > timer*inv_fps):
-            gui.window.save_image('output2/'+str(timer)+'.png')
+            if gui.op_save_img:
+                gui.window.save_image('output/'+str(timer)+'.png')
             timer += 1
 
         gui.window.show()
         
-        if timer > 660:
-            break
+    if timer > 660:
+        break
 
 
 

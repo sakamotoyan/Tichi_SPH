@@ -1,7 +1,7 @@
 import taichi as ti
 from ..basic_op.type import *
 from .Neighb_pool import Neighb_pool
-from .neighb_cell_simple import Neighb_cell_simple
+from .Neighb_cell_simple import Neighb_cell_simple
 from ..basic_obj.Particle import Particle
 
 class Neighb_search:

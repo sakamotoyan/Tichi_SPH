@@ -1,10 +1,10 @@
 import taichi as ti
-from.SPH_funcs import *
+from.sph_funcs import *
 from ..basic_op.type import *
 from ..basic_obj.Particle import Particle
 
 @ti.data_oriented
-class Adv_funcs:
+class Adv_slover:
     def __init__(self, obj: Particle):
         self.obj = obj
         self.dt = obj.world.dt

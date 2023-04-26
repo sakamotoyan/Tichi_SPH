@@ -1,6 +1,6 @@
 import taichi as ti
 from ..basic_op.type import *
-from ..basic_solvers.SPH_funcs import *
+from ..basic_solvers.sph_funcs import *
 from ..basic_obj.Particle import Particle
 
 '''#################### BELOW IS THE TEMPLATE FOR NEIGHBORHOOD SEASCHING ####################'''

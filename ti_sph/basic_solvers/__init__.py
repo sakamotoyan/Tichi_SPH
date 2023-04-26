@@ -1,2 +1,2 @@
-from .DFSPH_solver import DF_solver, DF_layer
-from .Advection_funcs import Adv_funcs
+from .DF_solverLayer import DF_solver, DF_layer
+from .Adv_solver import Adv_slover
