@@ -91,14 +91,19 @@ df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
 
 # sense_grid = Sense_grid(type=Sense_grid.FIXED_GRID, neighb_pool_size=val_i(3e6),world=world, cell_size=val_f(0.1))
 sense_grid = Sense_grid(type=Sense_grid.FIXED_RES, neighb_pool_size=val_i(3e6), world=world, cell_size=val_f(0.1), grid_res=val_i(64), grid_center=vec2_f([0, 0]))
-print("DEBUG sense_grid shape", sense_grid.pos.shape)
-pos_np = sense_grid.index.to_numpy().astype(np.int32)
+pos_np = sense_grid.node_index.to_numpy().astype(np.int32)
 # save pos_np to txt file
-np.savetxt("pos_np.txt", pos_np, fmt='%f')
+np.savetxt("pos_np.txt", pos_np, fmt='%i')
 
 # sense_grid.add_sensed_particles(fluid_part_1)
 # sense_grid.add_sensed_particles(fluid_part_2)
 sense_grid.step()
+sense_output = Organizer(Organizer.type.GRID, sense_grid)
+sense_output.add_data("pos",2)
+sense_output.export_to_numpy()
+print('DEBUG sense_output', sense_output.np_node_index_organized)
+# save as numpy file
+np.save("pos_np.npy", sense_output.np_node_index_organized)
 
 def loop():
     fluid1_neighb_search.update_self()
@@ -122,44 +127,50 @@ def loop():
     fluid1_adv.update_pos(in_vel= fluid_part_1.vel, out_pos=fluid_part_1.pos)
     fluid2_adv.update_pos(in_vel= fluid_part_2.vel, out_pos=fluid_part_2.pos)
 
-    print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid1_df.incompressible_iter[None])
 
+def run(loop):
+    gui = Gui3d()
 
-fps = 60
-inv_fps = 1/fps
-timer = 0
-sim_time = 0
-loop_count = 0
-loop()
-gui = Gui3d()
-while gui.window.running:
-    gui.monitor_listen()
+    fps = 60
+    inv_fps = 1/fps
+    timer = 0
+    sim_time = 0
+    loop_count = 0
 
-    if gui.op_system_run:
-        loop()
-        loop_count += 1
-        sim_time += world.dt[None]
+    while gui.window.running:
+        gui.monitor_listen()
+
+        if gui.op_system_run:
+            loop()
+            loop_count += 1
+            sim_time += world.dt[None]
+            print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid1_df.incompressible_iter[None])
+        
+        if gui.op_refresh_window:
+            gui.scene_setup()
+            if gui.show_bound:
+                gui.scene_add_parts(obj_pos=fluid_part_1.pos, obj_color=(1,0.5,0),index_count=fluid_part_1.get_stack_top()[None],size=world.part_size[None])
+                gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.part_size[None])
+                gui.scene_add_parts(obj_pos=bound_part.pos, obj_color=(0,0.5,1),index_count=bound_part.get_stack_top()[None],size=world.part_size[None])
+            else:
+                gui.scene_add_parts_colorful(obj_pos=sense_grid.pos, obj_color=sense_grid.clampped_rgb, index_count=sense_grid.get_stack_top()[None], size=sense_grid.get_part_size()[None]*0.5)
+            
+            gui.canvas.scene(gui.scene)  # Render the scene
+
+            if(sim_time > timer*inv_fps):
+                if gui.op_save_img:
+                    gui.window.save_image('output/'+str(timer)+'.png')
+                timer += 1
+
+            gui.window.show()
     
-    if gui.op_refresh_window:
-        gui.scene_setup()
-        if gui.show_bound:
-            gui.scene_add_parts(obj_pos=fluid_part_1.pos, obj_color=(1,0.5,0),index_count=fluid_part_1.get_stack_top()[None],size=world.part_size[None])
-            gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.part_size[None])
-            gui.scene_add_parts(obj_pos=bound_part.pos, obj_color=(0,0.5,1),index_count=bound_part.get_stack_top()[None],size=world.part_size[None])
-        else:
-            gui.scene_add_parts_colorful(obj_pos=sense_grid.pos, obj_color=sense_grid.clampped_rgb, index_count=sense_grid.get_stack_top()[None], size=sense_grid.get_part_size()[None]*0.5)
-        
-        gui.canvas.scene(gui.scene)  # Render the scene
+        if timer > 660:
+            break
 
-        if(sim_time > timer*inv_fps):
-            if gui.op_save_img:
-                gui.window.save_image('output/'+str(timer)+'.png')
-            timer += 1
+loop()
+run(loop)
 
-        gui.window.show()
-        
-    if timer > 660:
-        break
+
 
 
 

@@ -46,15 +46,15 @@ class Cube_generator(Data_generator):
         return self.num
 
     def generate_pos_based_on_span(self, span: float):
-        voxel_shape = np.ceil((self.rt - self.lb) / span)
-        voxel_shape = voxel_shape.astype(np.int32)
-        print("DEBUG: voxel_shape: ", voxel_shape)
+        self.voxel_shape = np.ceil((self.rt - self.lb) / span)
+        self.voxel_shape = self.voxel_shape.astype(np.int32)
+        # print("DEBUG: voxel_shape: ", voxel_shape)
 
         pos_frac = []
         index_frac = []
         for i in range(self.dim):
-            pos_frac.append(np.linspace(self.lb[i], self.lb[i]+span*voxel_shape[i], voxel_shape[i]+1))
-            index_frac.append(np.linspace(0,voxel_shape[i], voxel_shape[i]+1).astype(np.int32))
+            pos_frac.append(np.linspace(self.lb[i], self.lb[i]+span*self.voxel_shape[i], self.voxel_shape[i]+1))
+            index_frac.append(np.linspace(0,self.voxel_shape[i], self.voxel_shape[i]+1).astype(np.int32))
 
         self.np_pos = np.array(np.meshgrid(*pos_frac)).T.reshape(-1, self.dim)
         self.np_index = np.array(np.meshgrid(*index_frac)).T.reshape(-1, self.dim)
@@ -65,6 +65,9 @@ class Cube_generator(Data_generator):
 
     def _get_index(self, to):
         return to.from_numpy(self.np_index)
+
+    def get_shape(self):
+        return self.voxel_shape
 
     @ti.kernel
     def ker_push_pos(self, cube_pos_data:ti.template(), pos_arr:ti.template(), stack_top:ti.template()):

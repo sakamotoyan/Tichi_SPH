@@ -65,8 +65,8 @@ class Sense_grid(Particle):
             temp_grid_rt = self.grid_center[None] + temp_grid_size / 2
             self.grid_lb = temp_grid_lb
             self.grid_rt = temp_grid_rt
-            print("DEBUG grid_lb", self.grid_lb)
-            print("DEBUG grid_rt", self.grid_rt)
+            # print("DEBUG grid_lb", self.grid_lb)
+            # print("DEBUG grid_rt", self.grid_rt)
 
         self.generator = Cube_generator(self, self.grid_lb, self.grid_rt)
         self.node_num = val_i(self.generator.pushed_num_preview(span=self.get_cell_size()[None]))
@@ -78,7 +78,7 @@ class Sense_grid(Particle):
         self.add_array("clampped", ti.field(ti.f32))
         self.add_array("clampped_rgb", vec3f.field())
         # index is for logging the sequence of particles
-        self.add_array("index", ti.field(ti.i32), bundle=self.dim[None])
+        self.add_array("node_index", ti.field(ti.i32), bundle=self.dim[None])
 
         self.add_attr("density_upper_bound", ti.field(ti.f32, ()))
         self.add_attr("density_lower_bound", ti.field(ti.f32, ()))
@@ -92,7 +92,8 @@ class Sense_grid(Particle):
         self.add_struct("sph", sph)
 
         self.generator.push_pos()
-        self.generator._get_index(self.index)
+        self.generator._get_index(self.node_index)
+        self.grid_shape.from_numpy(self.generator.get_shape())
         self.set_from_val(to_arr=self.size, num=self.get_node_num()[None], val=self.part_size)
         self.update_stack_top(self.get_node_num()[None])
 
@@ -112,6 +113,10 @@ class Sense_grid(Particle):
     
     def get_node_num(self):
         return self.node_num
+    
+    @ti.func
+    def ti_get_index(self, id):
+        return self.node_index[id]
     
     @ti.func
     def ti_get_node_num(self):
