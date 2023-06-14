@@ -2,7 +2,7 @@ import taichi as ti
 import numpy as np
 
 from .Data_generator import *
-from ..basic_obj.Particle import Particle
+from ..basic_obj.Obj_Particle import Particle
 
 @ti.data_oriented
 class Box_generator(Data_generator):
@@ -14,7 +14,7 @@ class Box_generator(Data_generator):
         self.dim = ti.static(lb.n)
     
     def push_pos(self, factor: float = 1.0) -> ti.i32:
-        span = factor * self.obj.part_size[None]
+        span = factor * self.obj.m_part_size[None]
         pushed_part_num = self.ker_push_box_based_on_span(self.obj.pos, self.obj.get_stack_top(), span)
         if pushed_part_num+self.obj.get_stack_top()[None] > self.obj.pos.shape[0]:
             raise Exception("ERROR from push_box(): overflow")
@@ -24,7 +24,7 @@ class Box_generator(Data_generator):
     ''' I did this because I am lazy to write a new kernel for debugging.'''
     @ti.kernel
     def pushed_num_preview(self, factor: ti.f32) -> ti.i32:
-        span = factor * self.obj.part_size[None]
+        span = factor * self.obj.m_part_size[None]
         current_node_num = 0
         pushed_node_seq_coder = ti.Vector([0, 0, 0])
 

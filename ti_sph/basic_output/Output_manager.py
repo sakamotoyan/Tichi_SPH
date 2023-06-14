@@ -7,20 +7,20 @@ from enum import Enum
 from ..basic_obj.Obj import Obj
 
 @ti.data_oriented
-class Organizer:
+class Output_manager:
 
     class type(Enum):
         SEQ  = 0 # Organize all data in a sequential way.
         GRID = 1 # Organize all data in a grid way. This requires Obj to have {obj_name.node_index=ti.field(ti.f32, shape=(grid_node_num, dim))}.
 
-    def __init__(self, format_type:type, obj:Obj) -> None:
+    def __init__(self, format_type:type, data_source:Obj) -> None:
         if not isinstance(format_type, self.type):
             raise ValueError(f"Invalid format type: {format_type}")
-        if type is self.type.GRID and not hasattr(obj, "node_index"):
-            raise ValueError(f"Obj {obj.__class__.__name__} does not have node_index field.")
+        if type is self.type.GRID and not hasattr(data_source, "node_index"):
+            raise ValueError(f"Obj {data_source.__class__.__name__} does not have node_index field.")
 
         self.format_type = format_type
-        self.obj = obj
+        self.obj = data_source
 
         self.data_name_list:List[str] = []
         self.data_channel_list:List[int] = []
@@ -33,7 +33,7 @@ class Organizer:
             self.np_node_index_organized = np.empty((rows, cols, 2), dtype=int)
             self.np_data_organized = np.empty((rows, cols), dtype=float)
 
-    def add_data(self, name:str, channel:int = 1):
+    def add_output_dataType(self, name:str, channel:int = 1):
         if not hasattr(self.obj, name):
             raise ValueError(f"{name} is not in {self.obj.__class__.__name__}.")
         if channel > self.obj.__dict__[name].n or channel < 1:

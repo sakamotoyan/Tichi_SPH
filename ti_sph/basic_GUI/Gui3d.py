@@ -71,6 +71,7 @@ class Gui3d:
             self.window.GUI.text("r: run system")
             self.window.GUI.text("f: write file")
             self.window.GUI.text("c: refresh window")
+            self.window.GUI.text("i: save image to the 'output' folder")
             self.window.GUI.end()
 
         if self.window.get_event(ti.ui.PRESS):

@@ -15,7 +15,7 @@ ti.init(arch=ti.cuda, device_memory_GB=4) # Use GPU
 ''' GLOBAL SETTINGS '''
 world = World(dim=2)
 world.set_part_size(0.02)
-world.set_time_step(0.001)
+world.set_time_step(world.g_part_size[None]/world.g_sound_speed[None])
 
 '''BASIC SETTINGS FOR FLUID'''
 fluid_part_num = val_i(5e4)
@@ -26,7 +26,7 @@ fluid_part_1 = part_template(part_num=fluid_part_num[None], world=world)
 fluid_part_cube_gen = Cube_generator(fluid_part_1, lb=vec2f(-2, -3), rt=vec2f(0, 1))
 print('prepared to push fluid part', fluid_part_cube_gen.pushed_num_preview(factor=1.001))
 part_num = fluid_part_cube_gen.push_pos(factor=1.001)
-fluid_part_1.set_from_val(to_arr=fluid_part_1.size, num=part_num, val=world.part_size)
+fluid_part_1.set_from_val(to_arr=fluid_part_1.size, num=part_num, val=world.g_part_size)
 fluid_part_1.set_from_val(to_arr=fluid_part_1.volume, num=part_num, val=world.part_volume)
 fluid_part_1.set_from_val(to_arr=fluid_part_1.mass, num=part_num, val=val_f(fluid_rest_density[None]*world.part_volume[None]))
 fluid_part_1.set_from_val(to_arr=fluid_part_1.rest_density, num=part_num, val=fluid_rest_density)
@@ -38,7 +38,7 @@ fluid_part_2 = part_template(part_num=fluid_part_num[None], world=world)
 '''PUSH PARTICLES TO THE OBJECT'''
 fluid_part_cube_gen = Cube_generator(fluid_part_2, lb=vec2f(1, -3), rt=vec2f(3, 1))
 part_num = fluid_part_cube_gen.push_pos(factor=1.001)
-fluid_part_2.set_from_val(to_arr=fluid_part_2.size, num=part_num, val=world.part_size)
+fluid_part_2.set_from_val(to_arr=fluid_part_2.size, num=part_num, val=world.g_part_size)
 fluid_part_2.set_from_val(to_arr=fluid_part_2.volume, num=part_num, val=world.part_volume)
 fluid_part_2.set_from_val(to_arr=fluid_part_2.mass, num=part_num, val=val_f(fluid_rest_density[None]*world.part_volume[None]))
 fluid_part_2.set_from_val(to_arr=fluid_part_2.rest_density, num=part_num, val=fluid_rest_density)
@@ -54,7 +54,7 @@ bound_box_gen = Box_generator(obj=bound_part, lb=vec2f(-4, -4), rt=vec2f(4, 4), 
 print('prepared to push bound part', bound_box_gen.pushed_num_preview(factor=1.001))
 part_num = bound_box_gen.push_pos(factor=1.001)
 print('pushed bound part num', part_num)
-bound_part.set_from_val(to_arr=bound_part.size, num=part_num, val=world.part_size)
+bound_part.set_from_val(to_arr=bound_part.size, num=part_num, val=world.g_part_size)
 bound_part.set_from_val(to_arr=bound_part.volume, num=part_num, val=world.part_volume)
 bound_part.set_from_val(to_arr=bound_part.mass, num=part_num, val=val_f(bound_rest_density[None]*world.part_volume[None]))
 bound_part.set_from_val(to_arr=bound_part.rest_density, num=part_num, val=bound_rest_density)
@@ -65,15 +65,15 @@ fluid1_neighb_search = Neighb_search(fluid_part_1)
 fluid2_neighb_search = Neighb_search(fluid_part_2)
 bound_neighb_search = Neighb_search(bound_part)
 
-fluid1_neighb_search.add_neighb(fluid_part_1, world.support_radius)
-fluid1_neighb_search.add_neighb(fluid_part_2, world.support_radius)
-fluid1_neighb_search.add_neighb(bound_part, world.support_radius)
-fluid2_neighb_search.add_neighb(fluid_part_1, world.support_radius)
-fluid2_neighb_search.add_neighb(fluid_part_2, world.support_radius)
-fluid2_neighb_search.add_neighb(bound_part, world.support_radius)
-bound_neighb_search.add_neighb(bound_part, world.support_radius)
-bound_neighb_search.add_neighb(fluid_part_1, world.support_radius)
-bound_neighb_search.add_neighb(fluid_part_2, world.support_radius)
+fluid1_neighb_search.add_neighb_obj(fluid_part_1, world.support_radius)
+fluid1_neighb_search.add_neighb_obj(fluid_part_2, world.support_radius)
+fluid1_neighb_search.add_neighb_obj(bound_part, world.support_radius)
+fluid2_neighb_search.add_neighb_obj(fluid_part_1, world.support_radius)
+fluid2_neighb_search.add_neighb_obj(fluid_part_2, world.support_radius)
+fluid2_neighb_search.add_neighb_obj(bound_part, world.support_radius)
+bound_neighb_search.add_neighb_obj(bound_part, world.support_radius)
+bound_neighb_search.add_neighb_obj(fluid_part_1, world.support_radius)
+bound_neighb_search.add_neighb_obj(fluid_part_2, world.support_radius)
 
 '''INIT SOLVERS'''
 fluid1_adv = Adv_slover(fluid_part_1)
@@ -121,10 +121,10 @@ while gui.window.running:
 
     if gui.op_refresh_window:
         gui.scene_setup()
-        gui.scene_add_parts(obj_pos=fluid_part_1.pos, obj_color=(1,0.5,0),index_count=fluid_part_1.get_stack_top()[None],size=world.part_size[None])
-        gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.part_size[None])
+        gui.scene_add_parts(obj_pos=fluid_part_1.pos, obj_color=(1,0.5,0),index_count=fluid_part_1.get_stack_top()[None],size=world.g_part_size[None])
+        gui.scene_add_parts(obj_pos=fluid_part_2.pos, obj_color=(0,0.5,1),index_count=fluid_part_2.get_stack_top()[None],size=world.g_part_size[None])
         if gui.show_bound:
-            gui.scene_add_parts(obj_pos=bound_part.pos, obj_color=(0,0.5,1),index_count=bound_part.get_stack_top()[None],size=world.part_size[None])
+            gui.scene_add_parts(obj_pos=bound_part.pos, obj_color=(0,0.5,1),index_count=bound_part.get_stack_top()[None],size=world.g_part_size[None])
         gui.scene_render()
 
 

@@ -1,7 +1,7 @@
 import taichi as ti
 from ..basic_op.type import *
 from ..basic_solvers.sph_funcs import *
-from ..basic_obj.Particle import Particle
+from ..basic_obj.Obj_Particle import Particle
 
 '''#################### BELOW IS THE TEMPLATE FOR NEIGHBORHOOD SEASCHING ####################'''
 @ti.data_oriented
@@ -85,27 +85,27 @@ class Neighb_pool:
         self.obj_part_num = obj.get_part_num()
         self.obj_stack_top = self.obj.get_stack_top()
         if max_neighb_part_num == 0:
-            self.max_neighb_part_num = val_i(obj.get_part_num()[None] * self.obj.world.avg_neighb_part_num[None])
+            self.max_neighb_part_num = val_i(obj.get_part_num()[None] * self.obj.m_world.g_avg_neighb_part_num[None])
         else:
             self.max_neighb_part_num = val_i(max_neighb_part_num[None])
         # print('debug part_num: ', obj.get_part_num()[None])
         # print('debug max_neighb_part_num: ', self.max_neighb_part_num[None])
-        self.max_neighb_obj_num = val_i(self.obj.world.obj_num[None])
-        self.dim = self.obj.world.dim
+        self.max_neighb_obj_num = val_i(self.obj.m_world.g_obj_num[None])
+        self.dim = self.obj.m_world.g_dim
 
         self.neighb_obj_list = []  # Particle class
         self.neighb_obj_pos_list = []  # ti.Vector.field(dim, ti.f32, neighb_obj_part_num)
         self.neighb_cell_list = []  # Neighb_cell_simple class
-        self.neighb_search_range_list = []  # val_f() # TODO: 接收 Dynamic 作为搜索范围
+        self.neighb_search_range_list = []  # val_f() # TODO: use 'Dynamic' as search range
         self.neighb_search_template_list = []  # Neighb_search_template class
 
         '''[DIY AREA]'''
         ''' add your own data here'''
         Struct_cached_attributes = ti.types.struct(
             dist=ti.f32,
-            xij_norm=vecxf(self.obj.world.dim[None]),
+            xij_norm=vecxf(self.obj.m_world.g_dim[None]),
             W=ti.f32,
-            grad_W=vecxf(self.obj.world.dim[None]),
+            grad_W=vecxf(self.obj.m_world.g_dim[None]),
         )
 
         self.neighb_pool_used_space = val_i(0)
@@ -132,14 +132,14 @@ class Neighb_pool:
     def add_neighb_obj(
             self,
             neighb_obj: Particle,  # Particle class
-            search_range: ti.template(),  # val_f() # TODO: 接收 Dynamic 作为搜索范围
+            search_range: ti.template(),  # val_f() # TODO: use 'Dynamic' as search range
     ):
         ''' check input validity'''
         if neighb_obj in self.neighb_obj_list:
             raise Exception("neighb_obj already in list")
         if neighb_obj.neighb_search.neighb_cell in self.neighb_cell_list:
             raise Exception("neighb_cell already in list")
-        if self.obj.world != neighb_obj.world:
+        if self.obj.m_world != neighb_obj.m_world:
             raise Exception("two obj are not in the same world")
 
         ''' append to lists '''
@@ -150,7 +150,7 @@ class Neighb_pool:
 
         ''' generate search template '''
         search_cell_range = ti.ceil(search_range[None] / neighb_obj.neighb_search.neighb_cell.cell_size[None])
-        neighb_search_template = Neighb_search_template(self.obj.world.dim[None], search_cell_range)
+        neighb_search_template = Neighb_search_template(self.obj.m_world.g_dim[None], search_cell_range)
         self.neighb_search_template_list.append(neighb_search_template)
 
     ''' get a obj, neighb_obj attributes pair  one at a time, as inputs to register_a_neighbour() '''

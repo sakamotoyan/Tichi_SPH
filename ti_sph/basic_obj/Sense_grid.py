@@ -1,7 +1,7 @@
 import taichi as ti
 from typing import List
 
-from .Particle import Particle
+from .Obj_Particle import Particle
 from .Obj import Obj
 
 from ..basic_op.type import *
@@ -31,27 +31,28 @@ class Sense_grid(Particle):
                  grid_center: ti.template() = DEFAULT, # vector<dim, float> FIXED_RES
                  ):
         # Reading parameters
-        self.world = world
-        self.neighb_pool_size = neighb_pool_size
-        self.cell_size = cell_size
-        self.type = type
-        self.grid_lb = world.space_lb[None] if grid_lb == DEFAULT else grid_lb[None]
-        self.grid_rt = world.space_rt[None] if grid_rt == DEFAULT else grid_rt[None]
-        self.grid_res = grid_res
-        self.grid_center = grid_center
+        self.m_world = world
+        
+        self.m_neighb_pool_size = neighb_pool_size
+        self.m_cell_size = cell_size
+        self.m_type = type
+        self.m_grid_lb = world.g_space_lb[None] if grid_lb == DEFAULT else grid_lb[None]
+        self.m_grid_rt = world.g_space_rt[None] if grid_rt == DEFAULT else grid_rt[None]
+        self.m_grid_res = grid_res
+        self.m_grid_center = grid_center
 
-        self.dim = world.dim
-        self.sensed_parts_list: List[Particle] = []
+        self.m_dim = world.g_dim
+        self.m_sensed_parts_list: List[Particle] = []
 
         # Parameters for father classParticle
-        self.part_size = self.cell_size
-        self.smooth_len = val_f(self.part_size[None] * 2)
+        self.m_part_size = self.m_cell_size
+        self.smooth_len = val_f(self.m_part_size[None] * 2)
 
         # Though the data for the grid is stored in a one-dimensional way,
         # we can still use the vector type to represent the shape of the grid.
         # And hopefully, accessing the one-dimensional data with the vector type index.
-        self.grid_shape = vecx_i(self.dim[None])
-
+        self.grid_shape = vecx_i(self.m_dim[None])
+        
         if type == Sense_grid.FIXED_GRID:
             # Parameter check
             if grid_center is not DEFAULT or grid_res is not DEFAULT:
@@ -60,25 +61,26 @@ class Sense_grid(Particle):
             # Parameter check
             if grid_center is DEFAULT or grid_res is DEFAULT:
                 raise Exception("grid_center and grid_res must be given for FIXED_RES type")
-            temp_grid_size = self.grid_res[None] * self.cell_size[None]
-            temp_grid_lb = self.grid_center[None] - temp_grid_size / 2
-            temp_grid_rt = self.grid_center[None] + temp_grid_size / 2
-            self.grid_lb = temp_grid_lb
-            self.grid_rt = temp_grid_rt
+            temp_grid_size = self.m_grid_res[None] * self.m_cell_size[None]
+            temp_grid_lb = self.m_grid_center[None] - temp_grid_size / 2
+            temp_grid_rt = self.m_grid_center[None] + temp_grid_size / 2
+            self.m_grid_lb = temp_grid_lb
+            self.m_grid_rt = temp_grid_rt
             # print("DEBUG grid_lb", self.grid_lb)
             # print("DEBUG grid_rt", self.grid_rt)
 
-        self.generator = Cube_generator(self, self.grid_lb, self.grid_rt)
+        self.generator = Cube_generator(self, self.m_grid_lb, self.m_grid_rt)
         self.node_num = val_i(self.generator.pushed_num_preview(span=self.get_cell_size()[None]))
         
-        super().__init__(part_num=self.get_node_num()[None], world=self.world, part_size=self.get_part_size(), is_dynamic=False)
+        super().__init__(part_num=self.get_node_num()[None], part_size=self.get_part_size(), is_dynamic=False)
+        self.m_world = world
 
-        self.add_array("pos", vecxf(world.dim[None]).field())
+        self.add_array("pos", vecxf(world.g_dim[None]).field())
         self.add_array("size", ti.field(ti.f32))
         self.add_array("clampped", ti.field(ti.f32))
         self.add_array("clampped_rgb", vec3f.field())
         # index is for logging the sequence of particles
-        self.add_array("node_index", ti.field(ti.i32), bundle=self.dim[None])
+        self.add_array("node_index", ti.field(ti.i32), bundle=self.m_dim[None])
 
         self.add_attr("density_upper_bound", ti.field(ti.f32, ()))
         self.add_attr("density_lower_bound", ti.field(ti.f32, ()))
@@ -94,18 +96,18 @@ class Sense_grid(Particle):
         self.generator.push_pos()
         self.generator._get_index(self.node_index)
         self.grid_shape.from_numpy(self.generator.get_shape())
-        self.set_from_val(to_arr=self.size, num=self.get_node_num()[None], val=self.part_size)
+        self.set_val(to_arr=self.size, num=self.get_node_num()[None], val=self.m_part_size)
         self.update_stack_top(self.get_node_num()[None])
 
         self.neighb_search = Neighb_search(self, neighb_pool_size)
         self.df_solver = DF_solver(self)
         
     def add_sensed_particles(self, particles: Particle):
-        if particles not in self.sensed_parts_list:
-            self.sensed_parts_list.append(particles)
+        if particles not in self.m_sensed_parts_list:
+            self.m_sensed_parts_list.append(particles)
         else:
             raise Exception("particle already added")
-        self.neighb_search.add_neighb(particles, self.smooth_len)
+        self.neighb_search.add_neighb_obj(particles, self.smooth_len)
         self.neighb_search.search_neighbors()
 
     def get_cell_size(self):
@@ -125,7 +127,7 @@ class Sense_grid(Particle):
     def step(self):
         self.neighb_search.search_neighbors()
         self.clear(self.sph.density)
-        for sensed_parts in self.sensed_parts_list:
+        for sensed_parts in self.m_sensed_parts_list:
             self.df_solver.loop_neighb(self.neighb_search.neighb_pool, sensed_parts, self.df_solver.inloop_accumulate_density)
         self.density_lower_bound[None] = 0
         self.density_upper_bound[None] = 1000

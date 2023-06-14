@@ -1,15 +1,15 @@
 import taichi as ti
 from.sph_funcs import *
 from ..basic_op.type import *
-from ..basic_obj.Particle import Particle
+from ..basic_obj.Obj_Particle import Particle
 
 @ti.data_oriented
 class Adv_slover:
     def __init__(self, obj: Particle):
         self.obj = obj
-        self.dt = obj.world.dt
-        self.gravity = obj.world.gravity
-        self.dim = obj.world.dim
+        self.dt = obj.m_world.g_dt
+        self.gravity = obj.m_world.g_gravity
+        self.dim = obj.m_world.g_dim
 
         self.clean_acc = vecxf(self.dim[None])(0)
     

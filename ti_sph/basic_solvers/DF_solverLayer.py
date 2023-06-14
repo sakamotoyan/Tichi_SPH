@@ -1,15 +1,16 @@
 import taichi as ti
 import math
 from.sph_funcs import *
+from .Neighb_looper import Neighb_looper
 from ..basic_op.type import *
-from ..basic_obj.Particle import Particle
+from ..basic_obj.Obj_Particle import Particle
 from typing import List
 
 @ti.data_oriented
 class DF_solver:
     def __init__(self, obj: Particle, incompressible_threshold: ti.f32 = 1e-4, div_free_threshold: ti.f32 = 1e-3, incompressible_iter_max: ti.i32 = 100, div_free_iter_max: ti.i32 = 50):
         self.obj=obj
-        self.dt=obj.world.dt
+        self.dt=obj.m_world.g_dt
         self.incompressible_threshold = val_f(incompressible_threshold)
         self.div_free_threshold_ = val_f(div_free_threshold)
         self.incompressible_iter_max = val_i(incompressible_iter_max)
@@ -21,7 +22,7 @@ class DF_solver:
         self.div_free_iter_ = val_i(0)
         self.inv_dt_ = val_f(1 / self.dt[None])
         self.neg_inv_dt_ = val_f(-1 / self.dt[None])
-        self.dim = obj.world.dim
+        self.dim = obj.m_world.g_dim
         sig_dim = self.sig_dim(self.dim[None])
         self.compute_sig(sig_dim)
         
@@ -148,12 +149,12 @@ class DF_solver:
             ''' Compute Density '''
             self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_density)
             ''' Compute Alpha_1, Alpha_2 ''' 
-            if self.obj.is_dynamic:
+            if self.obj.m_is_dynamic:
                 self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_1)
-                if neighb_obj.is_dynamic:
+                if neighb_obj.m_is_dynamic:
                     self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_2)
             else: 
-                if neighb_obj.is_dynamic:
+                if neighb_obj.m_is_dynamic:
                     self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_2)
 
         ''' Compute Alpha '''
@@ -179,7 +180,7 @@ class DF_layer:
     
     def step(self):
         for solver in self.df_solvers:
-            if solver.obj.is_dynamic:
+            if solver.obj.m_is_dynamic:
                 solver.get_vel_adv(solver.obj.vel_adv)
                 self.incompressible_states[self.df_solvers.index(solver)] = False
                 self.divergence_free_states[self.df_solvers.index(solver)] = False
@@ -207,12 +208,12 @@ class DF_layer:
                 break
         
             for solver in self.df_solvers:
-                if solver.obj.is_dynamic:
+                if solver.obj.m_is_dynamic:
                     for neighb_obj in solver.obj.neighb_search.neighb_pool.neighb_obj_list:
                         solver.loop_neighb(solver.obj.neighb_search.neighb_pool, neighb_obj, solver.inloop_update_vel_adv_from_alpha)
 
         for solver in self.df_solvers:
-            if solver.obj.is_dynamic:
+            if solver.obj.m_is_dynamic:
                 solver.update_vel(solver.obj.vel)
             
 

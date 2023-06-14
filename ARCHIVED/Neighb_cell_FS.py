@@ -1,66 +1,48 @@
 import taichi as ti
 import numpy as np
-from ..basic_op.type import *
-from ..basic_op.vec_op import *
+from ..ti_sph.basic_op.type import *
+from ..ti_sph.basic_op.vec_op import *
 
 # 用于邻居搜索的粒子结构
 
 
 @ti.dataclass
-class part_neighb_search:
-    cell_id: ti.i32  # 粒子所在的网格编号
-    push_seq: ti.i32  # 粒子在网格中的推入顺序
-    prev_part_id: ti.i32  # 粒子在网格中的前一个粒子编号，NO_PREV_PART 表示没有前一个粒子
-    next_part_id: ti.i32  # 粒子在网格中的后一个粒子编号，NO_NEXT_PART 表示没有后一个粒子
-    flag: ti.i32  # 粒子是否离开原来所在网格(CHANGED/NOT_CHANGED)，以及是否出网格边界(OUT_OF_RANGE)、未初始化(UNINITIALIZED)
-    push_buffer: ti.i32  # 推入粒子的缓冲区
-# 强制状态_出界: cell_id == OUT_OF_CELL, prev_part_id == NO_PREV_PART, next_part_id == NO_NEXT_PART, flag == OUT_OF_RANGE
-# 强制状态_未初始化: cell_id == OUT_OF_CELL, prev_part_id == NO_PREV_PART, next_part_id == NO_NEXT_PART, flag == UNINITIALIZED
-# 强制状态_网格内唯一粒子: cell_id != OUT_OF_CELL, prev_part_id = NO_PREV_PART, next_part_id = NO_NEXT_PART, flag == NOT_CHANGED or CHANGED
-# 强制状态_网格内第一个粒子(且有后续粒子): cell_id != OUT_OF_CELL, prev_part_id = NO_PREV_PART, next_part_id != NO_NEXT_PART, flag == NOT_CHANGED or CHANGED
-# 强制状态_网格内最后一个粒子(且有前续粒子): cell_id != OUT_OF_CELL, prev_part_id != NO_PREV_PART, next_part_id = NO_NEXT_PART, flag == NOT_CHANGED or CHANGED
+class Part_in_cell_state:
+    cell_id: ti.i32       # Grid number where the particle is located
+    push_seq: ti.i32      # Pushing sequence of the particle in the grid
+    prev_part_id: ti.i32  # Previous particle number in the grid, NO_PREV_PART indicates no previous particle
+    next_part_id: ti.i32  # Next particle number in the grid, NO_NEXT_PART indicates no next particle
+    flag: ti.i32          # Whether the particle has left its original grid (CHANGED/NOT_CHANGED), gone out of the grid boundary (OUT_OF_RANGE), or uninitialized (UNINITIALIZED)
+    push_buffer: ti.i32   # Buffer for pushing particles
+# STATE -- out of boundary:      cell_id == OUT_OF_CELL, prev_part_id == NO_PREV_PART, next_part_id == NO_NEXT_PART, flag == OUT_OF_RANGE
+# STATE -- uninitialized:        cell_id == OUT_OF_CELL, prev_part_id == NO_PREV_PART, next_part_id == NO_NEXT_PART, flag == UNINITIALIZED
+# STATE -- only part in cell:    cell_id != OUT_OF_CELL, prev_part_id = NO_PREV_PART, next_part_id = NO_NEXT_PART, flag == NOT_CHANGED or CHANGED
+# STATE -- first part in cell (with following part(s)):  cell_id != OUT_OF_CELL, prev_part_id = NO_PREV_PART, next_part_id != NO_NEXT_PART, flag == NOT_CHANGED or CHANGED
+# STATE -- last part in cell  (with previous part(s)):   cell_id != OUT_OF_CELL, prev_part_id != NO_PREV_PART, next_part_id = NO_NEXT_PART, flag == NOT_CHANGED or CHANGED
 
-
-# part_neighb_search中各属性取值含义
-# cell_id的取值: -1表示粒子不在网格中，即粒子已经出网格边界或未初始化
-OUT_OF_CELL = -1
-# prev_part_id,next_part_id的取值: -1表示没有前一个粒子或没有后一个粒子
-NO_PREV_PART = -1
-NO_NEXT_PART = -1
-# flag的取值: 意味着粒子是否离开原来所在网格，以及是否出网格边界、未初始化
-NOT_CHANGED = 0
-CHANGED = -1
-OUT_OF_RANGE = -2
-UNINITIALIZED = -3
-
-# 用于邻居搜索的网格结构
-
+# default attributes for Part_in_cell_state 
+OUT_OF_CELL = -1 # for cell_id, meaning: outof grid or uninitialized
+NO_PREV_PART = -1 # for prev_part_id, meaning: no previous particle
+NO_NEXT_PART = -1 # for next_part_id, meaning: no next particle
+NOT_CHANGED = 0    # for flag, meaning: not changed
+CHANGED = -1       # for flag, meaning: changed
+OUT_OF_RANGE = -2  # for flag, meaning: out of range
+UNINITIALIZED = -3 # for flag, meaning: uninitialized
 
 @ti.dataclass
-class cell_neighb_search:
+class Cell_state:
     first_part_id: ti.i32
     last_part_id: ti.i32
     visit_num: ti.i32
     push_num: ti.i32
     push_start_index: ti.i32
     
-# 强制状态_空网格: first_part_id==CELL_EMPTY_ID, last_part_id==CELL_EMPTY_ID, visit_num==CELL_EMPTY_NUM
-# 强制状态_初始化: first_part_id==CELL_EMPTY_ID, last_part_id==CELL_EMPTY_ID, visit_num==CELL_EMPTY_NUM, atomic_visit_begin==0, atomic_visit_end==0
+# STATE -- empty cell:  first_part_id==CELL_EMPTY, last_part_id==CELL_EMPTY, visit_num==CELL_EMPTY_NUM
+# STATE -- initialized: first_part_id==CELL_EMPTY, last_part_id==CELL_EMPTY, visit_num==CELL_EMPTY_NUM, atomic_visit_begin==0, atomic_visit_end==0
 
-
-# cell_neighb_search 中各属性取值含义
-# first_part_id,last_part_id的取值: 表示网格中第一个粒子的编号和最后一个粒子的编号
-CELL_EMPTY_ID = -1  # 当网格中没有粒子时，first_part_id,last_part_id的取值同为 -1
-# visit_num的取值: 表示网格中当前粒子数量
-CELL_EMPTY_NUM = 0  # 当网格中没有粒子时，visit_num的取值为 0
-# atomic_visit_begin,atomic_visit_end的取值: 为了保证粒子并行写同一网格时的原子性, 在每回邻居搜索前，将atomic_visit_begin,atomic_visit_end的值都设置为0
-# step 1 当一线程a要调整网格c内数据时，先将 atomic_visit_begin 通过ti.atomic_add()加1，并获取+1前atomic_visit_begin值，记为a1
-# step 2 判断 a1 是否等于 atomic_visit_end，
-#   step 2 case1 如果等于，说明没有其他线程在调整网格c内数据，线程a可以调整网格c内数据
-#   step 2 case2 如果不等于，说明有其他线程在调整网格c内数据，线程a需要等待，直到其他线程调整完网格c内数据
-# step 3 线程a调整网格c内数据
-# step 4 线程a将 atomic_visit_end 通过ti.atomic_add()加1, 表示线程a调整网格c内数据完毕, 其他等待线程可以结束step2 case2的等待, 开始step2 case1的判断, 进行step 3
-
+# default attributes for Cell_state
+CELL_EMPTY = -1  # for first_part_id,last_part_id, meaning: empty cell
+NO_VISIT = 0 # for visit_num, meaning: empty cell
 
 @ti.data_oriented
 class Neighb_search_FS:
@@ -73,7 +55,7 @@ class Neighb_search_FS:
             obj: ti.template(),
             obj_pos: ti.template(),
     ):
-        # 赋值并检测参数知否合规
+        # get all the parameters
         self.dim = val_i(dim[None])
         self.cell_size = cell_size
         self.lb = lb
@@ -83,15 +65,15 @@ class Neighb_search_FS:
         self.parameter_cehck()
 
         # 计算网格数量(cell_num_vec, cell_num) 并准备好网格编码器(cell_coder)
-        self.cell_num = val_i()
-        self.cell_num_vec = vecx_i(self.dim[None])
+        self.cell_num = val_i() # number of cells needed for the neighbor search grid
+        self.cell_num_vec = vecx_i(self.dim[None])  # number of cells needed for the neighbor search grid in each dimension
         self.cell_coder = vecx_i(self.dim[None])
         self.calculate_cell_param()
 
         # 两个container，一个用于存储网格(所构建的cell)，一个用于存储粒子(obj做对应的粒子属性)
-        self.cell_ns_container = cell_neighb_search.field(
+        self.cell_ns_container = Cell_state.field(
             shape=(self.cell_num[None],))
-        self.part_ns_container = part_neighb_search.field(
+        self.part_ns_container = Part_in_cell_state.field(
             shape=(obj.part_num[None],))
         # 两个 container 初始化
         self.init_ns_container()
@@ -131,8 +113,8 @@ class Neighb_search_FS:
         self.part_ns_container.next_part_id.fill(NO_NEXT_PART)
         self.part_ns_container.flag.fill(UNINITIALIZED)
         # 初始化网格
-        self.cell_ns_container.first_part_id.fill(CELL_EMPTY_ID)
-        self.cell_ns_container.last_part_id.fill(CELL_EMPTY_ID)
+        self.cell_ns_container.first_part_id.fill(CELL_EMPTY)
+        self.cell_ns_container.last_part_id.fill(CELL_EMPTY)
         self.cell_ns_container.visit_num.fill(0)
 
     # 计算粒子所在的网格(返回值为int)
