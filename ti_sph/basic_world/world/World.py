@@ -2,6 +2,7 @@ import taichi as ti
 
 from .modules import neighb_search
 from .modules import solver_adv
+from .modules import solver_df
 
 from ...basic_op.type import *
 from ...basic_obj.Obj_Particle import Particle
@@ -24,7 +25,6 @@ class World:
         self.g_sound_speed = val_f(100)
 
         self.dependent_init()
-
         self.part_obj_list = []
 
     # Functions: init related
@@ -54,6 +54,11 @@ class World:
         obj.set_world(self)
         return obj
     
+    def init_modules(self):
+        neighb_search.init_neighb_search(self)
+        solver_adv.init_solver_adv(self)
+        solver_df.init_solver_df(self)
+
     # Functions: neighbour search
     update_pos_in_neighb_search = neighb_search.update_pos_in_neighb_search
     update_neighbs = neighb_search.update_neighbs
@@ -65,4 +70,7 @@ class World:
     acc2vel_adv = solver_adv.acc2vel_adv
     vel_adv2vel = solver_adv.vel_adv2vel
     update_pos_from_vel = solver_adv.update_pos_from_vel
+
+    # Functions: DFSPH
+    step_df = solver_df.step_df
     

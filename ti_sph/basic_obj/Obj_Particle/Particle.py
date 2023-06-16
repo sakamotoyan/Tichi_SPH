@@ -85,6 +85,7 @@ class Particle(Obj):
     add_neighb_obj = neighb_search.add_neighb_obj
     add_neighb_objs = neighb_search.add_neighb_objs
     add_solver_adv = solvers.add_solver_adv
+    add_solver_df = solvers.add_solver_df
     
     # TODO
     def delete_outbounded_particles(self):

@@ -72,16 +72,21 @@ fluid_part_1.add_neighb_objs(world.part_obj_list)
 fluid_part_2.add_neighb_objs(world.part_obj_list)
 bound_part.add_neighb_objs(world.part_obj_list)
 
-world.neighb_search()
-
-'''INIT SOLVERS'''
 fluid_part_1.add_solver_adv()
 fluid_part_2.add_solver_adv()
 
-fluid1_df = DF_solver(fluid_part_1)
-fluid2_df = DF_solver(fluid_part_2)
-bound_df = DF_solver(bound_part)
-df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
+fluid_part_1.add_solver_df()
+fluid_part_2.add_solver_df()
+bound_part.add_solver_df()
+
+# fluid1_df = DF_solver(fluid_part_1)
+# fluid2_df = DF_solver(fluid_part_2)
+# bound_df = DF_solver(bound_part)
+# df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
+
+world.init_modules()
+
+world.neighb_search()
 
 # sense_grid = Sense_grid(type=Sense_grid.FIXED_GRID, neighb_pool_size=val_i(3e6),world=world, cell_size=val_f(0.1))
 sense_grid = Sense_grid(type=Sense_grid.FIXED_RES, neighb_pool_size=val_i(3e6), world=world, cell_size=val_f(0.1), grid_res=val_i(64), grid_center=vec2_f([0, 0]))
@@ -110,7 +115,8 @@ def loop():
     world.add_acc_gravity()
     world.acc2vel_adv()
 
-    df_layer.step()
+    world.step_df()
+    # df_layer.step()
 
     # fluid1_adv.adv_step(in_vel= fluid_part_1.vel, out_vel_adv=fluid_part_1.vel)
     # fluid2_adv.adv_step(in_vel= fluid_part_2.vel, out_vel_adv=fluid_part_2.vel)
@@ -134,7 +140,7 @@ def run(loop):
             loop()
             loop_count += 1
             sim_time += world.g_dt[None]
-            print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid1_df.incompressible_iter[None])
+            print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid_part_1.m_solver_df.incompressible_iter[None], ' ', fluid_part_2.m_solver_df.incompressible_iter[None])
         
         if gui.op_refresh_window:
             gui.scene_setup()
