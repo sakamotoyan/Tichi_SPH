@@ -1,6 +1,7 @@
 import taichi as ti
 
-from .neighb_search import update_pos_in_neighb_search
+from .modules import neighb_search
+from .modules import solver_adv
 
 from ...basic_op.type import *
 from ...basic_obj.Obj_Particle import Particle
@@ -26,6 +27,7 @@ class World:
 
         self.part_obj_list = []
 
+    # Functions: init related
     def dependent_init(self):
         self.space_size = vecx_f(self.g_dim[None])
         self.space_center = vecx_f(self.g_dim[None])
@@ -53,4 +55,14 @@ class World:
         return obj
     
     # Functions: neighbour search
-    update_pos_in_neighb_search = update_pos_in_neighb_search
+    update_pos_in_neighb_search = neighb_search.update_pos_in_neighb_search
+    update_neighbs = neighb_search.update_neighbs
+    neighb_search = neighb_search.search_neighb
+
+    # Functions: advection utils
+    clear_acc = solver_adv.clear_acc
+    add_acc_gravity = solver_adv.add_acc_gravity
+    acc2vel_adv = solver_adv.acc2vel_adv
+    vel_adv2vel = solver_adv.vel_adv2vel
+    update_pos_from_vel = solver_adv.update_pos_from_vel
+    

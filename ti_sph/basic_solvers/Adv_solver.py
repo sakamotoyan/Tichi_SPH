@@ -27,11 +27,31 @@ class Adv_slover:
     def add_vis_acc(self, vis_coeff: ti.template()):
         pass
     
-    @ti.kernel
-    def acc2vel_adv(self, out_vel_adv: ti.template()):
-        for i in range(self.obj.ti_get_stack_top()[None]):
-            out_vel_adv[i] += self.obj.acc[i] * self.dt[None]
+    # @ti.kernel
+    # def acc2vel_adv(self, out_vel_adv: ti.template()):
+    #     for i in range(self.obj.ti_get_stack_top()[None]):
+    #         out_vel_adv[i] += self.obj.acc[i] * self.dt[None]
     
+    @ti.kernel
+    def add_acc_gravity(self):
+        for i in range(self.obj.ti_get_stack_top()[None]):
+            self.obj.acc[i] += self.gravity[None]
+
+    @ti.kernel
+    def acc2vel_adv(self):
+        for i in range(self.obj.ti_get_stack_top()[None]):
+            self.obj.vel_adv[i] = self.obj.acc[i] * self.dt[None] + self.obj.vel[i]
+
+    @ti.kernel
+    def vel_adv2vel(self):
+        for i in range(self.obj.ti_get_stack_top()[None]):
+            self.obj.vel[i] = self.obj.vel_adv[i]
+
+    @ti.kernel
+    def update_pos(self):
+        for i in range(self.obj.ti_get_stack_top()[None]):
+            self.obj.pos[i] += self.obj.vel[i] * self.dt[None]
+
     @ti.kernel
     def adv_step(self, in_vel: ti.template(), out_vel_adv: ti.template()):
         for i in range(self.obj.ti_get_stack_top()[None]):
@@ -39,8 +59,3 @@ class Adv_slover:
             self.obj.acc[i] = self.clean_acc
             self.obj.acc[i] += self.gravity[None]
             out_vel_adv[i] += self.obj.acc[i] * self.dt[None]
-
-    @ti.kernel
-    def update_pos(self, in_vel: ti.template(), out_pos: ti.template()):
-        for i in range(self.obj.ti_get_stack_top()[None]):
-            out_pos[i] += in_vel[i] * self.dt[None]

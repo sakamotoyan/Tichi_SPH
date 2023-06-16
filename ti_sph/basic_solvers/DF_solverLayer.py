@@ -188,7 +188,7 @@ class DF_layer:
                 self.incompressible_states[self.df_solvers.index(solver)] = True
                 self.divergence_free_states[self.df_solvers.index(solver)] = True
 
-            solver.df_step_static_phase(solver.obj.neighb_search.neighb_pool)
+            solver.df_step_static_phase(solver.obj.m_neighb_search.neighb_pool)
             
         while True:
             for solver in self.df_solvers:
@@ -196,8 +196,8 @@ class DF_layer:
 
                 solver.compute_delta_density()
 
-                for neighb_obj in solver.obj.neighb_search.neighb_pool.neighb_obj_list:
-                    solver.loop_neighb(solver.obj.neighb_search.neighb_pool, neighb_obj, solver.inloop_update_delta_density_from_vel_adv)
+                for neighb_obj in solver.obj.m_neighb_search.neighb_pool.neighb_obj_list:
+                    solver.loop_neighb(solver.obj.m_neighb_search.neighb_pool, neighb_obj, solver.inloop_update_delta_density_from_vel_adv)
                 solver.ReLU_delta_density()
                 solver.update_compressible_ratio()
 
@@ -209,8 +209,8 @@ class DF_layer:
         
             for solver in self.df_solvers:
                 if solver.obj.m_is_dynamic:
-                    for neighb_obj in solver.obj.neighb_search.neighb_pool.neighb_obj_list:
-                        solver.loop_neighb(solver.obj.neighb_search.neighb_pool, neighb_obj, solver.inloop_update_vel_adv_from_alpha)
+                    for neighb_obj in solver.obj.m_neighb_search.neighb_pool.neighb_obj_list:
+                        solver.loop_neighb(solver.obj.m_neighb_search.neighb_pool, neighb_obj, solver.inloop_update_vel_adv_from_alpha)
 
         for solver in self.df_solvers:
             if solver.obj.m_is_dynamic:

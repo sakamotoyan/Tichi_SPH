@@ -13,8 +13,8 @@ ti.init(arch=ti.cuda, device_memory_GB=3) # Use GPU
 # ti.init(arch=ti.cpu) # Use CPU
 
 ''' GLOBAL SETTINGS '''
-part_size = 0.01
-time_step = part_size/150
+part_size = 0.015
+time_step = part_size/50
 world = World(dim=2)
 world.set_part_size(part_size)
 world.set_time_step(time_step)
@@ -35,16 +35,6 @@ fluid_part_1.fill_open_stack_with_val(fluid_part_1.mass, val_f(fluid_rest_densit
 fluid_part_1.fill_open_stack_with_val(fluid_part_1.rest_density, fluid_rest_density)
 fluid_part_1.close_stack()
 
-# fluid_part_cube_gen = Cube_generator(fluid_part_1, lb=vec2f(-2, -3.8), rt=vec2f(0, 0))
-# print('prepared to push fluid part', fluid_part_cube_gen.pushed_num_preview(factor=1.001))
-# part_num = fluid_part_cube_gen.push_pos(factor=1.001)
-# fluid_part_1.set_val(to_arr=fluid_part_1.size, num=part_num, val=world.g_part_size)
-# fluid_part_1.set_val(to_arr=fluid_part_1.volume, num=part_num, val=world.part_volume)
-# fluid_part_1.set_val(to_arr=fluid_part_1.mass, num=part_num, val=val_f(fluid_rest_density[None]*world.part_volume[None]))
-# fluid_part_1.set_val(to_arr=fluid_part_1.rest_density, num=part_num, val=fluid_rest_density)
-# fluid_part_1.update_stack_top(part_num)
-# print('pushed fluid part num', part_num)
-
 '''INIT AN FLUID PARTICLE OBJECT'''
 cube_data.translate(vec2f(2.2, 0))
 fluid_part_num = val_i(cube_data.num)
@@ -60,43 +50,35 @@ fluid_part_2.fill_open_stack_with_val(fluid_part_2.rest_density, fluid_rest_dens
 fluid_part_2.close_stack()
 
 ''' INIT BOUNDARY PARTICLE OBJECT '''
-bound_part_num = val_i(5e4)
+box_data = Box_data(lb=vec2f(-4, -4), rt=vec2f(4, 4), span=world.g_part_size[None]*1.001, layers=2)
 bound_rest_density = val_f(1000)
-bound_part = world.add_part_obj(part_num=bound_part_num[None], is_dynamic=False)
+bound_part = world.add_part_obj(part_num=box_data.num, is_dynamic=False)
 bound_part.instantiate_from_template(part_template)
-bound_box_gen = Box_generator(obj=bound_part, lb=vec2f(-4, -4), rt=vec2f(4, 4), layers=2)
-print('prepared to push bound part', bound_box_gen.pushed_num_preview(factor=1.001))
-part_num = bound_box_gen.push_pos(factor=1.001)
-print('pushed bound part num', part_num)
-bound_part.set_val(to_arr=bound_part.size, num=part_num, val=world.g_part_size)
-bound_part.set_val(to_arr=bound_part.volume, num=part_num, val=world.part_volume)
-bound_part.set_val(to_arr=bound_part.mass, num=part_num, val=val_f(bound_rest_density[None]*world.part_volume[None]))
-bound_part.set_val(to_arr=bound_part.rest_density, num=part_num, val=bound_rest_density)
-bound_part.update_stack_top(part_num)
+
+bound_part.open_stack(val_i(box_data.num))
+bound_part.fill_open_stack_with_arr(bound_part.pos, box_data.pos)
+bound_part.fill_open_stack_with_val(bound_part.size, bound_part.get_part_size())
+bound_part.fill_open_stack_with_val(bound_part.volume, val_f(bound_part.get_part_size()[None]**world.g_dim[None]))
+bound_part.fill_open_stack_with_val(bound_part.mass, val_f(bound_rest_density[None]*bound_part.get_part_size()[None]**world.g_dim[None]))
+bound_part.fill_open_stack_with_val(bound_part.rest_density, bound_rest_density)
+bound_part.close_stack()
 
 '''INIT NEIGHBOR SEARCH OBJECTS'''
-fluid1_neighb_search = Neighb_search(fluid_part_1)
-fluid2_neighb_search = Neighb_search(fluid_part_2)
-bound_neighb_search = Neighb_search(bound_part)
+fluid_part_1.add_module_neighb_search()
+fluid_part_2.add_module_neighb_search()
+bound_part.add_module_neighb_search()
 
-fluid1_neighb_search.add_neighb_obj(fluid_part_1, world.support_radius)
-fluid1_neighb_search.add_neighb_obj(fluid_part_2, world.support_radius)
-fluid1_neighb_search.add_neighb_obj(bound_part, world.support_radius)
-fluid2_neighb_search.add_neighb_obj(fluid_part_1, world.support_radius)
-fluid2_neighb_search.add_neighb_obj(fluid_part_2, world.support_radius)
-fluid2_neighb_search.add_neighb_obj(bound_part, world.support_radius)
-bound_neighb_search.add_neighb_obj(bound_part, world.support_radius)
-bound_neighb_search.add_neighb_obj(fluid_part_1, world.support_radius)
-bound_neighb_search.add_neighb_obj(fluid_part_2, world.support_radius)
+fluid_part_1.add_neighb_objs(world.part_obj_list)
+fluid_part_2.add_neighb_objs(world.part_obj_list)
+bound_part.add_neighb_objs(world.part_obj_list)
 
-fluid1_neighb_search.update_self()
-fluid2_neighb_search.update_self()
-bound_neighb_search.update_self()
+world.neighb_search()
 
 '''INIT SOLVERS'''
-fluid1_adv = Adv_slover(fluid_part_1)
+fluid_part_1.add_solver_adv()
+fluid_part_2.add_solver_adv()
+
 fluid1_df = DF_solver(fluid_part_1)
-fluid2_adv = Adv_slover(fluid_part_2)
 fluid2_df = DF_solver(fluid_part_2)
 bound_df = DF_solver(bound_part)
 df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
@@ -118,26 +100,22 @@ print('DEBUG sense_output', sense_output.np_node_index_organized)
 np.save("pos_np.npy", sense_output.np_node_index_organized)
 
 def loop():
-    fluid1_neighb_search.update_self()
-    fluid2_neighb_search.update_self()
-    bound_neighb_search.update_self()
+    world.update_pos_in_neighb_search()
 
-    fluid1_neighb_search.search_neighbors()
-    fluid2_neighb_search.search_neighbors()
-    bound_neighb_search.search_neighbors()
+    world.neighb_search()
 
     sense_grid.step()
 
-    fluid1_adv.adv_step(in_vel= fluid_part_1.vel, out_vel_adv=fluid_part_1.vel_adv)
-    fluid2_adv.adv_step(in_vel= fluid_part_2.vel, out_vel_adv=fluid_part_2.vel_adv)
+    world.clear_acc()
+    world.add_acc_gravity()
+    world.acc2vel_adv()
 
     df_layer.step()
 
     # fluid1_adv.adv_step(in_vel= fluid_part_1.vel, out_vel_adv=fluid_part_1.vel)
     # fluid2_adv.adv_step(in_vel= fluid_part_2.vel, out_vel_adv=fluid_part_2.vel)
 
-    fluid1_adv.update_pos(in_vel= fluid_part_1.vel, out_pos=fluid_part_1.pos)
-    fluid2_adv.update_pos(in_vel= fluid_part_2.vel, out_pos=fluid_part_2.pos)
+    world.update_pos_from_vel()
 
 
 def run(loop):

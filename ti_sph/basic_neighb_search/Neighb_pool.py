@@ -96,8 +96,8 @@ class Neighb_pool:
         self.neighb_obj_list = []  # Particle class
         self.neighb_obj_pos_list = []  # ti.Vector.field(dim, ti.f32, neighb_obj_part_num)
         self.neighb_cell_list = []  # Neighb_cell_simple class
-        self.neighb_search_range_list = []  # val_f() # TODO: use 'Dynamic' as search range
-        self.neighb_search_template_list = []  # Neighb_search_template class
+        self.m_neighb_search_range_list = []  # val_f() # TODO: use 'Dynamic' as search range
+        self.m_neighb_search_template_list = []  # Neighb_search_template class
 
         '''[DIY AREA]'''
         ''' add your own data here'''
@@ -137,7 +137,7 @@ class Neighb_pool:
         ''' check input validity'''
         if neighb_obj in self.neighb_obj_list:
             raise Exception("neighb_obj already in list")
-        if neighb_obj.neighb_search.neighb_cell in self.neighb_cell_list:
+        if neighb_obj.m_neighb_search.neighb_cell in self.neighb_cell_list:
             raise Exception("neighb_cell already in list")
         if self.obj.m_world != neighb_obj.m_world:
             raise Exception("two obj are not in the same world")
@@ -145,13 +145,13 @@ class Neighb_pool:
         ''' append to lists '''
         self.neighb_obj_list.append(neighb_obj)
         self.neighb_obj_pos_list.append(neighb_obj.pos)
-        self.neighb_cell_list.append(neighb_obj.neighb_search.neighb_cell)
-        self.neighb_search_range_list.append(search_range)
+        self.neighb_cell_list.append(neighb_obj.m_neighb_search.neighb_cell)
+        self.m_neighb_search_range_list.append(search_range)
 
         ''' generate search template '''
-        search_cell_range = ti.ceil(search_range[None] / neighb_obj.neighb_search.neighb_cell.cell_size[None])
+        search_cell_range = ti.ceil(search_range[None] / neighb_obj.m_neighb_search.neighb_cell.cell_size[None])
         neighb_search_template = Neighb_search_template(self.obj.m_world.g_dim[None], search_cell_range)
-        self.neighb_search_template_list.append(neighb_search_template)
+        self.m_neighb_search_template_list.append(neighb_search_template)
 
     ''' get a obj, neighb_obj attributes pair  one at a time, as inputs to register_a_neighbour() '''
     def register_neighbours(
@@ -159,7 +159,7 @@ class Neighb_pool:
     ):
         self.clear_pool()
         for i in range(len(self.neighb_obj_list)):
-            self.register_a_neighbour(self.neighb_obj_list[i].get_id()[None], self.neighb_search_range_list[i][None], self.neighb_obj_pos_list[i], self.neighb_cell_list[i], self.neighb_search_template_list[i])
+            self.register_a_neighbour(self.neighb_obj_list[i].get_id()[None], self.m_neighb_search_range_list[i][None], self.neighb_obj_pos_list[i], self.neighb_cell_list[i], self.m_neighb_search_template_list[i])
         if not self.neighb_pool_size[None] > self.neighb_pool_used_space[None]:
             raise Exception(f"neighb_pool overflow, need {self.neighb_pool_used_space[None]} but only {self.neighb_pool_size[None]}")
         # print("debug: neighb_pool_used_space_ = ", self.neighb_pool_used_space_[None], " / ", self.neighb_pool_size_[None], " = ", self.neighb_pool_used_space_[None] / self.neighb_pool_size_[None]*100, " %")

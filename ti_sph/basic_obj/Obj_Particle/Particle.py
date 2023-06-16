@@ -1,8 +1,10 @@
 import taichi as ti
 
 from .modules import attr_allo
-from.modules import data_op
-from.modules import get
+from .modules import data_op
+from .modules import get
+from .modules import neighb_search
+from .modules import solvers
 
 from ..Obj import Obj
 from ...basic_op.type import *
@@ -29,9 +31,12 @@ class Particle(Obj):
         self.m_stack_open_num = val_i(0)
         # shared attributes
         self.m_part_size = part_size
-        # neighb search structure
+
+        # modules
         self.m_neighb_search = None
-        
+        self.m_solver_adv = None
+        self.m_solver_df = None
+
         # data structure
         self.m_attr_list = {}
         self.m_array_list = {}
@@ -73,6 +78,13 @@ class Particle(Obj):
     get_part_size = get.get_part_size
     ti_get_stack_top = get.ti_get_stack_top
     ti_get_part_num = get.ti_get_part_num
+
+    # Functions: neighb search related
+    add_module_neighb_search = neighb_search.add_neighb_search
+    check_neighb_search = neighb_search.check_neighb_search
+    add_neighb_obj = neighb_search.add_neighb_obj
+    add_neighb_objs = neighb_search.add_neighb_objs
+    add_solver_adv = solvers.add_solver_adv
     
     # TODO
     def delete_outbounded_particles(self):
