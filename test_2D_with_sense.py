@@ -13,15 +13,15 @@ ti.init(arch=ti.cuda, device_memory_GB=3) # Use GPU
 # ti.init(arch=ti.cpu) # Use CPU
 
 ''' GLOBAL SETTINGS '''
-part_size = 0.015
-time_step = part_size/50
+part_size = 0.008
+max_time_step = part_size/20
 world = World(dim=2)
 world.set_part_size(part_size)
-world.set_time_step(time_step)
+world.set_dt(max_time_step)
 
 '''BASIC SETTINGS FOR FLUID'''
 fluid_rest_density = val_f(1000)
-cube_data = Cube_data(lb=vec2f(-2, -3.8), rt=vec2f(-0.2, 0), span=world.g_part_size[None]*1.001)
+cube_data = Cube_data(lb=vec2f(-2, -4+part_size), rt=vec2f(-0.2, 0), span=world.g_part_size[None]*1.001)
 '''INIT AN FLUID PARTICLE OBJECT'''
 fluid_part_num = val_i(cube_data.num)
 fluid_part_1 = world.add_part_obj(part_num=fluid_part_num[None], is_dynamic=True)
@@ -50,7 +50,7 @@ fluid_part_2.fill_open_stack_with_val(fluid_part_2.rest_density, fluid_rest_dens
 fluid_part_2.close_stack()
 
 ''' INIT BOUNDARY PARTICLE OBJECT '''
-box_data = Box_data(lb=vec2f(-4, -4), rt=vec2f(4, 4), span=world.g_part_size[None]*1.001, layers=2)
+box_data = Box_data(lb=vec2f(-4, -4), rt=vec2f(4, 4), span=world.g_part_size[None]*1.05, layers=3)
 bound_rest_density = val_f(1000)
 bound_part = world.add_part_obj(part_num=box_data.num, is_dynamic=False)
 bound_part.instantiate_from_template(part_template)
@@ -75,14 +75,9 @@ bound_part.add_neighb_objs(world.part_obj_list)
 fluid_part_1.add_solver_adv()
 fluid_part_2.add_solver_adv()
 
-fluid_part_1.add_solver_df()
-fluid_part_2.add_solver_df()
-bound_part.add_solver_df()
-
-# fluid1_df = DF_solver(fluid_part_1)
-# fluid2_df = DF_solver(fluid_part_2)
-# bound_df = DF_solver(bound_part)
-# df_layer = DF_layer([fluid1_df, fluid2_df, bound_df])
+fluid_part_1.add_solver_df(div_free_threshold=1e-4)
+fluid_part_2.add_solver_df(div_free_threshold=1e-4)
+bound_part.add_solver_df(div_free_threshold=1e-4)
 
 world.init_modules()
 
@@ -109,20 +104,23 @@ def loop():
 
     world.neighb_search()
 
+    world.step_df_div()
+    print('div_free iter:', fluid_part_1.m_solver_df.div_free_iter[None])
+
     sense_grid.step()
 
     world.clear_acc()
     world.add_acc_gravity()
     world.acc2vel_adv()
 
-    world.step_df()
-    # df_layer.step()
-
-    # fluid1_adv.adv_step(in_vel= fluid_part_1.vel, out_vel_adv=fluid_part_1.vel)
-    # fluid2_adv.adv_step(in_vel= fluid_part_2.vel, out_vel_adv=fluid_part_2.vel)
+    world.step_df_incomp()
+    print('incomp iter:', fluid_part_1.m_solver_df.incompressible_iter[None])
 
     world.update_pos_from_vel()
 
+    world.cfl_dt(0.5, max_time_step)
+
+    print(' ')
 
 def run(loop):
     gui = Gui3d()
@@ -134,13 +132,16 @@ def run(loop):
     loop_count = 0
 
     while gui.window.running:
+
         gui.monitor_listen()
 
         if gui.op_system_run:
             loop()
             loop_count += 1
             sim_time += world.g_dt[None]
-            print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid_part_1.m_solver_df.incompressible_iter[None], ' ', fluid_part_2.m_solver_df.incompressible_iter[None])
+            # print('loop count', loop_count, 'compressible ratio', 'incompressible iter', fluid_part_1.m_solver_df.incompressible_iter[None], ' ', fluid_part_2.m_solver_df.incompressible_iter[None])
+            # print('comp ratio', fluid_part_1.m_solver_df.compressible_ratio[None], ' ', fluid_part_2.m_solver_df.compressible_ratio[None])
+            # print('dt', world.g_dt[None])
         
         if gui.op_refresh_window:
             gui.scene_setup()

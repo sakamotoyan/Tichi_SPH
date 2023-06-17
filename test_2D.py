@@ -15,7 +15,7 @@ ti.init(arch=ti.cuda, device_memory_GB=4) # Use GPU
 ''' GLOBAL SETTINGS '''
 world = World(dim=2)
 world.set_part_size(0.02)
-world.set_time_step(world.g_part_size[None]/world.g_sound_speed[None])
+world.set_dt(world.g_part_size[None]/world.g_sound_speed[None])
 
 '''BASIC SETTINGS FOR FLUID'''
 fluid_part_num = val_i(5e4)

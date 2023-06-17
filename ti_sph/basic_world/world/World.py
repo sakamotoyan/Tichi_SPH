@@ -3,6 +3,7 @@ import taichi as ti
 from .modules import neighb_search
 from .modules import solver_adv
 from .modules import solver_df
+from .modules import cfl
 
 from ...basic_op.type import *
 from ...basic_obj.Obj_Particle import Particle
@@ -19,6 +20,8 @@ class World:
         self.g_space_rt.fill(8)
         self.g_gravity[None][1] = -9.8
         self.g_dt = val_f(0.001)
+        self.g_inv_dt = val_f(1/self.g_dt[None])
+        self.g_neg_inv_dt = val_f(-1/self.g_dt[None])
         self.g_part_size = val_f(0.1)
         self.g_avg_neighb_part_num = val_i(32)
         self.g_obj_num = val_i(3)
@@ -44,8 +47,10 @@ class World:
         self.g_part_size = val_f(size)
         self.refresh()
     
-    def set_time_step(self, dt):
-        self.g_dt = val_f(dt)
+    def set_dt(self, dt):
+        self.g_dt[None] = dt
+        self.g_inv_dt[None] = 1/dt
+        self.g_neg_inv_dt[None] = -1/dt
 
     def add_part_obj(self, part_num, is_dynamic):
         obj = Particle(part_num, self.g_part_size, is_dynamic)
@@ -72,5 +77,9 @@ class World:
     update_pos_from_vel = solver_adv.update_pos_from_vel
 
     # Functions: DFSPH
-    step_df = solver_df.step_df
+    step_df_incomp = solver_df.step_df_incomp
+    step_df_div = solver_df.step_df_div
     
+    # Functions: CFL time step
+    find_max_vec = cfl.find_max_vec
+    cfl_dt = cfl.cfl_dt

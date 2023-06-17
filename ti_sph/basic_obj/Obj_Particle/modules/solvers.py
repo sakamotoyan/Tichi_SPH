@@ -1,6 +1,6 @@
 import taichi as ti
-from ....basic_solvers.Adv_solver import Adv_slover
-from ....basic_solvers.DF_solverLayer import DF_solver
+from ....basic_solvers.Solver_adv import Adv_slover
+from ....basic_solvers.Solver_df import DF_solver
 
 def add_solver_adv(self):
     self.m_solver_adv = Adv_slover(self)

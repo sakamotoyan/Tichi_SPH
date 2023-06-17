@@ -1,3 +1,2 @@
-from .DF_solverLayer import DF_solver, DF_layer
-from .Adv_solver import Adv_slover
+from .Solver_df import DF_solver
 from .Neighb_looper import Neighb_looper
