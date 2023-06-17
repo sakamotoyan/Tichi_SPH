@@ -12,8 +12,15 @@ def init_solver_df(self):
     self.df_incompressible_states: List[bool] = [False for _ in range(len(self.df_solver_list))]
     self.df_divergence_free_states: List[bool] = [False for _ in range(len(self.df_solver_list))]
     
+def step_df_compute_alpha(self):
+    for part_obj in self.df_solver_list:
+        part_obj.m_solver_df.compute_alpha(part_obj.m_neighb_search.neighb_pool)
+
 def step_df_incomp(self):
     for part_obj in self.df_solver_list:
+
+        part_obj.m_solver_df.incompressible_iter[None] = 0
+
         if part_obj.m_is_dynamic:
             part_obj.m_solver_df.get_vel_adv(part_obj.vel_adv)
             self.df_incompressible_states[self.df_solver_list.index(part_obj)] = False
@@ -21,8 +28,6 @@ def step_df_incomp(self):
         else:
             self.df_incompressible_states[self.df_solver_list.index(part_obj)] = True
             self.df_divergence_free_states[self.df_solver_list.index(part_obj)] = True
-
-        part_obj.m_solver_df.df_step_static_phase(part_obj.m_neighb_search.neighb_pool)
         
     while True:
         for part_obj in self.df_solver_list:
@@ -52,14 +57,17 @@ def step_df_incomp(self):
             part_obj.m_solver_df.update_vel(part_obj.vel)
 
 def step_df_div(self):
+
+
     for part_obj in self.df_solver_list:
+
+        part_obj.m_solver_df.div_free_iter[None] = 0
+
         if part_obj.m_is_dynamic:
             part_obj.m_solver_df.get_vel_adv(part_obj.vel)
             self.df_divergence_free_states[self.df_solver_list.index(part_obj)] = False
         else:
             self.df_divergence_free_states[self.df_solver_list.index(part_obj)] = True
-
-        part_obj.m_solver_df.df_step_static_phase(part_obj.m_neighb_search.neighb_pool)
         
     while True:
         for part_obj in self.df_solver_list:

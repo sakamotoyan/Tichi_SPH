@@ -1,13 +1,14 @@
 import taichi as ti
 import math
-from.sph_funcs import *
+from .sph_funcs import *
+from .Solver_sph import SPH_solver
 from .Neighb_looper import Neighb_looper
 from ..basic_op.type import *
 from ..basic_obj.Obj_Particle import Particle
 from typing import List
 
 @ti.data_oriented
-class DF_solver:
+class DF_solver(SPH_solver):
     def __init__(self, obj: Particle, incompressible_threshold: ti.f32 = 1e-4, div_free_threshold: ti.f32 = 1e-3, incompressible_iter_max: ti.i32 = 100, div_free_iter_max: ti.i32 = 50):
         self.obj=obj
         self.dt=obj.m_world.g_dt
@@ -26,44 +27,6 @@ class DF_solver:
         self.dim = obj.m_world.g_dim
         sig_dim = self.sig_dim(self.dim[None])
         self.compute_sig(sig_dim)
-        
-
-    ''' [NOTICE] If sig_dim is decorated with @ti.func, and called in a kernel, 
-    it will cause a computation error due to the use of math.pi. This bug is tested. '''
-    def sig_dim(self, dim):
-        sig = 0
-        if dim == 3:
-            sig = 8 / math.pi 
-        elif dim == 2:
-            sig = 40 / 7 / math.pi
-        elif dim == 1:
-            sig = 4 / 3
-        return sig
-    
-    @ti.kernel
-    def compute_sig(self, sig_dim: ti.f32):
-        for part_id in range(self.obj.ti_get_stack_top()[None]):
-            self.obj.sph[part_id].h = self.obj.size[part_id] * 2
-            self.obj.sph[part_id].sig = sig_dim / ti.pow(self.obj.sph[part_id].h, self.dim[None])
-            self.obj.sph[part_id].sig_inv_h = self.obj.sph[part_id].sig / self.obj.sph[part_id].h
-
-    @ti.kernel
-    def loop_neighb(self, neighb_pool:ti.template(), neighb_obj:ti.template(), func:ti.template()):
-        for part_id in range(self.obj.ti_get_stack_top()[None]):
-            neighb_part_num = neighb_pool.neighb_obj_pointer[part_id, neighb_obj.ti_get_id()[None]].size
-            neighb_part_shift = neighb_pool.neighb_obj_pointer[part_id, neighb_obj.ti_get_id()[None]].begin
-            for neighb_part_iter in range(neighb_part_num):
-                neighb_part_id = neighb_pool.neighb_pool_container[neighb_part_shift].neighb_part_id
-                ''' Code for Computation'''
-                func(part_id, neighb_part_id, neighb_part_shift, neighb_pool, neighb_obj)
-                ''' End of Code for Computation'''
-                ''' DO NOT FORGET TO COPY/PASE THE FOLLOWING CODE WHEN REUSING THIS FUNCTION '''
-                neighb_part_shift = neighb_pool.neighb_pool_container[neighb_part_shift].next
-
-    @ti.func
-    def inloop_accumulate_density(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
-        cached_W = neighb_pool.cached_neighb_attributes[neighb_part_shift].W
-        self.obj.sph[part_id].density += neighb_obj.mass[neighb_part_id] * cached_W
     
     @ti.func
     def inloop_compute_u_alpha_1_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):
@@ -88,7 +51,7 @@ class DF_solver:
             self.obj.sph_df[part_id].alpha_2 += cached_grad_W.dot(cached_grad_W) * neighb_obj.mass[neighb_part_id]
 
     @ti.kernel
-    def compute_alpha(self):
+    def ker_compute_alpha(self):
         for part_id in range(self.obj.ti_get_stack_top()[None]):
             self.obj.sph_df[part_id].alpha = self.obj.sph_df[part_id].alpha_1.dot(self.obj.sph_df[part_id].alpha_1) / self.obj.mass[part_id] + self.obj.sph_df[part_id].alpha_2
             if not bigger_than_zero(self.obj.sph_df[part_id].alpha):
@@ -138,17 +101,12 @@ class DF_solver:
         for part_id in range(self.obj.ti_get_stack_top()[None]):
             self.obj.sph_df[part_id].vel_adv = in_vel_adv[part_id]
 
-    def df_step_static_phase(self, neighb_pool:ti.template()):
-        self.obj.clear(self.obj.sph.density)
+    def compute_alpha(self, neighb_pool:ti.template()):
+    
         self.obj.clear(self.obj.sph_df.alpha_1)
         self.obj.clear(self.obj.sph_df.alpha_2)
 
-        self.div_free_iter[None] = 0
-        self.incompressible_iter[None] = 0
-
         for neighb_obj in neighb_pool.neighb_obj_list:
-            ''' Compute Density '''
-            self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_density)
             ''' Compute Alpha_1, Alpha_2 ''' 
             if self.obj.m_is_dynamic:
                 self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_1)
@@ -159,7 +117,7 @@ class DF_solver:
                     self.loop_neighb(neighb_pool, neighb_obj, self.inloop_accumulate_alpha_2)
 
         ''' Compute Alpha '''
-        self.compute_alpha()            
+        self.ker_compute_alpha()            
 
 # @ti.data_oriented
 # class DF_layer:

@@ -1,6 +1,7 @@
 import taichi as ti
 
 from .modules import neighb_search
+from .modules import solver_sph
 from .modules import solver_adv
 from .modules import solver_df
 from .modules import cfl
@@ -61,6 +62,7 @@ class World:
     
     def init_modules(self):
         neighb_search.init_neighb_search(self)
+        solver_sph.init_solver_sph(self)
         solver_adv.init_solver_adv(self)
         solver_df.init_solver_df(self)
 
@@ -70,13 +72,17 @@ class World:
     neighb_search = neighb_search.search_neighb
 
     # Functions: advection utils
-    clear_acc = solver_adv.clear_acc
+    step_adv_clear_acc = solver_adv.clear_acc
     add_acc_gravity = solver_adv.add_acc_gravity
     acc2vel_adv = solver_adv.acc2vel_adv
     vel_adv2vel = solver_adv.vel_adv2vel
     update_pos_from_vel = solver_adv.update_pos_from_vel
 
+    # Functions: SPH
+    step_sph_compute_density = solver_sph.step_sph_compute_density
+
     # Functions: DFSPH
+    step_df_compute_alpha = solver_df.step_df_compute_alpha
     step_df_incomp = solver_df.step_df_incomp
     step_df_div = solver_df.step_df_div
     

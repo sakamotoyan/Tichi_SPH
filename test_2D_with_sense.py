@@ -75,9 +75,13 @@ bound_part.add_neighb_objs(world.part_obj_list)
 fluid_part_1.add_solver_adv()
 fluid_part_2.add_solver_adv()
 
-fluid_part_1.add_solver_df(div_free_threshold=1e-4)
-fluid_part_2.add_solver_df(div_free_threshold=1e-4)
-bound_part.add_solver_df(div_free_threshold=1e-4)
+fluid_part_1.add_solver_sph()
+fluid_part_2.add_solver_sph()
+bound_part.add_solver_sph()
+
+fluid_part_1.add_solver_df(div_free_threshold=3e-4)
+fluid_part_2.add_solver_df(div_free_threshold=3e-4)
+bound_part.add_solver_df(div_free_threshold=3e-4)
 
 world.init_modules()
 
@@ -103,7 +107,8 @@ def loop():
     world.update_pos_in_neighb_search()
 
     world.neighb_search()
-
+    world.step_sph_compute_density()
+    world.step_df_compute_alpha()
     world.step_df_div()
     print('div_free iter:', fluid_part_1.m_solver_df.div_free_iter[None])
 
