@@ -72,7 +72,7 @@ class World:
     neighb_search = neighb_search.search_neighb
 
     # Functions: advection utils
-    step_adv_clear_acc = solver_adv.clear_acc
+    clear_acc = solver_adv.clear_acc
     add_acc_gravity = solver_adv.add_acc_gravity
     acc2vel_adv = solver_adv.acc2vel_adv
     vel_adv2vel = solver_adv.vel_adv2vel
