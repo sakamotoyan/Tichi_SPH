@@ -10,11 +10,9 @@ from typing import List
 @ti.data_oriented
 class DF_solver(SPH_solver):
     def __init__(self, obj: Particle, incompressible_threshold: ti.f32 = 1e-4, div_free_threshold: ti.f32 = 1e-3, incompressible_iter_max: ti.i32 = 100, div_free_iter_max: ti.i32 = 50):
-        self.obj=obj
-        self.dt=obj.m_world.g_dt
-        self.inv_dt = obj.m_world.g_inv_dt
-        self.neg_inv_dt = obj.m_world.g_neg_inv_dt
-
+        
+        super().__init__(obj)
+        
         self.incompressible_threshold = val_f(incompressible_threshold)
         self.div_free_threshold = val_f(div_free_threshold)
         self.incompressible_iter_max = val_i(incompressible_iter_max)
@@ -24,9 +22,6 @@ class DF_solver(SPH_solver):
 
         self.incompressible_iter = val_i(0)
         self.div_free_iter = val_i(0)
-        self.dim = obj.m_world.g_dim
-        sig_dim = self.sig_dim(self.dim[None])
-        self.compute_sig(sig_dim)
     
     @ti.func
     def inloop_compute_u_alpha_1_2(self, part_id: ti.i32, neighb_part_id: ti.i32, neighb_part_shift: ti.i32, neighb_pool:ti.template(), neighb_obj:ti.template()):

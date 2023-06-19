@@ -49,9 +49,9 @@ class Output_manager:
         B_organized = self.np_data_organized
         A_organized[A[:, 0], A[:, 1]] = A
         B_organized[A[:, 0], A[:, 1]] = B
-
-        A_organized = np.flip(A_organized, axis=0)
-        B_organized = np.flip(B_organized, axis=0)
+        
+        # A_organized = np.flip(A_organized, axis=0)
+        # B_organized = np.flip(B_organized, axis=0)
         
         return B_organized
             
@@ -60,10 +60,10 @@ class Output_manager:
         
         for data_name in self.data_name_list:
             data = getattr(self.obj, data_name)
-            file_name = f"{path}/{data_name}_{index}"
+            file_name = f"{path}/{data_name}_i{index}"
 
             for channel in range(self.data_channel_list[self.data_name_list.index(data_name)]):
-                file_name_channel = f"{file_name}_{channel}"
+                file_name_channel = f"{file_name}_c{channel}"
                 np_data = data.to_numpy()[:, channel]
                 if self.format_type is self.type.SEQ and not truncate:
                     np.save(file_name_channel, np_data)
@@ -71,3 +71,4 @@ class Output_manager:
                     np.save(file_name_channel, np_data[:truncate_num])
                 elif self.format_type is self.type.GRID:
                     np_data_reshape = self.reshape_data(np_data)
+                    np.save(file_name_channel, np_data_reshape)

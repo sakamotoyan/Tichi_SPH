@@ -5,7 +5,16 @@ from ..basic_obj.Obj_Particle import Particle
 @ti.data_oriented
 class SPH_solver:
     def __init__(self, obj: Particle):
+        
         self.obj = obj
+
+        self.dim = obj.m_world.g_dim
+        sig_dim = self.sig_dim(self.dim[None])
+        self.compute_sig(sig_dim)
+
+        self.dt=obj.m_world.g_dt
+        self.inv_dt = obj.m_world.g_inv_dt
+        self.neg_inv_dt = obj.m_world.g_neg_inv_dt
 
     @ti.kernel
     def loop_neighb(self, neighb_pool:ti.template(), neighb_obj:ti.template(), func:ti.template()):

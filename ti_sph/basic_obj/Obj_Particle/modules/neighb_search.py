@@ -8,8 +8,8 @@ def check_neighb_search(self):
     if self.m_neighb_search is None:
         raise Exception("neighb_search not added")
 
-def add_neighb_search(self):
-    self.m_neighb_search = Neighb_search(self)
+def add_neighb_search(self, max_neighb_num:ti.template()=0):
+    self.m_neighb_search = Neighb_search(self, max_neighb_num)
 
 def add_neighb_obj(self, neighb_obj, search_range: ti.template()=DEFAULT_VALUE):
     self.check_neighb_search()

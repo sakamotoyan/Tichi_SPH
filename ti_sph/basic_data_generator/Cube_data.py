@@ -3,13 +3,30 @@ import numpy as np
 
 from .Data_generator import Data_generator
 
+DEFAULT = None
 @ti.data_oriented
 class Cube_data(Data_generator):
-    def __init__(self, lb: ti.Vector, rt: ti.Vector, span: float):
+    FIXED_CELL_SIZE = 0
+    FIXED_GRID_RES = 1
+    def __init__(self, 
+                 span: float, type,
+                 lb: ti.Vector = DEFAULT, rt: ti.Vector = DEFAULT, # These parameters are used for the type FIXED_CELL_SIZE
+                 grid_res: ti.Vector = DEFAULT, grid_center: ti.Vector = DEFAULT, # These parameters are used for the type FIXED_GRID_RES
+                 ):
         self.lb = lb
         self.rt = rt
+        self.grid_res = grid_res
+        self.grid_center = grid_center
         self.span = span
-        self.dim = len(lb)
+        if type == self.FIXED_GRID_RES:
+            self.dim = len(grid_res)
+        elif type == self.FIXED_CELL_SIZE:
+            self.dim = len(lb)
+
+        if type == self.FIXED_GRID_RES: # for the type FIXED_GRID_RES, some operations are needed to get the lb and rt to reduce the problem to FIXED_CELL_SIZE
+            temp_grid_size = self.grid_res * self.span
+            self.lb = self.grid_center - temp_grid_size / 2
+            self.rt = self.grid_center + temp_grid_size / 2
 
         self.shape = np.ceil((self.rt - self.lb) / span).astype(np.int32) # the number of voxels in each dimension
         pos_frac = [] # the position of each voxel in each dimension
@@ -23,6 +40,9 @@ class Cube_data(Data_generator):
         self.pos = np.array(np.meshgrid(*pos_frac)).T.reshape(-1, self.dim) # the pos array takes the form of (num, dim)
         self.index = np.array(np.meshgrid(*index_frac)).T.reshape(-1, self.dim) # the index array takes the form of (num, dim)
         self.num = self.pos.shape[0]
+
+        
+
     
     def translate(self, offset: ti.Vector):
         self.pos += offset.to_numpy()

@@ -8,6 +8,7 @@ def part_template(part_obj, verbose=False):
     ''' encouraged to add for any particle system'''
     part_obj.add_array("pos", vecxf(part_obj.m_world.g_dim[None]).field())
     part_obj.add_array("vel", vecxf(part_obj.m_world.g_dim[None]).field())
+    part_obj.add_array("vel_adv", vecxf(part_obj.m_world.g_dim[None]).field())
     part_obj.add_array("mass", ti.field(ti.f32))
     part_obj.add_array("size", ti.field(ti.f32))
     part_obj.add_array("volume", ti.field(ti.f32))
@@ -15,17 +16,16 @@ def part_template(part_obj, verbose=False):
     part_obj.add_array("acc", vecxf(part_obj.m_world.g_dim[None]).field())
 
     ''' Optional arrays'''
-    part_obj.add_array("volume_fraction", ti.field(ti.f32), bundle=2)
-    part_obj.add_array("vel_adv", vecxf(part_obj.m_world.g_dim[None]).field())
+    # part_obj.add_array("volume_fraction", ti.field(ti.f32), bundle=2)
     ## example only, not used in this test
     # fluid_part.add_array("volume_fraction", [ti.field(ti.f32), ti.field(ti.f32)])
 
-    fluid_phase = ti.types.struct(
-    val_frac=ti.f32,
-    phase_vel=vecxf(part_obj.m_world.g_dim[None]),
-    phase_acc=vecxf(part_obj.m_world.g_dim[None]),
-    phase_force=vecxf(part_obj.m_world.g_dim[None]),
-    )
+    # fluid_phase = ti.types.struct(
+    # val_frac=ti.f32,
+    # phase_vel=vecxf(part_obj.m_world.g_dim[None]),
+    # phase_acc=vecxf(part_obj.m_world.g_dim[None]),
+    # phase_force=vecxf(part_obj.m_world.g_dim[None]),
+    # )
 
     sph = ti.types.struct(
         h=ti.f32,
@@ -46,7 +46,7 @@ def part_template(part_obj, verbose=False):
         vel_adv=vecxf(part_obj.m_world.g_dim[None]),
     )
 
-    part_obj.add_struct("phases", fluid_phase, bundle=2)
+    # part_obj.add_struct("phases", fluid_phase, bundle=2)
     part_obj.add_struct("sph", sph)
     part_obj.add_struct("sph_df", sph_df)
 

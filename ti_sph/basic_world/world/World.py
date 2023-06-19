@@ -53,8 +53,8 @@ class World:
         self.g_inv_dt[None] = 1/dt
         self.g_neg_inv_dt[None] = -1/dt
 
-    def add_part_obj(self, part_num, is_dynamic):
-        obj = Particle(part_num, self.g_part_size, is_dynamic)
+    def add_part_obj(self, part_num, is_dynamic, size: ti.template()):
+        obj = Particle(part_num, size, is_dynamic)
         self.part_obj_list.append(obj)
         obj.set_id(self.part_obj_list.index(obj))
         obj.set_world(self)
@@ -65,6 +65,7 @@ class World:
         solver_sph.init_solver_sph(self)
         solver_adv.init_solver_adv(self)
         solver_df.init_solver_df(self)
+        cfl.init_cfl(self)
 
     # Functions: neighbour search
     update_pos_in_neighb_search = neighb_search.update_pos_in_neighb_search

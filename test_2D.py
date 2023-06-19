@@ -1,7 +1,7 @@
 import taichi as ti
 from ti_sph import *
-from part_template import part_template
-from grid_template import grid_template
+from template_part import part_template
+from template_grid import grid_template
 import time
 import sys
 import numpy as np

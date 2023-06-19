@@ -78,3 +78,14 @@ def set_from_numpy(self, to: ti.template(), data: ti.types.ndarray()):
 def set_val(self: ti.template(), to_arr: ti.template(), num: ti.i32, val: ti.template()):
     for i in range(num):
         to_arr[i+self.m_stack_top[None]] = val[None]
+
+@ti.kernel
+def clamp_val_to_arr(self: ti.template(), arr: ti.template(), lower: ti.f32, upper: ti.f32, to: ti.template()):
+    for i in range(self.ti_get_stack_top()[None]):
+        for j in range(ti.static(to.n)):
+            to[i][j] = ti.min(ti.max(arr[i] / (upper - lower),0),1)
+
+@ti.kernel
+def clamp_val(self: ti.template(), arr: ti.template(), lower: ti.f32, upper: ti.f32, to: ti.template()):
+    for i in range(self.ti_get_stack_top()[None]):
+            to[i] = ti.min(ti.max(arr[i] / (upper - lower),0),1)
